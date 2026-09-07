@@ -2,13 +2,18 @@
   "name": "sa-ai-assistant",
   "private": true,
   "scripts": {
-    "lint": "oxlint .",
-    "format": "oxfmt .",
-    "format:check": "oxfmt --check ."
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "dev": "pnpm run --parallel dev"
   },
+  "type": "module",
   "devDependencies": {
-    "oxfmt": "latest",
-    "oxlint": "latest"
+    "oxfmt": "^0.66.0",
+    "oxlint": "^1.81.0"
   },
-  "packageManager": "pnpm@10.15.0"
+  "dependencies": {
+    "dotenv-cli": "^11.0.0"
+  }
 }

@@ -1,7 +1,7 @@
 # dependencies and build output
 node_modules/
 dist/
-build/
+dist-ssr/
 coverage/
 
 # environment and secrets
@@ -14,13 +14,14 @@ coverage/
 *.p12
 *.pfx
 
-# local tooling
-.DS_Store
+# framework and local files
+.tanstack/
+.nitro/
+.output/
+.vinxi/
+.wrangler/
+*.local
 *.log
+.DS_Store
 .vscode/
 .idea/
-
-# generated and local state
-.turbo/
-.cache/
-.tmp/

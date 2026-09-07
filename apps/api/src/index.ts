@@ -1,21 +1,23 @@
+import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import { authRoutes } from "./modules/auth/routes.js";
+import { chatModule } from "./modules/chat/index.js";
+import { documentModule } from "./modules/document/index.js";
 
 const app = new Hono();
 
-app.get("/", (c) => c.json({ name: "sa-ai-assistant-api" }));
-app.route("/auth", authRoutes);
+app.get("/", (c) => {
+  return c.text("Hello Hono!");
+});
 
-export default app;
+app.route("/chat", chatModule);
+app.route("/document", documentModule);
 
-if (process.env.NODE_ENV !== "test") {
-  const port = Number(process.env.PORT ?? 3000);
-  const runtime = globalThis as typeof globalThis & {
-    Bun?: { serve: (options: { fetch: typeof app.fetch; port: number }) => unknown };
-  };
-
-  if (runtime.Bun) {
-    runtime.Bun.serve({ fetch: app.fetch, port });
-    console.log(`API listening on http://localhost:${port}`);
-  }
-}
+serve(
+  {
+    fetch: app.fetch,
+    port: 8000,
+  },
+  (info) => {
+    console.log(`Server is running on http://localhost:${info.port}`);
+  },
+);

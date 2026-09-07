@@ -1,7 +1,6 @@
 # dependencies and build output
 node_modules/
 dist/
-build/
 coverage/
 
 # environment and secrets
@@ -14,13 +13,9 @@ coverage/
 *.p12
 *.pfx
 
-# local tooling
-.DS_Store
+# generated/local files
+.prisma/
 *.log
+.DS_Store
 .vscode/
 .idea/
-
-# generated and local state
-.turbo/
-.cache/
-.tmp/

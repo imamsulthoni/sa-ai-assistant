@@ -1,3 +1,11 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+minimumReleaseAge: 0
+
+hoistWorkspacePackages: false
+
+allowBuilds:
+  esbuild: true
+  msgpackr-extract: true
