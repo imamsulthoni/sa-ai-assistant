@@ -10,6 +10,12 @@ export default app;
 
 if (process.env.NODE_ENV !== "test") {
   const port = Number(process.env.PORT ?? 3000);
-  Bun.serve({ fetch: app.fetch, port });
-  console.log(`API listening on http://localhost:${port}`);
+  const runtime = globalThis as typeof globalThis & {
+    Bun?: { serve: (options: { fetch: typeof app.fetch; port: number }) => unknown };
+  };
+
+  if (runtime.Bun) {
+    runtime.Bun.serve({ fetch: app.fetch, port });
+    console.log(`API listening on http://localhost:${port}`);
+  }
 }
