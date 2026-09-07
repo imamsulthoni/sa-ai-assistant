@@ -1,0 +1,14 @@
+{
+  "name": "sa-ai-assistant",
+  "private": true,
+  "scripts": {
+    "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check ."
+  },
+  "devDependencies": {
+    "oxfmt": "latest",
+    "oxlint": "latest"
+  },
+  "packageManager": "pnpm@10.15.0"
+}
