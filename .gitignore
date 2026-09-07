@@ -1,7 +1,26 @@
+# dependencies and build output
 node_modules/
 dist/
+build/
+coverage/
+
+# environment and secrets
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# local tooling
 .DS_Store
 *.log
+.vscode/
+.idea/
+
+# generated and local state
+.turbo/
+.cache/
+.tmp/
