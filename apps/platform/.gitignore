@@ -1,0 +1,27 @@
+# dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+coverage/
+
+# environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# framework and local files
+.tanstack/
+.nitro/
+.output/
+.vinxi/
+.wrangler/
+*.local
+*.log
+.DS_Store
+.vscode/
+.idea/
