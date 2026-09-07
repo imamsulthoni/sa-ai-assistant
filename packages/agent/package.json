@@ -1,0 +1,33 @@
+{
+  "name": "@sa-ai-assistant/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "runner:dev": "pnpm with-env tsx ./src/runner.dev.ts",
+    "with-env": "dotenv -e ../../.env --",
+    "dev": "pnpm runner:dev",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anvia/core": "^1.1.2",
+    "@anvia/lens": "^1.1.2",
+    "@anvia/openai": "^1.1.2",
+    "@anvia/qdrant": "^1.1.2",
+    "@anvia/transformers": "^1.1.2",
+    "exa-js": "^2.19.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2"
+  }
+}
