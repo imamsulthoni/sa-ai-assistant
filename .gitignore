@@ -24,3 +24,5 @@ coverage/
 .turbo/
 .cache/
 .tmp/
+
+docs/*

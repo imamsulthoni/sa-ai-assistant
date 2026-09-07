@@ -1,0 +1,16 @@
+services:
+  sa_ai_assistant_postgres_dev:
+    image: postgres:17-alpine
+    container_name: sa_ai_assistant_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sa_ai_assistant_dev
+      POSTGRES_USER: sa_ai_assistant_dev
+      POSTGRES_PASSWORD: sa_ai_assistant_dev_password
+    ports:
+      - "55432:5432"
+    volumes:
+      - sa_ai_assistant_postgres_dev_data:/var/lib/postgresql/data
+
+volumes:
+  sa_ai_assistant_postgres_dev_data:

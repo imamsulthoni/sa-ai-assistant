@@ -7,5 +7,10 @@ minimumReleaseAge: 0
 hoistWorkspacePackages: false
 
 allowBuilds:
+  '@prisma/engines': set this to true or false
   esbuild: true
   msgpackr-extract: true
+  onnxruntime-node: set this to true or false
+  prisma: set this to true or false
+  protobufjs: set this to true or false
+  sharp: set this to true or false
