@@ -1,70 +1,49 @@
-import { Agent, AnyTool, type MemoryStore } from "@anvia/core";
-import {
-  createModelRouter,
-  type TaskDifficulty,
-} from "./provider/model-router.js";
-import {
-  createTavilyProvider,
-  type TavilyProvider,
-} from "./provider/tavily.js";
-import type { LangfuseTracing } from "./tracing.js";
-import {
-  BRD_OUTPUT_GUIDANCE,
-  SYSTEM_ANALYST_INSTRUCTIONS,
-} from "./prompt/instructions.js";
+import { Agent } from "@anvia/core";
+import { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";
+import { createOpenAIModel } from "./provider/openai.js";
+import { createExaProvider, type ExaProvider } from "./provider/exa.js";
 import {
   answerBrdQuestionTool,
-  webTools,
+  createContextSearchTool,
+  createWireframeSpecificationTool,
   draftBrdTool,
-  elicitBrdClarificationsTool,
   modifyBrdTool,
   verifyFlowchartTool,
 } from "./tools/index.js";
+import { createTracing } from "./tracing.js";
 
 export interface CreateSystemAnalystAgentOptions {
   modelId?: string;
   apiKey?: string;
   baseUrl?: string;
-  tavily?: TavilyProvider;
-  difficulty?: TaskDifficulty;
-  tracing?: LangfuseTracing;
-  memory?: MemoryStore;
-  additionalTools?: AnyTool[];
+  exa?: ExaProvider;
 }
 
-export function createSystemAnalystAgent(
-  options: CreateSystemAnalystAgentOptions = {},
-) {
-  const tavily = options.tavily ?? createTavilyProvider();
-  const modelRouter = createModelRouter({
-    apiKey: options.apiKey,
-    baseUrl: options.baseUrl,
-    defaultModelId: options.modelId,
-  });
+export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOptions = {}) {
+  const tracing = createTracing();
+  const exa = options.exa ?? createExaProvider();
 
   return new Agent({
     id: "system-analyst-assistant",
     name: "System Analyst AI Assistant",
-    description: "Drafts, verifies, and refines grounded BRD requirements.",
-    model: modelRouter.getModel(options.difficulty ?? "medium"),
+    description: "Drafts and reviews BRDs and wireframe-ready specifications.",
+    model: createOpenAIModel({
+      apiKey: options.apiKey,
+      baseUrl: options.baseUrl,
+      modelId: options.modelId,
+    }),
     instructions: `${SYSTEM_ANALYST_INSTRUCTIONS}\n\n${BRD_OUTPUT_GUIDANCE}`,
     tools: [
-      ...webTools(tavily),
-      elicitBrdClarificationsTool,
+      createContextSearchTool(exa),
       draftBrdTool,
       modifyBrdTool,
       answerBrdQuestionTool,
       verifyFlowchartTool,
-      ...(options.additionalTools ?? []),
+      createWireframeSpecificationTool,
     ],
-    ...(options.tracing?.observer
-      ? { observability: { observers: { langfuse: options.tracing.observer } } }
-      : {}),
-    ...(options.memory ? { memory: { store: options.memory } } : {}),
+    observability: tracing.observer ? { observers: { lens: tracing.observer } } : undefined,
+    maxTurns: 8,
   });
 }
 
-export {
-  BRD_OUTPUT_GUIDANCE,
-  SYSTEM_ANALYST_INSTRUCTIONS,
-} from "./prompt/instructions.js";
+export { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";

@@ -16,11 +16,10 @@ export function createOpenAIModel(
 
   const client = new OpenAIClient({
     apiKey,
-    ...((options.baseUrl ?? process.env.OPENAI_BASE_URL)
+    ...(options.baseUrl ?? process.env.OPENAI_BASE_URL
       ? { baseUrl: options.baseUrl ?? process.env.OPENAI_BASE_URL }
       : {}),
   });
-
   return client.completionModel({
     modelId: options.modelId ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini",
   });
