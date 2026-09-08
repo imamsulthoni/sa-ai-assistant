@@ -1,49 +1,70 @@
-import { Agent } from "@anvia/core";
-import { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";
-import { createOpenAIModel } from "./provider/openai.js";
-import { createExaProvider, type ExaProvider } from "./provider/exa.js";
+import { Agent, AnyTool, type MemoryStore } from "@anvia/core";
+import {
+  createModelRouter,
+  type TaskDifficulty,
+} from "./provider/model-router.js";
+import {
+  createTavilyProvider,
+  type TavilyProvider,
+} from "./provider/tavily.js";
+import type { LangfuseTracing } from "./tracing.js";
+import {
+  BRD_OUTPUT_GUIDANCE,
+  SYSTEM_ANALYST_INSTRUCTIONS,
+} from "./prompt/instructions.js";
 import {
   answerBrdQuestionTool,
-  createContextSearchTool,
-  createWireframeSpecificationTool,
+  webTools,
   draftBrdTool,
+  elicitBrdClarificationsTool,
   modifyBrdTool,
   verifyFlowchartTool,
 } from "./tools/index.js";
-import { createTracing } from "./tracing.js";
 
 export interface CreateSystemAnalystAgentOptions {
   modelId?: string;
   apiKey?: string;
   baseUrl?: string;
-  exa?: ExaProvider;
+  tavily?: TavilyProvider;
+  difficulty?: TaskDifficulty;
+  tracing?: LangfuseTracing;
+  memory?: MemoryStore;
+  additionalTools?: AnyTool[];
 }
 
-export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOptions = {}) {
-  const tracing = createTracing();
-  const exa = options.exa ?? createExaProvider();
+export function createSystemAnalystAgent(
+  options: CreateSystemAnalystAgentOptions = {},
+) {
+  const tavily = options.tavily ?? createTavilyProvider();
+  const modelRouter = createModelRouter({
+    apiKey: options.apiKey,
+    baseUrl: options.baseUrl,
+    defaultModelId: options.modelId,
+  });
 
   return new Agent({
     id: "system-analyst-assistant",
     name: "System Analyst AI Assistant",
-    description: "Drafts and reviews BRDs and wireframe-ready specifications.",
-    model: createOpenAIModel({
-      apiKey: options.apiKey,
-      baseUrl: options.baseUrl,
-      modelId: options.modelId,
-    }),
+    description: "Drafts, verifies, and refines grounded BRD requirements.",
+    model: modelRouter.getModel(options.difficulty ?? "medium"),
     instructions: `${SYSTEM_ANALYST_INSTRUCTIONS}\n\n${BRD_OUTPUT_GUIDANCE}`,
     tools: [
-      createContextSearchTool(exa),
+      ...webTools(tavily),
+      elicitBrdClarificationsTool,
       draftBrdTool,
       modifyBrdTool,
       answerBrdQuestionTool,
       verifyFlowchartTool,
-      createWireframeSpecificationTool,
+      ...(options.additionalTools ?? []),
     ],
-    observability: tracing.observer ? { observers: { lens: tracing.observer } } : undefined,
-    maxTurns: 8,
+    ...(options.tracing?.observer
+      ? { observability: { observers: { langfuse: options.tracing.observer } } }
+      : {}),
+    ...(options.memory ? { memory: { store: options.memory } } : {}),
   });
 }
 
-export { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";
+export {
+  BRD_OUTPUT_GUIDANCE,
+  SYSTEM_ANALYST_INSTRUCTIONS,
+} from "./prompt/instructions.js";
