@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@anvia/client": "^1.1.2",
     "@anvia/react": "^1.1.2",
     "@anvia/react-ui": "^1.1.2",
     "@tailwindcss/vite": "^4.1.18",
