@@ -32,7 +32,9 @@ pnpm --filter platform dev
 - API: http://localhost:8000
 - Platform: http://localhost:3000
 - PostgreSQL: localhost:55432
-
+- Redis: localhost:16379
+- Qdrant HTTP API: http://127.0.0.1:6333
+- Qdrant gRPC API: 127.0.0.1:6334
 ## Useful commands
 
 ```sh
@@ -45,7 +47,5 @@ pnpm format:check
 
 ## Repository layout
 
-- `apps/api` — Hono API, Prisma schema, chat and document modules
-- `apps/platform` — React/TanStack Router web platform
-- `docker-compose.dev.yml` — local PostgreSQL service
+- `docker-compose.dev.yml` — local PostgreSQL, Redis, and Qdrant services
 - `.env.example` — safe environment template

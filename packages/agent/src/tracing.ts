@@ -1,20 +1,26 @@
-import { LensClient } from "@anvia/lens";
+import { LangfuseClient } from "@anvia/langfuse";
+import type { AgentObserver } from "@anvia/core/observability";
 
-export function createTracing() {
-  const enabled = process.env.ANVIA_LENS_ENABLED === "true";
-  const lens = new LensClient({
-    optional: !enabled,
-    secretKey: process.env.ANVIA_LENS_SECRET_KEY,
-    publicKey: process.env.ANVIA_LENS_PUBLIC_KEY,
-    baseUrl: process.env.ANVIA_LENS_BASE_URL,
+export interface LangfuseTracing {
+  observer?: AgentObserver;
+  flush(): Promise<void>;
+}
+
+export function createTracing(): LangfuseTracing {
+  const enabled = Boolean(
+    process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY,
+  );
+  const langfuse = new LangfuseClient({
+    secretKey: process.env.LANGFUSE_SECRET_KEY,
+    publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+    baseUrl: process.env.LANGFUSE_BASE_URL ?? "https://cloud.langfuse.com",
     serviceName: "sa-ai-assistant-agent",
   });
 
   return {
-    lens,
-    observer: enabled ? lens.observer({ captureMode: "safe" }) : undefined,
+    observer: enabled ? langfuse.observer({ captureMode: "safe" }) : undefined,
     async flush() {
-      await lens.flush();
+      await langfuse.flush();
     },
   };
 }
