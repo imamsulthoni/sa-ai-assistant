@@ -18,11 +18,11 @@
   },
   "dependencies": {
     "@anvia/core": "^1.1.2",
-    "@anvia/lens": "^1.1.2",
+    "@anvia/langfuse": "^1.1.2",
     "@anvia/openai": "^1.1.2",
     "@anvia/qdrant": "^1.1.2",
     "@anvia/transformers": "^1.1.2",
-    "exa-js": "^2.19.0",
+    "@tavily/core": "^0.7.9",
     "zod": "^4.5.4"
   },
   "devDependencies": {
