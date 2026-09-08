@@ -13,7 +13,6 @@
     "build": "tsc",
     "runner:dev": "pnpm with-env tsx ./src/runner.dev.ts",
     "with-env": "dotenv -e ../../.env --",
-    "dev": "pnpm runner:dev",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -23,6 +22,7 @@
     "@anvia/qdrant": "^1.1.2",
     "@anvia/transformers": "^1.1.2",
     "@tavily/core": "^0.7.9",
+    "exa-js": "^2.19.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {

@@ -1,5 +1,8 @@
-import { Agent } from "@anvia/core";
-import { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";
+import { Agent, AnyTool, type AgentOptions } from "@anvia/core";
+import {
+  BRD_OUTPUT_GUIDANCE,
+  SYSTEM_ANALYST_INSTRUCTIONS,
+} from "./prompt/instructions.js";
 import { createOpenAIModel } from "./provider/openai.js";
 import { createExaProvider, type ExaProvider } from "./provider/exa.js";
 import {
@@ -17,12 +20,16 @@ export interface CreateSystemAnalystAgentOptions {
   apiKey?: string;
   baseUrl?: string;
   exa?: ExaProvider;
+  memory?: AgentOptions["memory"];
+  additionalTools?: AnyTool[];
+  enableTracing?: boolean;
 }
 
-export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOptions = {}) {
+export function createSystemAnalystAgent(
+  options: CreateSystemAnalystAgentOptions = {},
+) {
   const tracing = createTracing();
   const exa = options.exa ?? createExaProvider();
-
   return new Agent({
     id: "system-analyst-assistant",
     name: "System Analyst AI Assistant",
@@ -40,10 +47,18 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
       answerBrdQuestionTool,
       verifyFlowchartTool,
       createWireframeSpecificationTool,
+      ...(options.additionalTools ?? []),
     ],
-    observability: tracing.observer ? { observers: { lens: tracing.observer } } : undefined,
+    memory: options.memory,
+    observability:
+      options.enableTracing && tracing.observer
+        ? { observers: { lens: tracing.observer } }
+        : undefined,
     maxTurns: 8,
   });
 }
 
-export { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";
+export {
+  BRD_OUTPUT_GUIDANCE,
+  SYSTEM_ANALYST_INSTRUCTIONS,
+} from "./prompt/instructions.js";
