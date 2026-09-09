@@ -8,7 +8,6 @@ export interface TavilySearchResult {
 
 export interface TavilyProvider {
   search(query: string): Promise<readonly TavilySearchResult[]>;
-  extract(url: string): Promise<unknown>;
 }
 
 export interface TavilyProviderOptions {
@@ -34,10 +33,6 @@ export function createTavilyProvider(
         url: result.url,
         text: result.content,
       }));
-    },
-    async extract(url) {
-      if (!client) return [];
-      return client.extract([url]);
     },
   };
 }

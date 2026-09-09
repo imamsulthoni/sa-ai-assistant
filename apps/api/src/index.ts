@@ -1,23 +1,22 @@
 import { serve } from "@hono/node-server";
+import { cors } from "hono/cors";
 import { Hono } from "hono";
-import { chatModule } from "./modules/chat/index.js";
-import { documentModule } from "./modules/document/index.js";
+import { chatModule } from "./modules/chat/router.js";
+import { sessionModule } from "./modules/session/router.js";
 
-const app = new Hono();
+// const app = new Hono();
+const app = new Hono()
+  .use(
+    cors({
+      exposeHeaders: ["x-anvia-stream-protocol"],
+    }),
+  )
+  .route("/chat", chatModule)
+  .route("/sessions", sessionModule);
 
-app.get("/", (c) => {
-  return c.text("Hello Hono!");
-});
-
-app.route("/chat", chatModule);
-app.route("/document", documentModule);
+app.get("/", (c) => c.json({ name: "sa-ai-assistant-api", status: "ok" }));
 
 serve(
-  {
-    fetch: app.fetch,
-    port: 8000,
-  },
-  (info) => {
-    console.log(`Server is running on http://localhost:${info.port}`);
-  },
+  { fetch: app.fetch, port: Number(process.env.API_PORT ?? 8000) },
+  (info) => console.log(`Server is running on http://localhost:${info.port}`),
 );

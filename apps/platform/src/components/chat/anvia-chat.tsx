@@ -1,27 +1,137 @@
-import { useState } from 'react'
-import { ArrowUp, Bot, Paperclip, Sparkles } from 'lucide-react'
-import { Button } from '#/components/ui/button'
+import { useEffect, useMemo } from "react";
+import { createHttpClientTransport } from "@anvia/client";
+import { useChat, type UseChatStatus } from "@anvia/react";
+import {
+  ChatProvider,
+  ComposerPrimitive,
+  ThreadPrimitive,
+  useComposer,
+} from "@anvia/react-ui";
+import { LoaderCircle, Paperclip, Send, Square } from "lucide-react";
+import type { UIMessage } from "@anvia/client";
+import { DEMO_USER_ID } from "#/lib/api";
+import {
+  ComposerAttachment,
+  MessageBubble,
+} from "#/components/chat/message-bubble";
 
-type Message = { role: 'user' | 'assistant'; content: string }
+type AnviaChatProps = {
+  sessionId: string;
+  initialMessages: UIMessage[];
+  onRunEnded?: () => void;
+  onStatusChange?: (status: UseChatStatus) => void;
+};
 
-const initialMessages: Message[] = [{ role: 'assistant', content: 'Hi! I’m your AI assistant. I can help you research ideas, write content, analyze information, and more. What would you like to work on?' }]
+export function AnviaChat({
+  sessionId,
+  initialMessages,
+  onRunEnded,
+  onStatusChange,
+}: AnviaChatProps) {
+  const transport = useMemo(
+    () =>
+      createHttpClientTransport({
+        endpoint: `${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}/chat`,
+        headers: {
+          "x-user-id": DEMO_USER_ID,
+          "x-conversation-id": sessionId,
+        },
+      }),
+    [sessionId],
+  );
 
-export function AnviaChat() {
-  const [messages, setMessages] = useState(initialMessages)
-  const [input, setInput] = useState('')
-  function sendMessage() {
-    const content = input.trim()
-    if (!content) return
-    setMessages((current) => [...current, { role: 'user', content }, { role: 'assistant', content: 'I’m ready to help with that. Connect your agent backend here to continue the conversation.' }])
-    setInput('')
-  }
+  const chat = useChat({
+    transport,
+    initialMessages,
+    onEvent: (event) => {
+      if (event.type === "run_end" || event.type === "error") {
+        onRunEnded?.();
+      }
+    },
+  });
+
+  useEffect(() => {
+    onStatusChange?.(chat.status);
+  }, [chat.status, onStatusChange]);
+
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex-1 overflow-y-auto"><div className="mx-auto max-w-3xl px-5 py-10 md:px-8 md:py-14">
-        <div className="mb-10 text-center"><div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-neutral-900 text-white shadow-sm"><Sparkles size={22} /></div><h1 className="text-2xl font-semibold tracking-tight">How can I help you today?</h1><p className="mt-2 text-sm text-neutral-500">Ask anything, or choose a prompt to get started.</p></div>
-        <div className="space-y-7">{messages.map((message, index) => <div key={`${message.role}-${index}`} data-role={message.role} className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}>{message.role === 'assistant' && <div className="grid size-8 shrink-0 place-items-center rounded-full bg-neutral-900 text-white"><Bot size={16} /></div>}<div className={`max-w-[80%] whitespace-pre-wrap text-[15px] leading-7 ${message.role === 'user' ? 'rounded-2xl bg-neutral-100 px-4 py-2.5' : 'pt-0.5'}`}>{message.content}</div></div>)}</div>
-      </div></div>
-      <div className="mx-auto w-full max-w-3xl px-5 pb-5 md:px-8 md:pb-8"><form onSubmit={(event) => { event.preventDefault(); sendMessage() }} className="rounded-2xl border bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)]"><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage() } }} placeholder="Message your assistant..." rows={2} className="w-full resize-none border-0 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-neutral-400" /><div className="flex items-center justify-between px-1"><Button type="button" variant="ghost" size="icon" className="text-neutral-500"><Paperclip size={18} /></Button><div className="flex items-center gap-2 text-xs text-neutral-400"><span>Enter to send</span><Button type="submit" aria-label="Send message" size="icon" disabled={!input.trim()}><ArrowUp size={17} /></Button></div></div></form><p className="mt-2 text-center text-[11px] text-neutral-400">AI can make mistakes. Check important information.</p></div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ChatProvider controller={chat}>
+        <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
+          <ThreadPrimitive.Viewport className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 md:py-10">
+              <ThreadPrimitive.Empty>
+                <div className="py-16 text-center">
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    System Analyst AI Assistant
+                  </h1>
+                  <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                    Describe a user story, ask about an existing BRD, or request a
+                    web search to research companies and requirements.
+                  </p>
+                </div>
+              </ThreadPrimitive.Empty>
+
+              <ThreadPrimitive.Messages>
+                {() => <MessageBubble />}
+              </ThreadPrimitive.Messages>
+
+              <StreamingIndicator />
+            </div>
+          </ThreadPrimitive.Viewport>
+
+          <ComposerPrimitive.Root className="shrink-0 border-t bg-white px-3 py-3 md:px-4">
+            <ComposerPrimitive.Attachments className="mb-2 flex flex-wrap items-center gap-2">
+              {(attachment) => <ComposerAttachment key={attachment.id} />}
+            </ComposerPrimitive.Attachments>
+
+            <div className="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-2xl border bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
+              <ComposerPrimitive.AddAttachment
+                multiple
+                className="grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                aria-label="Attach files"
+              >
+                <Paperclip size={18} />
+              </ComposerPrimitive.AddAttachment>
+
+              <ComposerPrimitive.TextareaInput
+                className="max-h-48 min-h-10 w-full resize-none border-0 bg-transparent px-1 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground"
+                placeholder="Describe your user story…"
+              />
+
+              <ComposerSubmitArea />
+            </div>
+          </ComposerPrimitive.Root>
+        </ThreadPrimitive.Root>
+      </ChatProvider>
     </div>
-  )
+  );
+}
+
+function ComposerSubmitArea() {
+  const composer = useComposer();
+  const canStop = composer.canStop;
+
+  if (canStop) {
+    return (
+      <ComposerPrimitive.Stop className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground transition-opacity hover:opacity-90">
+        <Square size={15} fill="currentColor" />
+      </ComposerPrimitive.Stop>
+    );
+  }
+
+  return (
+    <ComposerPrimitive.Submit className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40">
+      <Send size={16} />
+    </ComposerPrimitive.Submit>
+  );
+}
+
+function StreamingIndicator() {
+  return (
+    <ThreadPrimitive.Loading className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+      <LoaderCircle size={14} className="animate-spin" />
+      Agent is working…
+    </ThreadPrimitive.Loading>
+  );
 }

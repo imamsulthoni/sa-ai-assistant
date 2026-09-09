@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@anvia/client": "^1.1.2",
     "@anvia/react": "^1.1.2",
     "@anvia/react-ui": "^1.1.2",
     "@tailwindcss/vite": "^4.1.18",
@@ -20,7 +21,9 @@
     "@tanstack/react-router-devtools": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cn": "^0.2.6",
     "lucide-react": "^1.41.0",
+    "radix-ui": "^1.6.7",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.6.0",
