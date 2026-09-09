@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { Hono } from "hono";
 import { chatModule } from "./modules/chat/router.js";
 import { sessionModule } from "./modules/session/router.js";
+import { documentModule } from "./modules/document/router.js";
 
 // const app = new Hono();
 const app = new Hono()
@@ -12,7 +13,8 @@ const app = new Hono()
     }),
   )
   .route("/chat", chatModule)
-  .route("/sessions", sessionModule);
+  .route("/sessions", sessionModule)
+  .route("/documents", documentModule);
 
 app.get("/", (c) => c.json({ name: "sa-ai-assistant-api", status: "ok" }));
 

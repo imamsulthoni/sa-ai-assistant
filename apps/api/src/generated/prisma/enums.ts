@@ -9,7 +9,22 @@
 * 🟢 You can import this file directly.
 */
 
+export const DocumentStatus = {
+  UPLOADING: 'UPLOADING',
+  PROCESSING: 'PROCESSING',
+  READY: 'READY',
+  FAILED: 'FAILED'
+} as const
+
+export type DocumentStatus = (typeof DocumentStatus)[keyof typeof DocumentStatus]
 
 
-// This file is empty because there are no enums in the schema.
-export {}
+export const DocumentFileType = {
+  PDF: 'PDF',
+  MARKDOWN: 'MARKDOWN',
+  IMAGE_FLOWCHART: 'IMAGE_FLOWCHART',
+  DOCX: 'DOCX',
+  OTHER: 'OTHER'
+} as const
+
+export type DocumentFileType = (typeof DocumentFileType)[keyof typeof DocumentFileType]

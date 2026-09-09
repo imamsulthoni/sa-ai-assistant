@@ -51,3 +51,56 @@ model AgentMemoryError {
 
   @@index([runId])
 }
+
+enum DocumentStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum DocumentFileType {
+  PDF
+  MARKDOWN
+  IMAGE_FLOWCHART
+  DOCX
+  OTHER
+}
+
+model Document {
+  id          String         @id @default(cuid())
+  userId      String
+  sessionId   String?
+  projectId   String?
+  title       String
+  fileType    DocumentFileType
+  isTemplate  Boolean        @default(false)
+  storageUrl  String
+  objectKey   String         @unique
+  fileSize    Int
+  status      DocumentStatus @default(UPLOADING)
+  ocrResult   String?
+  summary     String?
+  error       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  pages DocumentPage[]
+
+  @@index([sessionId, userId])
+  @@index([projectId])
+}
+
+model DocumentPage {
+  id         String   @id @default(cuid())
+  documentId String
+  pageNumber Int
+  content    String
+  metadata   Json
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, pageNumber])
+  @@index([documentId])
+}

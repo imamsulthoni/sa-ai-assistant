@@ -13,6 +13,17 @@ export type SessionSummary = {
   messageCount: number;
 };
 
+export type DocumentSummary = {
+  id: string;
+  title: string;
+  fileType: "PDF" | "MARKDOWN" | "IMAGE_FLOWCHART" | "DOCX" | "OTHER";
+  fileSize: number;
+  status: "UPLOADING" | "PROCESSING" | "READY" | "FAILED";
+  storageUrl: string;
+  createdAt: string;
+  error: string | null;
+};
+
 type SessionResponse = { session: SessionSummary };
 type SessionsResponse = { sessions: SessionSummary[] };
 type MessagesResponse = { messages: UIMessage[] };
@@ -23,7 +34,12 @@ async function request<T>(
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("x-user-id", DEMO_USER_ID);
-  if (init.method && init.method !== "GET" && !headers.has("content-type")) {
+  if (
+    init.method &&
+    init.method !== "GET" &&
+    !headers.has("content-type") &&
+    !(init.body instanceof FormData)
+  ) {
     headers.set("content-type", "application/json");
   }
 
@@ -72,4 +88,35 @@ export function deleteSession(id: string): Promise<{ ok: boolean }> {
 
 export function getSessionMessages(id: string): Promise<MessagesResponse> {
   return request(`/sessions/${encodeURIComponent(id)}/messages`);
+}
+
+export function listDocuments(
+  sessionId: string,
+): Promise<{ documents: DocumentSummary[] }> {
+  return request("/documents", {
+    headers: { "x-conversation-id": sessionId },
+  });
+}
+
+export function uploadDocument(
+  sessionId: string,
+  file: File,
+): Promise<{ document: DocumentSummary }> {
+  const body = new FormData();
+  body.set("file", file);
+  return request("/documents", {
+    method: "POST",
+    body,
+    headers: { "x-conversation-id": sessionId },
+  });
+}
+
+export function deleteDocument(
+  sessionId: string,
+  id: string,
+): Promise<{ ok: boolean }> {
+  return request(`/documents/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { "x-conversation-id": sessionId },
+  });
 }

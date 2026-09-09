@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Bot, EllipsisVertical, Pencil, Plus, Trash } from "lucide-react";
-import type { SessionSummary } from "#/lib/api";
+import { Bot, CheckCircle2, EllipsisVertical, FileText, LoaderCircle, Pencil, Plus, Trash, Upload, XCircle } from "lucide-react";
+import type { DocumentSummary, SessionSummary } from "#/lib/api";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import {
@@ -30,6 +30,12 @@ type SessionSidebarProps = {
   onOpen: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
+  documents: DocumentSummary[];
+  documentsLoading: boolean;
+  documentsUploading: boolean;
+  documentsError: string | null;
+  onUploadDocuments: (files: FileList) => void;
+  onDeleteDocument: (id: string) => void;
 };
 
 export function SessionSidebar({
@@ -41,6 +47,12 @@ export function SessionSidebar({
   onOpen,
   onRename,
   onDelete,
+  documents,
+  documentsLoading,
+  documentsUploading,
+  documentsError,
+  onUploadDocuments,
+  onDeleteDocument,
 }: SessionSidebarProps) {
   const [renameTarget, setRenameTarget] = useState<SessionSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SessionSummary | null>(null);
@@ -122,6 +134,17 @@ export function SessionSidebar({
               </div>
             );
           })}
+
+          {activeId && (
+            <SessionDocuments
+              documents={documents}
+              loading={documentsLoading}
+              uploading={documentsUploading}
+              error={documentsError}
+              onUpload={onUploadDocuments}
+              onDelete={onDeleteDocument}
+            />
+          )}
         </div>
       </ScrollArea>
 
@@ -144,6 +167,73 @@ export function SessionSidebar({
       />
     </div>
   );
+}
+
+function SessionDocuments({
+  documents,
+  loading,
+  uploading,
+  error,
+  onUpload,
+  onDelete,
+}: {
+  documents: DocumentSummary[];
+  loading: boolean;
+  uploading: boolean;
+  error: string | null;
+  onUpload: (files: FileList) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <section className="mt-6 border-t px-2 pt-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-medium text-muted-foreground">Session documents</p>
+        <label className="grid size-7 cursor-pointer place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+          {uploading ? <LoaderCircle size={14} className="animate-spin" /> : <Upload size={14} />}
+          <input
+            type="file"
+            multiple
+            className="sr-only"
+            accept=".pdf,.md,.markdown,.docx,.png,.jpg,.jpeg,.webp,.tiff"
+            disabled={uploading}
+            onChange={(event) => {
+              if (event.currentTarget.files?.length) onUpload(event.currentTarget.files);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
+      </div>
+
+      {loading && <p className="text-xs text-muted-foreground">Loading files…</p>}
+      {!loading && documents.length === 0 && (
+        <p className="text-xs leading-5 text-muted-foreground">Upload a BRD, PDF, or flowchart for this session.</p>
+      )}
+      <div className="flex flex-col gap-1">
+        {documents.map((document) => (
+          <div key={document.id} className="group flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent">
+            <FileText size={14} className="shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate" title={document.title}>{document.title}</span>
+            <DocumentStatus status={document.status} />
+            <button
+              type="button"
+              className="hidden shrink-0 text-muted-foreground hover:text-destructive group-hover:block"
+              onClick={() => onDelete(document.id)}
+              aria-label={`Delete ${document.title}`}
+            >
+              <XCircle size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+    </section>
+  );
+}
+
+function DocumentStatus({ status }: { status: DocumentSummary["status"] }) {
+  if (status === "READY") return <CheckCircle2 size={13} className="shrink-0 text-emerald-600" />;
+  if (status === "FAILED") return <XCircle size={13} className="shrink-0 text-destructive" />;
+  return <LoaderCircle size={13} className="shrink-0 animate-spin text-muted-foreground" />;
 }
 
 function RenameDialog({

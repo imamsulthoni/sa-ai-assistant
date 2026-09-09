@@ -3,6 +3,7 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm with-env tsx watch src/index.ts",
+    "worker": "pnpm with-env tsx watch src/worker/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "with-env": "dotenv -e ../../.env --",
@@ -16,13 +17,21 @@
     "@anvia/core": "^1.1.2",
     "@anvia/memory-prisma": "^1.1.2",
     "@anvia/server": "^1.1.2",
+    "@aws-sdk/client-s3": "^3.1128.0",
+    "@anvia/mistral": "1.1.2",
+    "@anvia/openai": "^1.1.2",
+    "@anvia/qdrant": "1.1.2",
+    "@anvia/transformers": "1.1.2",
     "@hono/node-server": "^2.1.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@sa-ai-assistant/agent": "workspace:*",
+    "bullmq": "^6.3.4",
     "hono": "^4.13.7",
+    "ioredis": "^5.8.2",
     "pg": "^8.23.0",
-    "prisma": "^7.10.0"
+    "prisma": "^7.10.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

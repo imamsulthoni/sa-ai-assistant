@@ -5,6 +5,7 @@ import { AnviaChat } from '#/components/chat/anvia-chat'
 import { ChatShell } from '#/components/chat/chat-shell'
 import { SessionSidebar } from '#/components/chat/session-sidebar'
 import { useSessions } from '#/hooks/use-sessions'
+import { useDocuments } from '#/hooks/use-documents'
 
 type ChatSearch = { session?: string };
 
@@ -44,6 +45,7 @@ function Home() {
     deleteSession,
     refreshAfterRun,
   } = useSessions({ sessionId: session, onNavigate });
+  const documentState = useDocuments(activeId);
   const [streaming, setStreaming] = useState(false)
 
   return (
@@ -57,8 +59,14 @@ function Home() {
           onNew={() => void newSession()}
           onOpen={(id) => openSession(id)}
           onRename={(id, title) => void renameSession(id, title)}
-          onDelete={(id) => void deleteSession(id)}
-        />
+           onDelete={(id) => void deleteSession(id)}
+           documents={documentState.documents}
+           documentsLoading={documentState.loading}
+           documentsUploading={documentState.uploading}
+           documentsError={documentState.error}
+           onUploadDocuments={(files) => void documentState.upload(files)}
+           onDeleteDocument={(id) => void documentState.remove(id)}
+         />
       }
     >
       {error && (

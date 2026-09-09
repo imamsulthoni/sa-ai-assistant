@@ -56,3 +56,13 @@ export type AgentMemoryMessage = Prisma.AgentMemoryMessageModel
  * 
  */
 export type AgentMemoryError = Prisma.AgentMemoryErrorModel
+/**
+ * Model Document
+ * 
+ */
+export type Document = Prisma.DocumentModel
+/**
+ * Model DocumentPage
+ * 
+ */
+export type DocumentPage = Prisma.DocumentPageModel

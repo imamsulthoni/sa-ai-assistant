@@ -11,4 +11,6 @@
 export type * from './models/AgentMemorySession.js'
 export type * from './models/AgentMemoryMessage.js'
 export type * from './models/AgentMemoryError.js'
+export type * from './models/Document.js'
+export type * from './models/DocumentPage.js'
 export type * from './commonInputTypes.js'

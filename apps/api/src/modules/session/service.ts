@@ -132,6 +132,9 @@ export async function deleteSession(
   if (!session) return false;
 
   await prisma.$transaction([
+    prisma.document.deleteMany({
+      where: { sessionId, userId },
+    }),
     prisma.agentMemoryMessage.deleteMany({
       where: { memorySessionId: session.id },
     }),

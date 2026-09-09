@@ -53,7 +53,9 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   AgentMemorySession: 'AgentMemorySession',
   AgentMemoryMessage: 'AgentMemoryMessage',
-  AgentMemoryError: 'AgentMemoryError'
+  AgentMemoryError: 'AgentMemoryError',
+  Document: 'Document',
+  DocumentPage: 'DocumentPage'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -110,6 +112,40 @@ export const AgentMemoryErrorScalarFieldEnum = {
 } as const
 
 export type AgentMemoryErrorScalarFieldEnum = (typeof AgentMemoryErrorScalarFieldEnum)[keyof typeof AgentMemoryErrorScalarFieldEnum]
+
+
+export const DocumentScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  sessionId: 'sessionId',
+  projectId: 'projectId',
+  title: 'title',
+  fileType: 'fileType',
+  isTemplate: 'isTemplate',
+  storageUrl: 'storageUrl',
+  objectKey: 'objectKey',
+  fileSize: 'fileSize',
+  status: 'status',
+  ocrResult: 'ocrResult',
+  summary: 'summary',
+  error: 'error',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type DocumentScalarFieldEnum = (typeof DocumentScalarFieldEnum)[keyof typeof DocumentScalarFieldEnum]
+
+
+export const DocumentPageScalarFieldEnum = {
+  id: 'id',
+  documentId: 'documentId',
+  pageNumber: 'pageNumber',
+  content: 'content',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type DocumentPageScalarFieldEnum = (typeof DocumentPageScalarFieldEnum)[keyof typeof DocumentPageScalarFieldEnum]
 
 
 export const SortOrder = {
