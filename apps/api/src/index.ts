@@ -2,12 +2,19 @@ import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 import { Hono } from "hono";
 import { chatModule } from "./modules/chat/router.js";
+import { sessionModule } from "./modules/session/router.js";
 
-const app = new Hono();
+// const app = new Hono();
+const app = new Hono()
+  .use(
+    cors({
+      exposeHeaders: ["x-anvia-stream-protocol"],
+    }),
+  )
+  .route("/chat", chatModule)
+  .route("/sessions", sessionModule);
 
-app.use("/chat/*", cors({ origin: "http://localhost:3000" }));
 app.get("/", (c) => c.json({ name: "sa-ai-assistant-api", status: "ok" }));
-app.route("/chat", chatModule);
 
 serve(
   { fetch: app.fetch, port: Number(process.env.API_PORT ?? 8000) },

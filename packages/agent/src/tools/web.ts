@@ -12,14 +12,5 @@ export function webTools(tavily: TavilyProvider) {
     execute: ({ query }) => tavily.search(query),
   });
 
-  const webExtract = createTool({
-    name: "webExtract",
-    description: "Use this when you need to extract information from a webpage",
-    inputSchema: z.object({
-      url: z.url().meta({ description: "The URL to extract" }),
-    }),
-    execute: ({ url }) => tavily.extract(url),
-  });
-
-  return [webSearch, webExtract];
+  return [webSearch];
 }

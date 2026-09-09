@@ -22,7 +22,14 @@ The root `.env` is local-only and must not be committed.
 
 ## Development
 
-Run the API and platform in separate terminals:
+Run the API and platform from the repo root (a `predev` hook frees ports 8000/3000
+from stale processes before starting):
+
+```sh
+pnpm dev
+```
+
+Or run each app in separate terminals:
 
 ```sh
 pnpm --filter api dev

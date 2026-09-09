@@ -1,6 +1,6 @@
 services:
   sa_ai_assistant_postgres_dev:
-    image: postgres:17-alpine
+    image: postgres:16
     container_name: sa_ai_assistant_postgres_dev
     restart: unless-stopped
     environment:
@@ -11,6 +11,21 @@ services:
       - "55432:5432"
     volumes:
       - sa_ai_assistant_postgres_dev_data:/var/lib/postgresql/data
+
+  sa_ai_assistant_redis_dev:
+    image: redis:7.2.4
+    container_name: sa_ai_assistant_redis_dev
+    restart: always
+    ports:
+      - "16379:6379"
+
+  sa_ai_assistant_qdrant_dev:
+    image: qdrant/qdrant:v1.18.3
+    container_name: sa_ai_assistant_qdrant_dev
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
 
 volumes:
   sa_ai_assistant_postgres_dev_data:

@@ -77,6 +77,7 @@ export const AgentMemorySessionScalarFieldEnum = {
   scopeKey: 'scopeKey',
   sessionId: 'sessionId',
   userId: 'userId',
+  title: 'title',
   metadata: 'metadata',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
