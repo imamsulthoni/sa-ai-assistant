@@ -1,16 +1,8 @@
 import { Hono } from "hono";
 import { prisma } from "../../lib/prisma.js";
-import {
-  CONVERSATION_ID_HEADER,
-  USER_ID_HEADER,
-  resolveUserId,
-} from "../../lib/identity.js";
-import { documentQueue } from "../../lib/queue.js";
-import {
-  DOCUMENT_MIME_TYPES,
-  MAX_DOCUMENT_SIZE,
-  UploadDocumentSchema,
-} from "./schema.js";
+import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
+import { documentQueue, flowchartQueue, retryPolicies } from "../../lib/queue.js";
+import { DOCUMENT_MIME_TYPES, MAX_DOCUMENT_SIZE, UploadDocumentSchema } from "./schema.js";
 import { deleteDocument, documentUrl, uploadDocument } from "./services.js";
 import { documentFileType } from "./types.js";
 
@@ -59,30 +51,64 @@ export const documentModule = new Hono()
         storageUrl,
         objectKey,
         fileSize: file.size,
-        status: "READY",
+        isTemplate: form.get("isTemplate") === "true",
+        status: "UPLOADING",
       },
     });
 
-    // Temporarily disabled while validating the R2 upload flow.
-    // Keep this queue step for the OCR and vector-processing phase.
-    // try {
-    //   await documentQueue.add(
-    //     "process-document",
-    //     { id: document.id, objectKey, name: file.name },
-    //     { removeOnComplete: 100, removeOnFail: 100 },
-    //   );
-    // } catch (error) {
-    //   await prisma.document.update({
-    //     where: { id: document.id },
-    //     data: {
-    //       status: "FAILED",
-    //       error: "Failed to enqueue document processing",
-    //     },
-    //   });
-    //   throw error;
-    // }
+    try {
+      const brdDocumentId = form.get("brdDocumentId")?.toString().trim() || undefined;
+      if (document.fileType === "IMAGE_FLOWCHART") {
+        await flowchartQueue.add(
+          "verify-flowchart",
+          { documentId: document.id, objectKey, brdDocumentId },
+          { ...retryPolicies.flowchart, removeOnComplete: 100, removeOnFail: 100 },
+        );
+      } else {
+        await documentQueue.add(
+          "process-document",
+          { documentId: document.id, objectKey },
+          { ...retryPolicies.ingestion, removeOnComplete: 100, removeOnFail: 100 },
+        );
+      }
+    } catch (error) {
+      await prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: "FAILED",
+          error:
+            error instanceof Error
+              ? error.message.slice(0, 1000)
+              : "Failed to enqueue document processing",
+        },
+      });
+      return c.json({ error: "Failed to enqueue document processing" }, 503);
+    }
 
     return c.json({ document }, 201);
+  })
+  .get("/:id", async (c) => {
+    const userId = resolveUserId(c.req.header(USER_ID_HEADER));
+    const sessionId = c.req.header(CONVERSATION_ID_HEADER)?.trim();
+    const document = await prisma.document.findFirst({
+      where: { id: c.req.param("id"), userId, ...(sessionId ? { sessionId } : {}) },
+      select: {
+        id: true,
+        title: true,
+        fileType: true,
+        isTemplate: true,
+        status: true,
+        summary: true,
+        ocrResult: true,
+        templateStructure: true,
+        report: true,
+        error: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    if (!document) return c.json({ error: "Document not found" }, 404);
+    return c.json({ document });
   })
   .delete("/:id", async (c) => {
     const userId = resolveUserId(c.req.header(USER_ID_HEADER));

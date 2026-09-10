@@ -1,19 +1,11 @@
 import { useEffect, useMemo } from "react";
 import { createHttpClientTransport } from "@anvia/client";
 import { useChat, type UseChatStatus } from "@anvia/react";
-import {
-  ChatProvider,
-  ComposerPrimitive,
-  ThreadPrimitive,
-  useComposer,
-} from "@anvia/react-ui";
+import { ChatProvider, ComposerPrimitive, ThreadPrimitive, useComposer } from "@anvia/react-ui";
 import { LoaderCircle, Paperclip, Send, Square } from "lucide-react";
 import type { UIMessage } from "@anvia/client";
 import { DEMO_USER_ID } from "#/lib/api";
-import {
-  ComposerAttachment,
-  MessageBubble,
-} from "#/components/chat/message-bubble";
+import { ComposerAttachment, MessageBubble } from "#/components/chat/message-bubble";
 
 type AnviaChatProps = {
   sessionId: string;
@@ -66,15 +58,13 @@ export function AnviaChat({
                     System Analyst AI Assistant
                   </h1>
                   <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                    Describe a user story, ask about an existing BRD, or request a
-                    web search to research companies and requirements.
+                    Describe a user story, ask about an existing BRD, or request a web search to
+                    research companies and requirements.
                   </p>
                 </div>
               </ThreadPrimitive.Empty>
 
-              <ThreadPrimitive.Messages>
-                {() => <MessageBubble />}
-              </ThreadPrimitive.Messages>
+              <ThreadPrimitive.Messages>{() => <MessageBubble />}</ThreadPrimitive.Messages>
 
               <StreamingIndicator />
             </div>

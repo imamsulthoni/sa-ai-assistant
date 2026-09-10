@@ -18,7 +18,6 @@ const app = new Hono()
 
 app.get("/", (c) => c.json({ name: "sa-ai-assistant-api", status: "ok" }));
 
-serve(
-  { fetch: app.fetch, port: Number(process.env.API_PORT ?? 8000) },
-  (info) => console.log(`Server is running on http://localhost:${info.port}`),
+serve({ fetch: app.fetch, port: Number(process.env.API_PORT ?? 8000) }, (info) =>
+  console.log(`Server is running on http://localhost:${info.port}`),
 );

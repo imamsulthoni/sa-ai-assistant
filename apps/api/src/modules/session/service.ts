@@ -121,10 +121,7 @@ export async function renameSession(
   };
 }
 
-export async function deleteSession(
-  userId: string,
-  sessionId: string,
-): Promise<boolean> {
+export async function deleteSession(userId: string, sessionId: string): Promise<boolean> {
   const session = await prisma.agentMemorySession.findFirst({
     where: { sessionId, userId },
     select: { id: true },
@@ -143,10 +140,7 @@ export async function deleteSession(
   return true;
 }
 
-export async function getSessionMessages(
-  userId: string,
-  sessionId: string,
-): Promise<UIMessage[]> {
+export async function getSessionMessages(userId: string, sessionId: string): Promise<UIMessage[]> {
   const session = await prisma.agentMemorySession.findFirst({
     where: { sessionId, userId },
     select: { id: true },

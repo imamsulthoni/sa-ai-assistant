@@ -56,6 +56,7 @@ enum DocumentStatus {
   UPLOADING
   PROCESSING
   READY
+  PENDING_CONFIRMATION
   FAILED
 }
 
@@ -81,6 +82,8 @@ model Document {
   status      DocumentStatus @default(UPLOADING)
   ocrResult   String?
   summary     String?
+  templateStructure Json?
+  report       Json?
   error       String?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt

@@ -10,9 +10,12 @@ export const modifyBrdTool = createTool({
     referenceContext: z.string().default(""),
   }),
   execute: async ({ brd, changeRequest, referenceContext }) => ({
-    brd,
-    changeRequest,
-    referenceContext,
-    status: "ready_for_model_completion" as const,
+    updatedMarkdown: `${brd.trim()}\n\n## Change note\n${changeRequest.trim()}\n`,
+    changeSummary: `Requested change recorded for review: ${changeRequest.trim()}`,
+    affectedIds: [...brd.matchAll(/\b(?:FR|BR)-\d+\b/g)]
+      .map((match) => match[0])
+      .filter((id, index, ids) => ids.indexOf(id) === index),
+    groundedByReference: Boolean(referenceContext.trim()),
+    persisted: false as const,
   }),
 });

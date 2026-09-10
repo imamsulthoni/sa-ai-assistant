@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { UseChatStatus } from "@anvia/react";
-import { AnviaChat } from '#/components/chat/anvia-chat'
-import { ChatShell } from '#/components/chat/chat-shell'
-import { SessionSidebar } from '#/components/chat/session-sidebar'
-import { useSessions } from '#/hooks/use-sessions'
-import { useDocuments } from '#/hooks/use-documents'
+import { AnviaChat } from "#/components/chat/anvia-chat";
+import { ChatShell } from "#/components/chat/chat-shell";
+import { SessionSidebar } from "#/components/chat/session-sidebar";
+import { useSessions } from "#/hooks/use-sessions";
+import { useDocuments } from "#/hooks/use-documents";
 
 type ChatSearch = { session?: string };
 
@@ -13,7 +13,7 @@ function parseSession(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): ChatSearch => ({
     session: parseSession(search.session),
   }),
@@ -21,7 +21,7 @@ export const Route = createFileRoute('/')({
 });
 
 function isStreaming(status: UseChatStatus): boolean {
-  return status === 'submitted' || status === 'streaming' || status === 'waiting'
+  return status === "submitted" || status === "streaming" || status === "waiting";
 }
 
 function Home() {
@@ -29,7 +29,7 @@ function Home() {
   const navigate = useNavigate();
   const onNavigate = useCallback(
     (id: string) => {
-      void navigate({ to: '/', search: (prev) => ({ ...prev, session: id }) });
+      void navigate({ to: "/", search: (prev) => ({ ...prev, session: id }) });
     },
     [navigate],
   );
@@ -46,7 +46,7 @@ function Home() {
     refreshAfterRun,
   } = useSessions({ sessionId: session, onNavigate });
   const documentState = useDocuments(activeId);
-  const [streaming, setStreaming] = useState(false)
+  const [streaming, setStreaming] = useState(false);
 
   return (
     <ChatShell
@@ -59,14 +59,14 @@ function Home() {
           onNew={() => void newSession()}
           onOpen={(id) => openSession(id)}
           onRename={(id, title) => void renameSession(id, title)}
-           onDelete={(id) => void deleteSession(id)}
-           documents={documentState.documents}
-           documentsLoading={documentState.loading}
-           documentsUploading={documentState.uploading}
-           documentsError={documentState.error}
-           onUploadDocuments={(files) => void documentState.upload(files)}
-           onDeleteDocument={(id) => void documentState.remove(id)}
-         />
+          onDelete={(id) => void deleteSession(id)}
+          documents={documentState.documents}
+          documentsLoading={documentState.loading}
+          documentsUploading={documentState.uploading}
+          documentsError={documentState.error}
+          onUploadDocuments={(files) => void documentState.upload(files)}
+          onDeleteDocument={(id) => void documentState.remove(id)}
+        />
       }
     >
       {error && (
@@ -84,9 +84,9 @@ function Home() {
         />
       ) : (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          {loading ? 'Loading…' : 'No conversation selected'}
+          {loading ? "Loading…" : "No conversation selected"}
         </div>
       )}
     </ChatShell>
-  )
+  );
 }

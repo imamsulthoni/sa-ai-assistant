@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  deleteDocument,
-  listDocuments,
-  uploadDocument,
-  type DocumentSummary,
-} from "#/lib/api";
+import { deleteDocument, listDocuments, uploadDocument, type DocumentSummary } from "#/lib/api";
 
 export function useDocuments(sessionId: string | null) {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
@@ -42,34 +37,40 @@ export function useDocuments(sessionId: string | null) {
     return () => window.clearInterval(timer);
   }, [documents, refresh]);
 
-  const upload = useCallback(async (files: FileList | File[]) => {
-    setUploading(true);
-    setError(null);
-    try {
-      for (const file of Array.from(files)) {
-        if (!sessionId) {
-          throw new Error("A conversation is required to upload documents");
+  const upload = useCallback(
+    async (files: FileList | File[]) => {
+      setUploading(true);
+      setError(null);
+      try {
+        for (const file of Array.from(files)) {
+          if (!sessionId) {
+            throw new Error("A conversation is required to upload documents");
+          }
+          await uploadDocument(sessionId, file);
         }
-        await uploadDocument(sessionId, file);
+        await refresh();
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Failed to upload document");
+      } finally {
+        setUploading(false);
       }
-      await refresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Failed to upload document");
-    } finally {
-      setUploading(false);
-    }
-  }, [refresh, sessionId]);
+    },
+    [refresh, sessionId],
+  );
 
-  const remove = useCallback(async (id: string) => {
-    if (!sessionId) return;
+  const remove = useCallback(
+    async (id: string) => {
+      if (!sessionId) return;
 
-    try {
-      await deleteDocument(sessionId, id);
-      setDocuments((current) => current.filter((document) => document.id !== id));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Failed to delete document");
-    }
-  }, [sessionId]);
+      try {
+        await deleteDocument(sessionId, id);
+        setDocuments((current) => current.filter((document) => document.id !== id));
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Failed to delete document");
+      }
+    },
+    [sessionId],
+  );
 
   return { documents, loading, uploading, error, upload, remove };
 }

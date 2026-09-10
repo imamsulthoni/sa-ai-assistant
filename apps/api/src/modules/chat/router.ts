@@ -4,11 +4,7 @@ import { agentToClientStream, parseClientStreamRequest } from "@anvia/client";
 import { createSystemAnalystAgent } from "@sa-ai-assistant/agent";
 import { PrismaMemoryStore } from "@anvia/memory-prisma";
 import { prisma } from "../../lib/prisma.js";
-import {
-  CONVERSATION_ID_HEADER,
-  USER_ID_HEADER,
-  resolveUserId,
-} from "../../lib/identity.js";
+import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
 import { titleSessionFromFirstMessage } from "../session/service.js";
 
 export const chatModule = new Hono();

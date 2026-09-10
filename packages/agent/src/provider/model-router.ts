@@ -6,6 +6,7 @@ import type { OpenAICompletionModel } from "@anvia/openai";
 import { createOpenAIModel } from "./openai.js";
 
 export type TaskDifficulty = "easy" | "medium" | "hard";
+export type AgentPhase = "CLARIFY" | "GENERATE" | "QA";
 
 export interface ModelRouterOptions {
   apiKey?: string;
@@ -21,6 +22,7 @@ export interface ModelRouter {
   getModel(difficulty?: TaskDifficulty): OpenAICompletionModel;
   getModelId(difficulty?: TaskDifficulty): string;
   getModelForTask(task: string): Promise<OpenAICompletionModel>;
+  getModelForPhase(phase: AgentPhase): OpenAICompletionModel;
 }
 
 const DifficultyDecisionSchema = z.object({
@@ -39,50 +41,31 @@ Return the difficulty and a one-sentence reason.
 `;
 
 function firstNonEmpty(...values: (string | undefined)[]): string | undefined {
-  return values.find(
-    (value) => typeof value === "string" && value.trim().length > 0,
-  );
+  return values.find((value) => typeof value === "string" && value.trim().length > 0);
 }
 
 function modelIdFor(
   difficulty: TaskDifficulty,
-  options: Required<Pick<ModelRouterOptions, "defaultModelId">> &
-    ModelRouterOptions,
+  options: Required<Pick<ModelRouterOptions, "defaultModelId">> & ModelRouterOptions,
 ): string {
-  const modelByDifficulty: Partial<Record<TaskDifficulty, string | undefined>> =
-    {
-      easy: options.easyModelId,
-      medium: options.mediumModelId,
-      hard: options.hardModelId,
-    };
+  const modelByDifficulty: Partial<Record<TaskDifficulty, string | undefined>> = {
+    easy: options.easyModelId,
+    medium: options.mediumModelId,
+    hard: options.hardModelId,
+  };
   return firstNonEmpty(modelByDifficulty[difficulty], options.defaultModelId)!;
 }
 
-export function createModelRouter(
-  options: ModelRouterOptions = {},
-): ModelRouter {
+export function createModelRouter(options: ModelRouterOptions = {}): ModelRouter {
   const defaultModelId =
-    firstNonEmpty(options.defaultModelId, process.env.OPENAI_MODEL) ??
-    "gpt-4o-mini";
+    firstNonEmpty(options.defaultModelId, process.env.OPENAI_MODEL) ?? "gpt-4o-mini";
   const resolvedOptions = {
     ...options,
     defaultModelId,
-    easyModelId: firstNonEmpty(
-      options.easyModelId,
-      process.env.OPENAI_EASY_MODEL,
-    ),
-    mediumModelId: firstNonEmpty(
-      options.mediumModelId,
-      process.env.OPENAI_MEDIUM_MODEL,
-    ),
-    hardModelId: firstNonEmpty(
-      options.hardModelId,
-      process.env.OPENAI_HARD_MODEL,
-    ),
-    routerModelId: firstNonEmpty(
-      options.routerModelId,
-      process.env.OPENAI_ROUTER_MODEL,
-    ),
+    easyModelId: firstNonEmpty(options.easyModelId, process.env.OPENAI_EASY_MODEL),
+    mediumModelId: firstNonEmpty(options.mediumModelId, process.env.OPENAI_MEDIUM_MODEL),
+    hardModelId: firstNonEmpty(options.hardModelId, process.env.OPENAI_HARD_MODEL),
+    routerModelId: firstNonEmpty(options.routerModelId, process.env.OPENAI_ROUTER_MODEL),
   };
   const models = new Map<string, OpenAICompletionModel>();
 
@@ -119,9 +102,11 @@ export function createModelRouter(
         outputSchema: DifficultyDecisionSchema,
       });
 
-      return createModel(
-        modelIdFor(decision.output.difficulty, resolvedOptions),
-      );
+      return createModel(modelIdFor(decision.output.difficulty, resolvedOptions));
+    },
+    getModelForPhase(phase) {
+      const difficulty = phase === "CLARIFY" ? "easy" : phase === "GENERATE" ? "hard" : "medium";
+      return createModel(modelIdFor(difficulty, resolvedOptions));
     },
   };
 }
@@ -170,10 +155,7 @@ function firstUserText(messages: readonly Message[]): string {
 
     if (typeof content === "string") return content.trim();
     const text = content
-      .filter(
-        (part): part is Extract<typeof part, { type: "text" }> =>
-          part.type === "text",
-      )
+      .filter((part): part is Extract<typeof part, { type: "text" }> => part.type === "text")
       .map((part) => part.text)
       .join("\n");
 
@@ -190,10 +172,7 @@ function latestUserText(messages: readonly Message[]): string {
 
     if (typeof content === "string") return content;
     const text = content
-      .filter(
-        (part): part is Extract<typeof part, { type: "text" }> =>
-          part.type === "text",
-      )
+      .filter((part): part is Extract<typeof part, { type: "text" }> => part.type === "text")
       .map((part) => part.text)
       .join("\n");
 
@@ -211,9 +190,7 @@ export function createRoutingModel(
   const fallback = router.getModel();
   const sessionCache = new Map<string, OpenAICompletionModel>();
 
-  const routeModel = async (
-    request: CompletionRequest,
-  ): Promise<OpenAICompletionModel> => {
+  const routeModel = async (request: CompletionRequest): Promise<OpenAICompletionModel> => {
     const sessionKey = firstUserText(request.chatHistory);
     if (sessionKey) {
       const cached = sessionCache.get(sessionKey);

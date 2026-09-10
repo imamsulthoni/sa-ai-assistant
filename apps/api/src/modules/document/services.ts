@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -36,6 +37,17 @@ export async function deleteDocument(objectKey: string) {
       Key: objectKey,
     }),
   );
+}
+
+export async function downloadDocument(objectKey: string) {
+  const response = await r2.send(
+    new GetObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: objectKey,
+    }),
+  );
+  if (!response.Body) throw new Error("R2 returned an empty document body");
+  return Buffer.from(await response.Body.transformToByteArray());
 }
 
 export function documentUrl(objectKey: string) {

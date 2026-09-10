@@ -1,5 +1,16 @@
 import { useState } from "react";
-import { Bot, CheckCircle2, EllipsisVertical, FileText, LoaderCircle, Pencil, Plus, Trash, Upload, XCircle } from "lucide-react";
+import {
+  Bot,
+  CheckCircle2,
+  EllipsisVertical,
+  FileText,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Trash,
+  Upload,
+  XCircle,
+} from "lucide-react";
 import type { DocumentSummary, SessionSummary } from "#/lib/api";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
@@ -72,9 +83,7 @@ export function SessionSidebar({
 
       <ScrollArea className="mt-4 min-h-0 flex-1">
         <div className="flex flex-col gap-1 pr-1">
-          <p className="mb-1 px-2 text-xs font-medium text-muted-foreground">
-            Conversations
-          </p>
+          <p className="mb-1 px-2 text-xs font-medium text-muted-foreground">Conversations</p>
 
           {loading &&
             Array.from({ length: 4 }).map((_, index) => (
@@ -206,13 +215,20 @@ function SessionDocuments({
 
       {loading && <p className="text-xs text-muted-foreground">Loading files…</p>}
       {!loading && documents.length === 0 && (
-        <p className="text-xs leading-5 text-muted-foreground">Upload a BRD, PDF, or flowchart for this session.</p>
+        <p className="text-xs leading-5 text-muted-foreground">
+          Upload a BRD, PDF, or flowchart for this session.
+        </p>
       )}
       <div className="flex flex-col gap-1">
         {documents.map((document) => (
-          <div key={document.id} className="group flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent">
+          <div
+            key={document.id}
+            className="group flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent"
+          >
             <FileText size={14} className="shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate" title={document.title}>{document.title}</span>
+            <span className="min-w-0 flex-1 truncate" title={document.title}>
+              {document.title}
+            </span>
             <DocumentStatus status={document.status} />
             <button
               type="button"
@@ -257,9 +273,7 @@ function RenameDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Rename conversation</DialogTitle>
-          <DialogDescription>
-            Give this conversation a more descriptive name.
-          </DialogDescription>
+          <DialogDescription>Give this conversation a more descriptive name.</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-4"
@@ -308,19 +322,15 @@ function DeleteDialog({
         <DialogHeader>
           <DialogTitle>Delete conversation?</DialogTitle>
           <DialogDescription>
-            This permanently deletes “{target?.title}” and its messages. This
-            action cannot be undone.
+            This permanently deletes “{target?.title}” and its messages. This action cannot be
+            undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onDelete}
-          >
+          <Button type="button" variant="destructive" onClick={onDelete}>
             Delete
           </Button>
         </DialogFooter>
