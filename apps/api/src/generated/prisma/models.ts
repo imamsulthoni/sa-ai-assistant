@@ -12,4 +12,8 @@ export type * from "./models/AgentMemoryMessage.js";
 export type * from "./models/AgentMemoryError.js";
 export type * from "./models/Document.js";
 export type * from "./models/DocumentPage.js";
+export type * from "./models/Project.js";
+export type * from "./models/BrdDocument.js";
+export type * from "./models/BrdVersion.js";
+export type * from "./models/UserSetting.js";
 export type * from "./commonInputTypes.js";

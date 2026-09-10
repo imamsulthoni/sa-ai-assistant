@@ -1,7 +1,6 @@
 import { Queue } from "bullmq";
 
 export const DOCUMENT_QUEUE_NAME = "doc-ingestion";
-export const LEGACY_DOCUMENT_QUEUE_NAME = process.env.DOCUMENT_QUEUE;
 export const TEMPLATE_QUEUE_NAME = "template-extract";
 export const FLOWCHART_QUEUE_NAME = "flowchart-verify";
 

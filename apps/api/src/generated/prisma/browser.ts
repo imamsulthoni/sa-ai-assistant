@@ -41,3 +41,23 @@ export type Document = Prisma.DocumentModel;
  *
  */
 export type DocumentPage = Prisma.DocumentPageModel;
+/**
+ * Model Project
+ *
+ */
+export type Project = Prisma.ProjectModel;
+/**
+ * Model BrdDocument
+ *
+ */
+export type BrdDocument = Prisma.BrdDocumentModel;
+/**
+ * Model BrdVersion
+ *
+ */
+export type BrdVersion = Prisma.BrdVersionModel;
+/**
+ * Model UserSetting
+ *
+ */
+export type UserSetting = Prisma.UserSettingModel;

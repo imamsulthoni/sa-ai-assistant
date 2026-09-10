@@ -396,6 +396,10 @@ export const ModelName = {
   AgentMemoryError: "AgentMemoryError",
   Document: "Document",
   DocumentPage: "DocumentPage",
+  Project: "Project",
+  BrdDocument: "BrdDocument",
+  BrdVersion: "BrdVersion",
+  UserSetting: "UserSetting",
 } as const;
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName];
@@ -420,7 +424,11 @@ export type TypeMap<
       | "agentMemoryMessage"
       | "agentMemoryError"
       | "document"
-      | "documentPage";
+      | "documentPage"
+      | "project"
+      | "brdDocument"
+      | "brdVersion"
+      | "userSetting";
     txIsolationLevel: TransactionIsolationLevel;
   };
   model: {
@@ -802,6 +810,302 @@ export type TypeMap<
         };
       };
     };
+    Project: {
+      payload: Prisma.$ProjectPayload<ExtArgs>;
+      fields: Prisma.ProjectFieldRefs;
+      operations: {
+        findUnique: {
+          args: Prisma.ProjectFindUniqueArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload> | null;
+        };
+        findUniqueOrThrow: {
+          args: Prisma.ProjectFindUniqueOrThrowArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload>;
+        };
+        findFirst: {
+          args: Prisma.ProjectFindFirstArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload> | null;
+        };
+        findFirstOrThrow: {
+          args: Prisma.ProjectFindFirstOrThrowArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload>;
+        };
+        findMany: {
+          args: Prisma.ProjectFindManyArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload>[];
+        };
+        create: {
+          args: Prisma.ProjectCreateArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload>;
+        };
+        createMany: {
+          args: Prisma.ProjectCreateManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        createManyAndReturn: {
+          args: Prisma.ProjectCreateManyAndReturnArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload>[];
+        };
+        delete: {
+          args: Prisma.ProjectDeleteArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload>;
+        };
+        update: {
+          args: Prisma.ProjectUpdateArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload>;
+        };
+        deleteMany: {
+          args: Prisma.ProjectDeleteManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        updateMany: {
+          args: Prisma.ProjectUpdateManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        updateManyAndReturn: {
+          args: Prisma.ProjectUpdateManyAndReturnArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload>[];
+        };
+        upsert: {
+          args: Prisma.ProjectUpsertArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectPayload>;
+        };
+        aggregate: {
+          args: Prisma.ProjectAggregateArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.AggregateProject>;
+        };
+        groupBy: {
+          args: Prisma.ProjectGroupByArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.ProjectGroupByOutputType>[];
+        };
+        count: {
+          args: Prisma.ProjectCountArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.ProjectCountAggregateOutputType> | number;
+        };
+      };
+    };
+    BrdDocument: {
+      payload: Prisma.$BrdDocumentPayload<ExtArgs>;
+      fields: Prisma.BrdDocumentFieldRefs;
+      operations: {
+        findUnique: {
+          args: Prisma.BrdDocumentFindUniqueArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload> | null;
+        };
+        findUniqueOrThrow: {
+          args: Prisma.BrdDocumentFindUniqueOrThrowArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload>;
+        };
+        findFirst: {
+          args: Prisma.BrdDocumentFindFirstArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload> | null;
+        };
+        findFirstOrThrow: {
+          args: Prisma.BrdDocumentFindFirstOrThrowArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload>;
+        };
+        findMany: {
+          args: Prisma.BrdDocumentFindManyArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload>[];
+        };
+        create: {
+          args: Prisma.BrdDocumentCreateArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload>;
+        };
+        createMany: {
+          args: Prisma.BrdDocumentCreateManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        createManyAndReturn: {
+          args: Prisma.BrdDocumentCreateManyAndReturnArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload>[];
+        };
+        delete: {
+          args: Prisma.BrdDocumentDeleteArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload>;
+        };
+        update: {
+          args: Prisma.BrdDocumentUpdateArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload>;
+        };
+        deleteMany: {
+          args: Prisma.BrdDocumentDeleteManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        updateMany: {
+          args: Prisma.BrdDocumentUpdateManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        updateManyAndReturn: {
+          args: Prisma.BrdDocumentUpdateManyAndReturnArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload>[];
+        };
+        upsert: {
+          args: Prisma.BrdDocumentUpsertArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdDocumentPayload>;
+        };
+        aggregate: {
+          args: Prisma.BrdDocumentAggregateArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBrdDocument>;
+        };
+        groupBy: {
+          args: Prisma.BrdDocumentGroupByArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.BrdDocumentGroupByOutputType>[];
+        };
+        count: {
+          args: Prisma.BrdDocumentCountArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.BrdDocumentCountAggregateOutputType> | number;
+        };
+      };
+    };
+    BrdVersion: {
+      payload: Prisma.$BrdVersionPayload<ExtArgs>;
+      fields: Prisma.BrdVersionFieldRefs;
+      operations: {
+        findUnique: {
+          args: Prisma.BrdVersionFindUniqueArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload> | null;
+        };
+        findUniqueOrThrow: {
+          args: Prisma.BrdVersionFindUniqueOrThrowArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload>;
+        };
+        findFirst: {
+          args: Prisma.BrdVersionFindFirstArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload> | null;
+        };
+        findFirstOrThrow: {
+          args: Prisma.BrdVersionFindFirstOrThrowArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload>;
+        };
+        findMany: {
+          args: Prisma.BrdVersionFindManyArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload>[];
+        };
+        create: {
+          args: Prisma.BrdVersionCreateArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload>;
+        };
+        createMany: {
+          args: Prisma.BrdVersionCreateManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        createManyAndReturn: {
+          args: Prisma.BrdVersionCreateManyAndReturnArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload>[];
+        };
+        delete: {
+          args: Prisma.BrdVersionDeleteArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload>;
+        };
+        update: {
+          args: Prisma.BrdVersionUpdateArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload>;
+        };
+        deleteMany: {
+          args: Prisma.BrdVersionDeleteManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        updateMany: {
+          args: Prisma.BrdVersionUpdateManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        updateManyAndReturn: {
+          args: Prisma.BrdVersionUpdateManyAndReturnArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload>[];
+        };
+        upsert: {
+          args: Prisma.BrdVersionUpsertArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdVersionPayload>;
+        };
+        aggregate: {
+          args: Prisma.BrdVersionAggregateArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBrdVersion>;
+        };
+        groupBy: {
+          args: Prisma.BrdVersionGroupByArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.BrdVersionGroupByOutputType>[];
+        };
+        count: {
+          args: Prisma.BrdVersionCountArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.BrdVersionCountAggregateOutputType> | number;
+        };
+      };
+    };
+    UserSetting: {
+      payload: Prisma.$UserSettingPayload<ExtArgs>;
+      fields: Prisma.UserSettingFieldRefs;
+      operations: {
+        findUnique: {
+          args: Prisma.UserSettingFindUniqueArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload> | null;
+        };
+        findUniqueOrThrow: {
+          args: Prisma.UserSettingFindUniqueOrThrowArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload>;
+        };
+        findFirst: {
+          args: Prisma.UserSettingFindFirstArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload> | null;
+        };
+        findFirstOrThrow: {
+          args: Prisma.UserSettingFindFirstOrThrowArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload>;
+        };
+        findMany: {
+          args: Prisma.UserSettingFindManyArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload>[];
+        };
+        create: {
+          args: Prisma.UserSettingCreateArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload>;
+        };
+        createMany: {
+          args: Prisma.UserSettingCreateManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        createManyAndReturn: {
+          args: Prisma.UserSettingCreateManyAndReturnArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload>[];
+        };
+        delete: {
+          args: Prisma.UserSettingDeleteArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload>;
+        };
+        update: {
+          args: Prisma.UserSettingUpdateArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload>;
+        };
+        deleteMany: {
+          args: Prisma.UserSettingDeleteManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        updateMany: {
+          args: Prisma.UserSettingUpdateManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        updateManyAndReturn: {
+          args: Prisma.UserSettingUpdateManyAndReturnArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload>[];
+        };
+        upsert: {
+          args: Prisma.UserSettingUpsertArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSettingPayload>;
+        };
+        aggregate: {
+          args: Prisma.UserSettingAggregateArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUserSetting>;
+        };
+        groupBy: {
+          args: Prisma.UserSettingGroupByArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.UserSettingGroupByOutputType>[];
+        };
+        count: {
+          args: Prisma.UserSettingCountArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.UserSettingCountAggregateOutputType> | number;
+        };
+      };
+    };
   };
 } & {
   other: {
@@ -848,6 +1152,7 @@ export const AgentMemorySessionScalarFieldEnum = {
   userId: "userId",
   title: "title",
   metadata: "metadata",
+  projectId: "projectId",
   createdAt: "createdAt",
   updatedAt: "updatedAt",
 } as const;
@@ -916,6 +1221,63 @@ export const DocumentPageScalarFieldEnum = {
 
 export type DocumentPageScalarFieldEnum =
   (typeof DocumentPageScalarFieldEnum)[keyof typeof DocumentPageScalarFieldEnum];
+
+export const ProjectScalarFieldEnum = {
+  id: "id",
+  name: "name",
+  description: "description",
+  templateId: "templateId",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+} as const;
+
+export type ProjectScalarFieldEnum =
+  (typeof ProjectScalarFieldEnum)[keyof typeof ProjectScalarFieldEnum];
+
+export const BrdDocumentScalarFieldEnum = {
+  id: "id",
+  userId: "userId",
+  sessionId: "sessionId",
+  title: "title",
+  currentVersion: "currentVersion",
+  contentMarkdown: "contentMarkdown",
+  status: "status",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+} as const;
+
+export type BrdDocumentScalarFieldEnum =
+  (typeof BrdDocumentScalarFieldEnum)[keyof typeof BrdDocumentScalarFieldEnum];
+
+export const BrdVersionScalarFieldEnum = {
+  id: "id",
+  brdDocumentId: "brdDocumentId",
+  versionNumber: "versionNumber",
+  contentMarkdown: "contentMarkdown",
+  changeSummary: "changeSummary",
+  createdBy: "createdBy",
+  createdAt: "createdAt",
+} as const;
+
+export type BrdVersionScalarFieldEnum =
+  (typeof BrdVersionScalarFieldEnum)[keyof typeof BrdVersionScalarFieldEnum];
+
+export const UserSettingScalarFieldEnum = {
+  id: "id",
+  userId: "userId",
+  theme: "theme",
+  aiProvider: "aiProvider",
+  aiModel: "aiModel",
+  customBaseUrl: "customBaseUrl",
+  encryptedApiKey: "encryptedApiKey",
+  systemPrompt: "systemPrompt",
+  activeTemplateId: "activeTemplateId",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+} as const;
+
+export type UserSettingScalarFieldEnum =
+  (typeof UserSettingScalarFieldEnum)[keyof typeof UserSettingScalarFieldEnum];
 
 export const SortOrder = {
   asc: "asc",
@@ -1214,6 +1576,10 @@ export type GlobalOmitConfig = {
   agentMemoryError?: Prisma.AgentMemoryErrorOmit;
   document?: Prisma.DocumentOmit;
   documentPage?: Prisma.DocumentPageOmit;
+  project?: Prisma.ProjectOmit;
+  brdDocument?: Prisma.BrdDocumentOmit;
+  brdVersion?: Prisma.BrdVersionOmit;
+  userSetting?: Prisma.UserSettingOmit;
 };
 
 /* Types for Logging */

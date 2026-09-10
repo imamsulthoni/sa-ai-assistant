@@ -35,6 +35,7 @@ export interface CreateSystemAnalystAgentOptions {
   debugModelRouter?: boolean;
   phase?: "CLARIFY" | "GENERATE" | "QA";
   contextAdapters?: AgentContextAdapters;
+  systemPrompt?: string;
 }
 
 export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOptions = {}) {
@@ -62,7 +63,7 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
     name: "System Analyst AI Assistant",
     description: "Drafts and reviews BRDs and grounded specifications.",
     model,
-    instructions: `${SYSTEM_ANALYST_INSTRUCTIONS}\n\n${BRD_OUTPUT_GUIDANCE}`,
+    instructions: `${SYSTEM_ANALYST_INSTRUCTIONS}\n\n${BRD_OUTPUT_GUIDANCE}${options.systemPrompt ? `\n\nAdditional user instructions:\n${options.systemPrompt}` : ""}`,
     tools: [
       draftBrdTool,
       elicitClarificationsTool,

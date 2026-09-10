@@ -42,6 +42,16 @@ const vectorStore = qdrant.vectorStore({
   dimensions: 384,
   metric: "cosine",
 });
+let vectorStoreReady: Promise<void> | undefined;
+
+function ensureVectorStore() {
+  vectorStoreReady ??= vectorStore.ensure().catch((error) => {
+    vectorStoreReady = undefined;
+    if (error instanceof Error && /already exists/i.test(error.message)) return;
+    throw error;
+  });
+  return vectorStoreReady;
+}
 
 let embeddingModelPromise: ReturnType<typeof loadTransformersEmbeddingModel> | undefined;
 
@@ -92,7 +102,10 @@ async function persistPages(documentId: string, pages: Page[], summary: string |
         metadata: page.metadata,
       })),
     }),
-    prisma.document.update({ where: { id: documentId }, data: { summary, ocrResult } }),
+    prisma.document.update({
+      where: { id: documentId },
+      data: { summary, ocrResult },
+    }),
   ]);
 }
 
@@ -160,7 +173,7 @@ export async function processDocument(job: Job<DocumentIngestionJob>) {
       }),
     });
 
-    await vectorStore.ensure();
+    await ensureVectorStore();
     await vectorStore.upsert({ documents: embedded.documents });
 
     await prisma.document.update({

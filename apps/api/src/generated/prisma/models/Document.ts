@@ -311,6 +311,7 @@ export type DocumentWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Document"> | Date | string;
   updatedAt?: Prisma.DateTimeFilter<"Document"> | Date | string;
   pages?: Prisma.DocumentPageListRelationFilter;
+  project?: Prisma.XOR<Prisma.ProjectNullableScalarRelationFilter, Prisma.ProjectWhereInput> | null;
 };
 
 export type DocumentOrderByWithRelationInput = {
@@ -333,6 +334,7 @@ export type DocumentOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder;
   updatedAt?: Prisma.SortOrder;
   pages?: Prisma.DocumentPageOrderByRelationAggregateInput;
+  project?: Prisma.ProjectOrderByWithRelationInput;
 };
 
 export type DocumentWhereUniqueInput = Prisma.AtLeast<
@@ -359,6 +361,10 @@ export type DocumentWhereUniqueInput = Prisma.AtLeast<
     createdAt?: Prisma.DateTimeFilter<"Document"> | Date | string;
     updatedAt?: Prisma.DateTimeFilter<"Document"> | Date | string;
     pages?: Prisma.DocumentPageListRelationFilter;
+    project?: Prisma.XOR<
+      Prisma.ProjectNullableScalarRelationFilter,
+      Prisma.ProjectWhereInput
+    > | null;
   },
   "id" | "objectKey"
 >;
@@ -421,7 +427,6 @@ export type DocumentCreateInput = {
   id?: string;
   userId: string;
   sessionId?: string | null;
-  projectId?: string | null;
   title: string;
   fileType: $Enums.DocumentFileType;
   isTemplate?: boolean;
@@ -437,6 +442,7 @@ export type DocumentCreateInput = {
   createdAt?: Date | string;
   updatedAt?: Date | string;
   pages?: Prisma.DocumentPageCreateNestedManyWithoutDocumentInput;
+  project?: Prisma.ProjectCreateNestedOneWithoutDocumentsInput;
 };
 
 export type DocumentUncheckedCreateInput = {
@@ -465,7 +471,6 @@ export type DocumentUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string;
   userId?: Prisma.StringFieldUpdateOperationsInput | string;
   sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
-  projectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
   title?: Prisma.StringFieldUpdateOperationsInput | string;
   fileType?: Prisma.EnumDocumentFileTypeFieldUpdateOperationsInput | $Enums.DocumentFileType;
   isTemplate?: Prisma.BoolFieldUpdateOperationsInput | boolean;
@@ -481,6 +486,7 @@ export type DocumentUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   pages?: Prisma.DocumentPageUpdateManyWithoutDocumentNestedInput;
+  project?: Prisma.ProjectUpdateOneWithoutDocumentsNestedInput;
 };
 
 export type DocumentUncheckedUpdateInput = {
@@ -530,7 +536,6 @@ export type DocumentUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string;
   userId?: Prisma.StringFieldUpdateOperationsInput | string;
   sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
-  projectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
   title?: Prisma.StringFieldUpdateOperationsInput | string;
   fileType?: Prisma.EnumDocumentFileTypeFieldUpdateOperationsInput | $Enums.DocumentFileType;
   isTemplate?: Prisma.BoolFieldUpdateOperationsInput | boolean;
@@ -640,6 +645,16 @@ export type DocumentScalarRelationFilter = {
   isNot?: Prisma.DocumentWhereInput;
 };
 
+export type DocumentListRelationFilter = {
+  every?: Prisma.DocumentWhereInput;
+  some?: Prisma.DocumentWhereInput;
+  none?: Prisma.DocumentWhereInput;
+};
+
+export type DocumentOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder;
+};
+
 export type EnumDocumentFileTypeFieldUpdateOperationsInput = {
   set?: $Enums.DocumentFileType;
 };
@@ -678,11 +693,96 @@ export type DocumentUpdateOneRequiredWithoutPagesNestedInput = {
   >;
 };
 
+export type DocumentCreateNestedManyWithoutProjectInput = {
+  create?:
+    | Prisma.XOR<
+        Prisma.DocumentCreateWithoutProjectInput,
+        Prisma.DocumentUncheckedCreateWithoutProjectInput
+      >
+    | Prisma.DocumentCreateWithoutProjectInput[]
+    | Prisma.DocumentUncheckedCreateWithoutProjectInput[];
+  connectOrCreate?:
+    | Prisma.DocumentCreateOrConnectWithoutProjectInput
+    | Prisma.DocumentCreateOrConnectWithoutProjectInput[];
+  createMany?: Prisma.DocumentCreateManyProjectInputEnvelope;
+  connect?: Prisma.DocumentWhereUniqueInput | Prisma.DocumentWhereUniqueInput[];
+};
+
+export type DocumentUncheckedCreateNestedManyWithoutProjectInput = {
+  create?:
+    | Prisma.XOR<
+        Prisma.DocumentCreateWithoutProjectInput,
+        Prisma.DocumentUncheckedCreateWithoutProjectInput
+      >
+    | Prisma.DocumentCreateWithoutProjectInput[]
+    | Prisma.DocumentUncheckedCreateWithoutProjectInput[];
+  connectOrCreate?:
+    | Prisma.DocumentCreateOrConnectWithoutProjectInput
+    | Prisma.DocumentCreateOrConnectWithoutProjectInput[];
+  createMany?: Prisma.DocumentCreateManyProjectInputEnvelope;
+  connect?: Prisma.DocumentWhereUniqueInput | Prisma.DocumentWhereUniqueInput[];
+};
+
+export type DocumentUpdateManyWithoutProjectNestedInput = {
+  create?:
+    | Prisma.XOR<
+        Prisma.DocumentCreateWithoutProjectInput,
+        Prisma.DocumentUncheckedCreateWithoutProjectInput
+      >
+    | Prisma.DocumentCreateWithoutProjectInput[]
+    | Prisma.DocumentUncheckedCreateWithoutProjectInput[];
+  connectOrCreate?:
+    | Prisma.DocumentCreateOrConnectWithoutProjectInput
+    | Prisma.DocumentCreateOrConnectWithoutProjectInput[];
+  upsert?:
+    | Prisma.DocumentUpsertWithWhereUniqueWithoutProjectInput
+    | Prisma.DocumentUpsertWithWhereUniqueWithoutProjectInput[];
+  createMany?: Prisma.DocumentCreateManyProjectInputEnvelope;
+  set?: Prisma.DocumentWhereUniqueInput | Prisma.DocumentWhereUniqueInput[];
+  disconnect?: Prisma.DocumentWhereUniqueInput | Prisma.DocumentWhereUniqueInput[];
+  delete?: Prisma.DocumentWhereUniqueInput | Prisma.DocumentWhereUniqueInput[];
+  connect?: Prisma.DocumentWhereUniqueInput | Prisma.DocumentWhereUniqueInput[];
+  update?:
+    | Prisma.DocumentUpdateWithWhereUniqueWithoutProjectInput
+    | Prisma.DocumentUpdateWithWhereUniqueWithoutProjectInput[];
+  updateMany?:
+    | Prisma.DocumentUpdateManyWithWhereWithoutProjectInput
+    | Prisma.DocumentUpdateManyWithWhereWithoutProjectInput[];
+  deleteMany?: Prisma.DocumentScalarWhereInput | Prisma.DocumentScalarWhereInput[];
+};
+
+export type DocumentUncheckedUpdateManyWithoutProjectNestedInput = {
+  create?:
+    | Prisma.XOR<
+        Prisma.DocumentCreateWithoutProjectInput,
+        Prisma.DocumentUncheckedCreateWithoutProjectInput
+      >
+    | Prisma.DocumentCreateWithoutProjectInput[]
+    | Prisma.DocumentUncheckedCreateWithoutProjectInput[];
+  connectOrCreate?:
+    | Prisma.DocumentCreateOrConnectWithoutProjectInput
+    | Prisma.DocumentCreateOrConnectWithoutProjectInput[];
+  upsert?:
+    | Prisma.DocumentUpsertWithWhereUniqueWithoutProjectInput
+    | Prisma.DocumentUpsertWithWhereUniqueWithoutProjectInput[];
+  createMany?: Prisma.DocumentCreateManyProjectInputEnvelope;
+  set?: Prisma.DocumentWhereUniqueInput | Prisma.DocumentWhereUniqueInput[];
+  disconnect?: Prisma.DocumentWhereUniqueInput | Prisma.DocumentWhereUniqueInput[];
+  delete?: Prisma.DocumentWhereUniqueInput | Prisma.DocumentWhereUniqueInput[];
+  connect?: Prisma.DocumentWhereUniqueInput | Prisma.DocumentWhereUniqueInput[];
+  update?:
+    | Prisma.DocumentUpdateWithWhereUniqueWithoutProjectInput
+    | Prisma.DocumentUpdateWithWhereUniqueWithoutProjectInput[];
+  updateMany?:
+    | Prisma.DocumentUpdateManyWithWhereWithoutProjectInput
+    | Prisma.DocumentUpdateManyWithWhereWithoutProjectInput[];
+  deleteMany?: Prisma.DocumentScalarWhereInput | Prisma.DocumentScalarWhereInput[];
+};
+
 export type DocumentCreateWithoutPagesInput = {
   id?: string;
   userId: string;
   sessionId?: string | null;
-  projectId?: string | null;
   title: string;
   fileType: $Enums.DocumentFileType;
   isTemplate?: boolean;
@@ -697,6 +797,7 @@ export type DocumentCreateWithoutPagesInput = {
   error?: string | null;
   createdAt?: Date | string;
   updatedAt?: Date | string;
+  project?: Prisma.ProjectCreateNestedOneWithoutDocumentsInput;
 };
 
 export type DocumentUncheckedCreateWithoutPagesInput = {
@@ -752,6 +853,27 @@ export type DocumentUpdateWithoutPagesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string;
   userId?: Prisma.StringFieldUpdateOperationsInput | string;
   sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  title?: Prisma.StringFieldUpdateOperationsInput | string;
+  fileType?: Prisma.EnumDocumentFileTypeFieldUpdateOperationsInput | $Enums.DocumentFileType;
+  isTemplate?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+  storageUrl?: Prisma.StringFieldUpdateOperationsInput | string;
+  objectKey?: Prisma.StringFieldUpdateOperationsInput | string;
+  fileSize?: Prisma.IntFieldUpdateOperationsInput | number;
+  status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus;
+  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+  project?: Prisma.ProjectUpdateOneWithoutDocumentsNestedInput;
+};
+
+export type DocumentUncheckedUpdateWithoutPagesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string;
+  userId?: Prisma.StringFieldUpdateOperationsInput | string;
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
   projectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
   title?: Prisma.StringFieldUpdateOperationsInput | string;
   fileType?: Prisma.EnumDocumentFileTypeFieldUpdateOperationsInput | $Enums.DocumentFileType;
@@ -769,11 +891,179 @@ export type DocumentUpdateWithoutPagesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
 };
 
-export type DocumentUncheckedUpdateWithoutPagesInput = {
+export type DocumentCreateWithoutProjectInput = {
+  id?: string;
+  userId: string;
+  sessionId?: string | null;
+  title: string;
+  fileType: $Enums.DocumentFileType;
+  isTemplate?: boolean;
+  storageUrl: string;
+  objectKey: string;
+  fileSize: number;
+  status?: $Enums.DocumentStatus;
+  ocrResult?: string | null;
+  summary?: string | null;
+  templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  error?: string | null;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  pages?: Prisma.DocumentPageCreateNestedManyWithoutDocumentInput;
+};
+
+export type DocumentUncheckedCreateWithoutProjectInput = {
+  id?: string;
+  userId: string;
+  sessionId?: string | null;
+  title: string;
+  fileType: $Enums.DocumentFileType;
+  isTemplate?: boolean;
+  storageUrl: string;
+  objectKey: string;
+  fileSize: number;
+  status?: $Enums.DocumentStatus;
+  ocrResult?: string | null;
+  summary?: string | null;
+  templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  error?: string | null;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  pages?: Prisma.DocumentPageUncheckedCreateNestedManyWithoutDocumentInput;
+};
+
+export type DocumentCreateOrConnectWithoutProjectInput = {
+  where: Prisma.DocumentWhereUniqueInput;
+  create: Prisma.XOR<
+    Prisma.DocumentCreateWithoutProjectInput,
+    Prisma.DocumentUncheckedCreateWithoutProjectInput
+  >;
+};
+
+export type DocumentCreateManyProjectInputEnvelope = {
+  data: Prisma.DocumentCreateManyProjectInput | Prisma.DocumentCreateManyProjectInput[];
+  skipDuplicates?: boolean;
+};
+
+export type DocumentUpsertWithWhereUniqueWithoutProjectInput = {
+  where: Prisma.DocumentWhereUniqueInput;
+  update: Prisma.XOR<
+    Prisma.DocumentUpdateWithoutProjectInput,
+    Prisma.DocumentUncheckedUpdateWithoutProjectInput
+  >;
+  create: Prisma.XOR<
+    Prisma.DocumentCreateWithoutProjectInput,
+    Prisma.DocumentUncheckedCreateWithoutProjectInput
+  >;
+};
+
+export type DocumentUpdateWithWhereUniqueWithoutProjectInput = {
+  where: Prisma.DocumentWhereUniqueInput;
+  data: Prisma.XOR<
+    Prisma.DocumentUpdateWithoutProjectInput,
+    Prisma.DocumentUncheckedUpdateWithoutProjectInput
+  >;
+};
+
+export type DocumentUpdateManyWithWhereWithoutProjectInput = {
+  where: Prisma.DocumentScalarWhereInput;
+  data: Prisma.XOR<
+    Prisma.DocumentUpdateManyMutationInput,
+    Prisma.DocumentUncheckedUpdateManyWithoutProjectInput
+  >;
+};
+
+export type DocumentScalarWhereInput = {
+  AND?: Prisma.DocumentScalarWhereInput | Prisma.DocumentScalarWhereInput[];
+  OR?: Prisma.DocumentScalarWhereInput[];
+  NOT?: Prisma.DocumentScalarWhereInput | Prisma.DocumentScalarWhereInput[];
+  id?: Prisma.StringFilter<"Document"> | string;
+  userId?: Prisma.StringFilter<"Document"> | string;
+  sessionId?: Prisma.StringNullableFilter<"Document"> | string | null;
+  projectId?: Prisma.StringNullableFilter<"Document"> | string | null;
+  title?: Prisma.StringFilter<"Document"> | string;
+  fileType?: Prisma.EnumDocumentFileTypeFilter<"Document"> | $Enums.DocumentFileType;
+  isTemplate?: Prisma.BoolFilter<"Document"> | boolean;
+  storageUrl?: Prisma.StringFilter<"Document"> | string;
+  objectKey?: Prisma.StringFilter<"Document"> | string;
+  fileSize?: Prisma.IntFilter<"Document"> | number;
+  status?: Prisma.EnumDocumentStatusFilter<"Document"> | $Enums.DocumentStatus;
+  ocrResult?: Prisma.StringNullableFilter<"Document"> | string | null;
+  summary?: Prisma.StringNullableFilter<"Document"> | string | null;
+  templateStructure?: Prisma.JsonNullableFilter<"Document">;
+  report?: Prisma.JsonNullableFilter<"Document">;
+  error?: Prisma.StringNullableFilter<"Document"> | string | null;
+  createdAt?: Prisma.DateTimeFilter<"Document"> | Date | string;
+  updatedAt?: Prisma.DateTimeFilter<"Document"> | Date | string;
+};
+
+export type DocumentCreateManyProjectInput = {
+  id?: string;
+  userId: string;
+  sessionId?: string | null;
+  title: string;
+  fileType: $Enums.DocumentFileType;
+  isTemplate?: boolean;
+  storageUrl: string;
+  objectKey: string;
+  fileSize: number;
+  status?: $Enums.DocumentStatus;
+  ocrResult?: string | null;
+  summary?: string | null;
+  templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  error?: string | null;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+};
+
+export type DocumentUpdateWithoutProjectInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string;
   userId?: Prisma.StringFieldUpdateOperationsInput | string;
   sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
-  projectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  title?: Prisma.StringFieldUpdateOperationsInput | string;
+  fileType?: Prisma.EnumDocumentFileTypeFieldUpdateOperationsInput | $Enums.DocumentFileType;
+  isTemplate?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+  storageUrl?: Prisma.StringFieldUpdateOperationsInput | string;
+  objectKey?: Prisma.StringFieldUpdateOperationsInput | string;
+  fileSize?: Prisma.IntFieldUpdateOperationsInput | number;
+  status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus;
+  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+  pages?: Prisma.DocumentPageUpdateManyWithoutDocumentNestedInput;
+};
+
+export type DocumentUncheckedUpdateWithoutProjectInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string;
+  userId?: Prisma.StringFieldUpdateOperationsInput | string;
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  title?: Prisma.StringFieldUpdateOperationsInput | string;
+  fileType?: Prisma.EnumDocumentFileTypeFieldUpdateOperationsInput | $Enums.DocumentFileType;
+  isTemplate?: Prisma.BoolFieldUpdateOperationsInput | boolean;
+  storageUrl?: Prisma.StringFieldUpdateOperationsInput | string;
+  objectKey?: Prisma.StringFieldUpdateOperationsInput | string;
+  fileSize?: Prisma.IntFieldUpdateOperationsInput | number;
+  status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus;
+  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+  error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+  pages?: Prisma.DocumentPageUncheckedUpdateManyWithoutDocumentNestedInput;
+};
+
+export type DocumentUncheckedUpdateManyWithoutProjectInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string;
+  userId?: Prisma.StringFieldUpdateOperationsInput | string;
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
   title?: Prisma.StringFieldUpdateOperationsInput | string;
   fileType?: Prisma.EnumDocumentFileTypeFieldUpdateOperationsInput | $Enums.DocumentFileType;
   isTemplate?: Prisma.BoolFieldUpdateOperationsInput | boolean;
@@ -848,6 +1138,7 @@ export type DocumentSelect<
     createdAt?: boolean;
     updatedAt?: boolean;
     pages?: boolean | Prisma.Document$pagesArgs<ExtArgs>;
+    project?: boolean | Prisma.Document$projectArgs<ExtArgs>;
     _count?: boolean | Prisma.DocumentCountOutputTypeDefaultArgs<ExtArgs>;
   },
   ExtArgs["result"]["document"]
@@ -875,6 +1166,7 @@ export type DocumentSelectCreateManyAndReturn<
     error?: boolean;
     createdAt?: boolean;
     updatedAt?: boolean;
+    project?: boolean | Prisma.Document$projectArgs<ExtArgs>;
   },
   ExtArgs["result"]["document"]
 >;
@@ -901,6 +1193,7 @@ export type DocumentSelectUpdateManyAndReturn<
     error?: boolean;
     createdAt?: boolean;
     updatedAt?: boolean;
+    project?: boolean | Prisma.Document$projectArgs<ExtArgs>;
   },
   ExtArgs["result"]["document"]
 >;
@@ -953,14 +1246,19 @@ export type DocumentInclude<
   ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs,
 > = {
   pages?: boolean | Prisma.Document$pagesArgs<ExtArgs>;
+  project?: boolean | Prisma.Document$projectArgs<ExtArgs>;
   _count?: boolean | Prisma.DocumentCountOutputTypeDefaultArgs<ExtArgs>;
 };
 export type DocumentIncludeCreateManyAndReturn<
   ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs,
-> = {};
+> = {
+  project?: boolean | Prisma.Document$projectArgs<ExtArgs>;
+};
 export type DocumentIncludeUpdateManyAndReturn<
   ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs,
-> = {};
+> = {
+  project?: boolean | Prisma.Document$projectArgs<ExtArgs>;
+};
 
 export type $DocumentPayload<
   ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs,
@@ -968,6 +1266,7 @@ export type $DocumentPayload<
   name: "Document";
   objects: {
     pages: Prisma.$DocumentPagePayload<ExtArgs>[];
+    project: Prisma.$ProjectPayload<ExtArgs> | null;
   };
   scalars: runtime.Types.Extensions.GetPayloadResult<
     {
@@ -1535,6 +1834,19 @@ export interface Prisma__DocumentClient<
       >
     | Null
   >;
+  project<T extends Prisma.Document$projectArgs<ExtArgs> = {}>(
+    args?: Prisma.Subset<T, Prisma.Document$projectArgs<ExtArgs>>,
+  ): Prisma.Prisma__ProjectClient<
+    runtime.Types.Result.GetResult<
+      Prisma.$ProjectPayload<ExtArgs>,
+      T,
+      "findUniqueOrThrow",
+      GlobalOmitOptions
+    > | null,
+    null,
+    ExtArgs,
+    GlobalOmitOptions
+  >;
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1853,6 +2165,10 @@ export type DocumentCreateManyAndReturnArgs<
    */
   data: Prisma.DocumentCreateManyInput | Prisma.DocumentCreateManyInput[];
   skipDuplicates?: boolean;
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DocumentIncludeCreateManyAndReturn<ExtArgs> | null;
 };
 
 /**
@@ -1929,6 +2245,10 @@ export type DocumentUpdateManyAndReturnArgs<
    * Limit how many Documents to update.
    */
   limit?: number;
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DocumentIncludeUpdateManyAndReturn<ExtArgs> | null;
 };
 
 /**
@@ -2029,6 +2349,27 @@ export type Document$pagesArgs<
   take?: number;
   skip?: number;
   distinct?: Prisma.DocumentPageScalarFieldEnum | Prisma.DocumentPageScalarFieldEnum[];
+};
+
+/**
+ * Document.project
+ */
+export type Document$projectArgs<
+  ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs,
+> = {
+  /**
+   * Select specific fields to fetch from the Project
+   */
+  select?: Prisma.ProjectSelect<ExtArgs> | null;
+  /**
+   * Omit specific fields from the Project
+   */
+  omit?: Prisma.ProjectOmit<ExtArgs> | null;
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ProjectInclude<ExtArgs> | null;
+  where?: Prisma.ProjectWhereInput;
 };
 
 /**

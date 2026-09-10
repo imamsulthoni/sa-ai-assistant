@@ -10,7 +10,11 @@ const model = openai.completionModel({ modelId: process.env.OPENAI_MODEL ?? "gpt
 const TemplateStructureSchema = z.object({
   sections: z.array(z.object({ id: z.string(), title: z.string(), required: z.boolean() })),
   idConventions: z.array(z.string()),
-  metadata: z.record(z.string(), z.unknown()),
+  metadata: z.object({
+    templateName: z.string().nullable(),
+    description: z.string().nullable(),
+    sourceFormat: z.string().nullable(),
+  }),
 });
 
 export async function extractTemplate(job: Job<TemplateExtractionJob>) {
