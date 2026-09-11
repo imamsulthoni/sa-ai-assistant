@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { USER_ID_HEADER, CONVERSATION_ID_HEADER, resolveUserId } from "../../lib/identity.js";
-import { encryptSecret } from "../../lib/crypto.js";
 import { prisma } from "../../lib/prisma.js";
 import { documentQueue, retryPolicies } from "../../lib/queue.js";
 import {
@@ -30,13 +29,11 @@ export const settingsModule = new Hono()
     if (!parsed.success)
       return c.json({ error: "Invalid settings payload", issues: parsed.error.issues }, 400);
     const input = parsed.data;
+    // Server-managed fields (aiProvider/aiModel/customBaseUrl/apiKey) are
+    // intentionally not writable here — see PRD §4H.
     const data = {
       ...(input.theme !== undefined ? { theme: input.theme } : {}),
-      ...(input.aiProvider !== undefined ? { aiProvider: input.aiProvider } : {}),
-      ...(input.aiModel !== undefined ? { aiModel: input.aiModel } : {}),
-      ...(input.customBaseUrl !== undefined ? { customBaseUrl: input.customBaseUrl } : {}),
       ...(input.systemPrompt !== undefined ? { systemPrompt: input.systemPrompt } : {}),
-      ...(input.apiKey ? { encryptedApiKey: encryptSecret(input.apiKey) } : {}),
     };
     const settings = await prisma.userSetting.upsert({
       where: { userId: user(c) },

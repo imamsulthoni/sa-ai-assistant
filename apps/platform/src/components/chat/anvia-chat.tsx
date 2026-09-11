@@ -1,17 +1,19 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createHttpClientTransport } from "@anvia/client";
 import { useChat, type UseChatStatus } from "@anvia/react";
 import { ChatProvider, ComposerPrimitive, ThreadPrimitive, useComposer } from "@anvia/react-ui";
-import { LoaderCircle, Paperclip, Send, Square } from "lucide-react";
+import { AtSign, LoaderCircle, Paperclip, Send, Square } from "lucide-react";
 import type { UIMessage } from "@anvia/client";
-import { DEMO_USER_ID } from "#/lib/api";
+import { DEMO_USER_ID, type SearchResult } from "#/lib/api";
 import { ComposerAttachment, MessageBubble } from "#/components/chat/message-bubble";
+import { MentionPopover, type MentionAction } from "#/components/brd/mention-popover";
 
 type AnviaChatProps = {
   sessionId: string;
   initialMessages: UIMessage[];
   onRunEnded?: () => void;
   onStatusChange?: (status: UseChatStatus) => void;
+  onMention?: (result: SearchResult, action: MentionAction) => void;
 };
 
 export function AnviaChat({
@@ -19,6 +21,7 @@ export function AnviaChat({
   initialMessages,
   onRunEnded,
   onStatusChange,
+  onMention,
 }: AnviaChatProps) {
   const transport = useMemo(
     () =>
@@ -45,6 +48,8 @@ export function AnviaChat({
   useEffect(() => {
     onStatusChange?.(chat.status);
   }, [chat.status, onStatusChange]);
+
+  const [mentionOpen, setMentionOpen] = useState(false);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -75,21 +80,44 @@ export function AnviaChat({
               {(attachment) => <ComposerAttachment key={attachment.id} />}
             </ComposerPrimitive.Attachments>
 
-            <div className="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-2xl border bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
-              <ComposerPrimitive.AddAttachment
-                multiple
-                className="grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-                aria-label="Attach files"
-              >
-                <Paperclip size={18} />
-              </ComposerPrimitive.AddAttachment>
+            <div className="relative mx-auto w-full max-w-3xl">
+              <div className="flex items-end gap-2 rounded-2xl border bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
+                <ComposerPrimitive.AddAttachment
+                  multiple
+                  className="grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  aria-label="Attach files"
+                >
+                  <Paperclip size={18} />
+                </ComposerPrimitive.AddAttachment>
 
-              <ComposerPrimitive.TextareaInput
-                className="max-h-48 min-h-10 w-full resize-none border-0 bg-transparent px-1 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground"
-                placeholder="Describe your user story…"
-              />
+                <button
+                  type="button"
+                  aria-label="Mention a BRD from another session"
+                  title="Mention a BRD from another session (@)"
+                  onClick={() => setMentionOpen((open) => !open)}
+                  className="grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <AtSign size={18} />
+                </button>
 
-              <ComposerSubmitArea />
+                <ComposerPrimitive.TextareaInput
+                  className="max-h-48 min-h-10 w-full resize-none border-0 bg-transparent px-1 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground"
+                  placeholder="Describe your user story… (tip: @ mentions BRDs from other sessions)"
+                />
+
+                <ComposerSubmitArea />
+              </div>
+
+              {mentionOpen && (
+                <MentionPopover
+                  sessionId={sessionId}
+                  onClose={() => setMentionOpen(false)}
+                  onPick={(result, action) => {
+                    onMention?.(result, action);
+                    setMentionOpen(false);
+                  }}
+                />
+              )}
             </div>
           </ComposerPrimitive.Root>
         </ThreadPrimitive.Root>

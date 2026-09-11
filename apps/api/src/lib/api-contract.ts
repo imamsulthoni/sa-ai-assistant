@@ -24,13 +24,12 @@ export const BrdDiffQuerySchema = z.object({
   to: z.coerce.number().int().positive(),
 });
 
+// PRD §4H: provider/model/baseUrl/credentials are server-managed (env).
+// PATCH /settings only accepts user-editable preferences; any other keys
+// sent by older clients are stripped by zod and ignored.
 export const SettingsPatchSchema = z.object({
   theme: z.string().trim().min(1).max(40).optional(),
-  aiProvider: z.string().trim().min(1).max(80).optional(),
-  aiModel: z.string().trim().min(1).max(160).optional(),
-  customBaseUrl: z.string().url().nullable().optional(),
   systemPrompt: z.string().max(20_000).nullable().optional(),
-  apiKey: z.string().min(1).max(2_000).optional(),
 });
 
 export const SearchQuerySchema = z.object({

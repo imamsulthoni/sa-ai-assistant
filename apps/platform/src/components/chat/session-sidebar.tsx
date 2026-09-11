@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cn } from "cn";
 import {
   Bot,
   CheckCircle2,
@@ -102,15 +103,22 @@ export function SessionSidebar({
               <div
                 key={session.id}
                 data-active={active ? "" : undefined}
-                className="group flex items-center rounded-lg data-[active]:bg-accent"
+                className={cn(
+                  "group flex items-center rounded-lg",
+                  active && "bg-accent ring-1 ring-accent-foreground/15",
+                )}
               >
                 <button
                   type="button"
                   onClick={() => onOpen(session.id)}
                   disabled={disabled}
                   data-active={active ? "" : undefined}
-                  className="flex h-9 min-w-0 flex-1 items-center rounded-lg px-3 text-left text-sm text-foreground hover:bg-accent data-[active]:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                  className={cn(
+                    "flex h-9 min-w-0 flex-1 items-center rounded-lg px-3 text-left text-sm text-foreground hover:bg-accent data-[active]:bg-accent disabled:pointer-events-none disabled:opacity-50",
+                    active && "font-medium",
+                  )}
                 >
+                  {active && <span className="mr-2 size-1.5 shrink-0 rounded-full bg-primary" />}
                   <span className="truncate">{session.title}</span>
                 </button>
 
@@ -121,10 +129,11 @@ export function SessionSidebar({
                       variant="ghost"
                       size="icon"
                       disabled={disabled}
-                      className="mr-1 size-7 shrink-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:opacity-100 data-[state=open]:bg-accent data-[state=open]:text-foreground"
+                      aria-label={`Actions for ${session.title}`}
+                      className="mr-1 size-7 shrink-0 text-muted-foreground transition-colors opacity-100 hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
                     >
                       <EllipsisVertical size={14} />
-                      <span className="sr-only">Actions</span>
+                      <span className="sr-only">Rename or delete session</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
@@ -232,7 +241,7 @@ function SessionDocuments({
             <DocumentStatus status={document.status} />
             <button
               type="button"
-              className="hidden shrink-0 text-muted-foreground hover:text-destructive group-hover:block"
+              className="shrink-0 text-muted-foreground opacity-70 transition-opacity hover:text-destructive hover:opacity-100"
               onClick={() => onDelete(document.id)}
               aria-label={`Delete ${document.title}`}
             >

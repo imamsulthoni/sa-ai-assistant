@@ -6,7 +6,6 @@ import { PrismaMemoryStore } from "@anvia/memory-prisma";
 import { prisma } from "../../lib/prisma.js";
 import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
 import { titleSessionFromFirstMessage } from "../session/service.js";
-import { decryptSecret } from "../../lib/crypto.js";
 import { retrieveDocuments, vectorFilter } from "@anvia/core/vector-store";
 import { QdrantVectorClient } from "@anvia/qdrant";
 import {
@@ -110,14 +109,15 @@ async function agentFor(
   brdId?: string,
 ) {
   const settings = await prisma.userSetting.findUnique({ where: { userId } });
-  const apiKey = settings?.encryptedApiKey ? decryptSecret(settings.encryptedApiKey) : undefined;
-  const fingerprint = JSON.stringify([settings?.updatedAt.toISOString(), phase, brdId]);
+  const fingerprint = JSON.stringify([settings?.updatedAt?.toISOString() ?? "none", phase, brdId]);
   const cached = agentCache.get(userId);
   if (cached?.fingerprint === fingerprint) return cached.agent;
   const agent = createSystemAnalystAgent({
-    modelId: settings?.aiModel,
-    apiKey,
-    baseUrl: settings?.customBaseUrl ?? undefined,
+    // PRD §4H: provider/model/baseUrl/credentials are server-managed via env
+    // (the agent package falls back to OPENAI_* env vars); never per-user.
+    modelId: undefined,
+    apiKey: undefined,
+    baseUrl: undefined,
     phase,
     systemPrompt: settings?.systemPrompt ?? undefined,
     contextAdapters: await adaptersFor(userId, sessionId, brdId),
