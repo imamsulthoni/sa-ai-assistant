@@ -3,6 +3,8 @@ import { classifyWorkflowHeuristically } from "./agentic/workflow.js";
 import { createBrdDraft } from "./tools/brd-drafting.js";
 import { buildClarificationQuestions } from "./tools/clarifications.js";
 import { answerBrdQuestion } from "./tools/brd-question.js";
+import { distillContext } from "./agentic/distill.js";
+import { getSystemAnalystToolNames } from "./agent.js";
 
 const paymentStory = "Draft BRD for payment login with 3x attempt limit";
 
@@ -54,8 +56,11 @@ async function runScenarios() {
     injection,
   );
 
-  const registryHasWriteTool = false;
-  console.log("scenario 5 no-write", registryHasWriteTool === false ? "PASS" : "FAIL");
+  const writePattern = /(?:save|write|persist|delete|publish|create_version|update_database)/i;
+  const toolNames = getSystemAnalystToolNames();
+  const writeTools = toolNames.filter((name) => writePattern.test(name));
+  if (writeTools.length > 0) throw new Error(`Write tools registered: ${writeTools.join(", ")}`);
+  console.log("scenario 5 no-write", "PASS", { toolNames });
 
   const unsupported = classifyWorkflowHeuristically("draft a wireframe");
   console.log(
@@ -64,14 +69,23 @@ async function runScenarios() {
     unsupported,
   );
 
-  console.log(
-    "clarification gate",
-    clarificationGateHeuristically(
-      paymentStory,
-      answers.map((answer) => answer.answer),
-      1,
-    ),
+  const gate = clarificationGateHeuristically(
+    paymentStory,
+    ["Staff users are authorized actors", "Show an actionable error on failure"],
+    1,
   );
+  if (!gate.sufficient) throw new Error("Clarification gate rejected supplied details");
+  const distilled = distillContext(
+    [
+      { documentId: "doc-1", pageNumber: 1, content: "payment rules", score: 0.9 },
+      { documentId: "doc-2", pageNumber: 2, content: "audit rules", score: 0.5 },
+    ],
+    { topK: 1, maxChars: 100 },
+  );
+  if (!distilled.includes("doc-1") || distilled.includes("doc-2")) {
+    throw new Error("Context distillation limits were not enforced");
+  }
+  console.log("clarification gate and context distillation", "PASS", { gate, distilled });
 }
 
 await runScenarios();

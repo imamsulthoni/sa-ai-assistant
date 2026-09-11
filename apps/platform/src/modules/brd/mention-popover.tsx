@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Copy, Eye, Search, X } from "lucide-react";
 import { search, type SearchResult } from "#/lib/api";
 
@@ -6,27 +7,31 @@ export type MentionAction = "reference" | "copy";
 
 type MentionPopoverProps = {
   sessionId: string;
+  query?: string;
   onPick: (result: SearchResult, action: MentionAction) => void;
   onClose: () => void;
 };
 
-export function MentionPopover({ sessionId, onPick, onClose }: MentionPopoverProps) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
+export function MentionPopover({
+  sessionId,
+  query: initialQuery = "",
+  onPick,
+  onClose,
+}: MentionPopoverProps) {
+  const [query, setQuery] = useState(initialQuery);
 
   useEffect(() => {
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      void search(query.trim(), "brd", sessionId).then(
-        (response) => setResults(response.results),
-        () => setResults([]),
-      );
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [query, sessionId]);
+    setQuery(initialQuery);
+  }, [initialQuery]);
+
+  const trimmed = query.trim();
+  const resultsQuery = useQuery({
+    queryKey: ["search", trimmed, sessionId],
+    queryFn: () => search(trimmed, "brd", sessionId).then((response) => response.results),
+    enabled: trimmed.length > 0,
+    staleTime: 60_000,
+  });
+  const results = resultsQuery.data ?? [];
 
   return (
     <div className="absolute bottom-14 left-2 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-xl border bg-popover p-3 shadow-xl">

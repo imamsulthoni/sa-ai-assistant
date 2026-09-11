@@ -65,11 +65,16 @@ export async function listSessions(userId: string): Promise<SessionSummary[]> {
 export async function createSession(
   userId: string,
   initialTitle?: string,
+  options: { projectId?: string; templateId?: string } = {},
 ): Promise<SessionSummary> {
   const sessionId = randomUUID();
   const title = initialTitle?.trim() || DEFAULT_TITLE;
   const key = scopeKey(sessionId, userId);
 
+  const metadata = {
+    userId,
+    ...(options.templateId ? { templateId: options.templateId } : {}),
+  };
   const row = await prisma.agentMemorySession.upsert({
     where: { scopeKey: key },
     update: { title },
@@ -78,7 +83,8 @@ export async function createSession(
       sessionId,
       userId,
       title,
-      metadata: { userId },
+       projectId: options.projectId,
+       metadata,
     },
   });
 
@@ -88,6 +94,42 @@ export async function createSession(
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     messageCount: 0,
+  };
+}
+
+export async function updateSession(
+  userId: string,
+  sessionId: string,
+  input: { title?: string; projectId?: string | null; templateId?: string | null },
+): Promise<SessionSummary | null> {
+  const session = await prisma.agentMemorySession.findFirst({ where: { sessionId, userId } });
+  if (!session) return null;
+  if (input.templateId) {
+    const template = await prisma.document.findFirst({
+      where: { id: input.templateId, userId, isTemplate: true, status: "READY" },
+      select: { id: true },
+    });
+    if (!template) throw new Error("Template not found or not approved");
+  }
+  const currentMetadata = (session.metadata as Record<string, unknown> | null) ?? { userId };
+  const metadata: Record<string, unknown> = { ...currentMetadata, userId };
+  if (input.templateId === null) delete metadata.templateId;
+  if (input.templateId) metadata.templateId = input.templateId;
+  const updated = await prisma.agentMemorySession.update({
+    where: { id: session.id },
+    data: {
+      ...(input.title?.trim() ? { title: input.title.trim().slice(0, TITLE_MAX_LENGTH) } : {}),
+      ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
+      metadata: metadata as unknown as { userId: string; templateId?: string },
+    },
+  });
+  const messageCount = await prisma.agentMemoryMessage.count({ where: { memorySessionId: updated.id } });
+  return {
+    id: updated.sessionId,
+    title: updated.title ?? DEFAULT_TITLE,
+    createdAt: updated.createdAt.toISOString(),
+    updatedAt: updated.updatedAt.toISOString(),
+    messageCount,
   };
 }
 

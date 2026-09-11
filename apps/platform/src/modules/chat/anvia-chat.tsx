@@ -5,8 +5,8 @@ import { ChatProvider, ComposerPrimitive, ThreadPrimitive, useComposer } from "@
 import { AtSign, LoaderCircle, Paperclip, Send, Square } from "lucide-react";
 import type { UIMessage } from "@anvia/client";
 import { DEMO_USER_ID, type SearchResult } from "#/lib/api";
-import { ComposerAttachment, MessageBubble } from "#/components/chat/message-bubble";
-import { MentionPopover, type MentionAction } from "#/components/brd/mention-popover";
+import { ComposerAttachment, MessageBubble } from "#/modules/chat/message-bubble";
+import { MentionPopover, type MentionAction } from "#/modules/brd/mention-popover";
 
 type AnviaChatProps = {
   sessionId: string;
@@ -50,6 +50,36 @@ export function AnviaChat({
   }, [chat.status, onStatusChange]);
 
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+
+  useEffect(() => {
+    const input = document.querySelector<HTMLTextAreaElement>(
+      `[data-chat-composer="${sessionId}"] textarea`,
+    );
+    if (!input) return;
+    const handleInput = () => {
+      const match = input.value.match(/(?:^|\s)@([^\s@]*)$/);
+      if (!match) {
+        setMentionOpen(false);
+        setMentionQuery("");
+        return;
+      }
+      setMentionQuery(match[1]);
+      setMentionOpen(true);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMentionOpen(false);
+        setMentionQuery("");
+      }
+    };
+    input.addEventListener("input", handleInput);
+    input.addEventListener("keydown", handleKeyDown);
+    return () => {
+      input.removeEventListener("input", handleInput);
+      input.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [sessionId]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -75,7 +105,10 @@ export function AnviaChat({
             </div>
           </ThreadPrimitive.Viewport>
 
-          <ComposerPrimitive.Root className="shrink-0 border-t bg-white px-3 py-3 md:px-4">
+          <ComposerPrimitive.Root
+            data-chat-composer={sessionId}
+            className="shrink-0 border-t bg-white px-3 py-3 md:px-4"
+          >
             <ComposerPrimitive.Attachments className="mb-2 flex flex-wrap items-center gap-2">
               {(attachment) => <ComposerAttachment key={attachment.id} />}
             </ComposerPrimitive.Attachments>
@@ -111,6 +144,7 @@ export function AnviaChat({
               {mentionOpen && (
                 <MentionPopover
                   sessionId={sessionId}
+                  query={mentionQuery}
                   onClose={() => setMentionOpen(false)}
                   onPick={(result, action) => {
                     onMention?.(result, action);

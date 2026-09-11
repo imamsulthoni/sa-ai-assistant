@@ -2,23 +2,24 @@ import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import type { UseChatStatus } from "@anvia/react";
-import { AnviaChat } from "#/components/chat/anvia-chat";
-import { ChatShell } from "#/components/chat/chat-shell";
-import { SessionSidebar } from "#/components/chat/session-sidebar";
-import { SettingsDialog } from "#/components/settings/settings-page";
-import { useSessions } from "#/hooks/use-sessions";
-import { useDocuments } from "#/hooks/use-documents";
-import { useBrds } from "#/hooks/use-brds";
-import { useVersionHistory } from "#/hooks/use-version-history";
-import { NewBrdPanel } from "#/components/brd/new-brd-panel";
-import { FeedbackForm, type ClarificationQuestion } from "#/components/brd/feedback-form";
-import { DocumentPane } from "#/components/brd/document-pane";
-import { VersionHistory } from "#/components/brd/version-history";
-import type { MentionAction } from "#/components/brd/mention-popover";
+import { AnviaChat } from "#/modules/chat/anvia-chat";
+import { ChatShell } from "#/modules/chat/chat-shell";
+import { SessionSidebar } from "#/modules/chat/session-sidebar";
+import { SettingsDialog } from "#/modules/settings/settings-page";
+import { useSessions } from "#/modules/chat/hooks/use-sessions";
+import { useDocuments } from "#/modules/chat/hooks/use-documents";
+import { useBrds } from "#/modules/brd/hooks/use-brds";
+import { useVersionHistory } from "#/modules/brd/hooks/use-version-history";
+import { NewBrdPanel } from "#/modules/brd/new-brd-panel";
+import { FeedbackForm, type ClarificationQuestion } from "#/modules/brd/feedback-form";
+import { DocumentPane } from "#/modules/brd/document-pane";
+import { VersionHistory } from "#/modules/brd/version-history";
+import type { MentionAction } from "#/modules/brd/mention-popover";
 import {
   createBrd,
   createBrdVersion,
   getBrd,
+  streamBrdFlow,
   uploadDocument,
   type BrdDocument,
   type SearchResult,
@@ -26,38 +27,6 @@ import {
 
 type ChatSearch = { session?: string };
 type Phase = "EMPTY_SESSION" | "CLARIFYING" | "GENERATING" | "BRD_ACTIVE";
-
-// Scaffold batches in the exact `clarification_questions` shape from PRD §4B.
-// Full integration parses these from the agent stream (S5); the form contract is identical.
-const ROUND_1_QUESTIONS: ClarificationQuestion[] = [
-  {
-    id: "outcome",
-    question: "What is the primary business outcome?",
-    options: ["Reduce manual work", "Improve control and auditability", "Enable new capability"],
-    required: true,
-  },
-  {
-    id: "failure",
-    question: "What should happen when the main operation fails?",
-    options: ["Retry automatically", "Show an actionable error", "Escalate to an operator"],
-    required: true,
-  },
-];
-
-const ROUND_2_QUESTIONS: ClarificationQuestion[] = [
-  {
-    id: "auth",
-    question: "Who is allowed to perform this operation?",
-    options: ["Any authenticated user", "Specific role only", "System-to-system"],
-    required: true,
-  },
-  {
-    id: "limit",
-    question: "Are there transaction limits or SLAs to capture?",
-    options: ["No explicit limit", "Time-bounded (define SLA)", "Volume-bounded (define quota)"],
-    required: false,
-  },
-];
 
 function parseSession(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -83,7 +52,10 @@ function Workspace() {
   const navigate = useNavigate();
   const onNavigate = useCallback(
     (id: string) => {
-      void navigate({ to: "/workspace", search: (prev) => ({ ...prev, session: id }) });
+      void navigate({
+        to: "/workspace",
+        search: (prev) => ({ ...prev, session: id }),
+      });
     },
     [navigate],
   );
@@ -105,6 +77,7 @@ function Workspace() {
   const [questions, setQuestions] = useState<ClarificationQuestion[]>([]);
   const [round, setRound] = useState(1);
   const [roundAnswers, setRoundAnswers] = useState<Record<string, string>>({});
+  const [userStory, setUserStory] = useState("");
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
@@ -121,27 +94,6 @@ function Workspace() {
       setPhase((prev) => (prev === "BRD_ACTIVE" ? "EMPTY_SESSION" : prev));
     }
   }, [brdState.active, brdState.loading]);
-
-  const generate = useCallback(
-    async (userStory: string, file?: File) => {
-      if (!activeId) return;
-      setFlowError(null);
-      try {
-        if (file) await uploadDocument(activeId, file);
-      } catch (caught) {
-        setFlowError(`Reference upload failed: ${messageOf(caught)}`);
-        return;
-      }
-      setRound(1);
-      setRoundAnswers({});
-      setQuestions(ROUND_1_QUESTIONS);
-      setDraft(
-        `# BRD draft\n\n## User Story\n${userStory}\n\n## ASSUMPTIONS\n- Clarifications pending.`,
-      );
-      setPhase("CLARIFYING");
-    },
-    [activeId],
-  );
 
   const persistV1 = useCallback(
     async (base: string, answers: Record<string, string>) => {
@@ -167,25 +119,79 @@ function Workspace() {
     [activeId, brdState],
   );
 
+  const generate = useCallback(
+    async (userStory: string, file?: File) => {
+      if (!activeId) return;
+      setFlowError(null);
+
+      try {
+        if (file) await uploadDocument(activeId, file);
+        setUserStory(userStory);
+        setPhase("GENERATING");
+        let clarificationQuestions: ClarificationQuestion[] = [];
+        await streamBrdFlow(activeId, { userStory, phase: "CLARIFY" }, setDraft, (questions) => {
+          clarificationQuestions = questions;
+        });
+        if (clarificationQuestions.length) {
+          setRound(1);
+          setQuestions(clarificationQuestions);
+          setPhase("CLARIFYING");
+          return;
+        }
+      } catch (caught) {
+        setFlowError(`Reference upload failed: ${messageOf(caught)}`);
+        return;
+      }
+    },
+    [activeId],
+  );
+
   const submitAnswers = useCallback(
     (answers: Record<string, string>) => {
       const merged = { ...roundAnswers, ...answers };
       setRoundAnswers(merged);
-      if (round < 2) {
-        setRound(2);
-        setQuestions(ROUND_2_QUESTIONS);
-        return;
-      }
-      setQuestions([]);
-      void persistV1(draft, merged);
+      setPhase("GENERATING");
+      void streamBrdFlow(
+        activeId ?? "",
+        {
+          userStory,
+          answers: merged,
+          phase: "GENERATE",
+        },
+        setDraft,
+      )
+        .then((markdown) => {
+          setQuestions([]);
+          return persistV1(markdown, merged);
+        })
+        .catch((caught) => {
+          setFlowError(messageOf(caught));
+          setPhase("CLARIFYING");
+        });
     },
-    [round, roundAnswers, draft, persistV1],
+    [activeId, roundAnswers, persistV1, userStory],
   );
 
   const skipClarification = useCallback(() => {
     setQuestions([]);
-    void persistV1(draft, roundAnswers);
-  }, [draft, roundAnswers, persistV1]);
+    setPhase("GENERATING");
+    void streamBrdFlow(
+      activeId ?? "",
+      {
+        userStory,
+        answers: roundAnswers,
+        phase: "GENERATE",
+      },
+      setDraft,
+    )
+      .then((markdown) => {
+        return persistV1(markdown, roundAnswers);
+      })
+      .catch((caught) => {
+        setFlowError(messageOf(caught));
+        setPhase("CLARIFYING");
+      });
+  }, [activeId, persistV1, roundAnswers, userStory]);
 
   const copyMention = useCallback(
     async (result: SearchResult) => {
@@ -299,6 +305,7 @@ function Workspace() {
               content={draft}
               onChange={setDraft}
               onSave={() => void history.save(draft)}
+              onChangeRequest={(markdown) => setDraft(markdown)}
               busy={history.busy}
             />
           )}

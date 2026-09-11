@@ -10,7 +10,9 @@
     "db:migrate": "pnpm with-env prisma migrate dev",
     "db:generate": "pnpm with-env prisma generate",
     "db:deploy": "pnpm with-env prisma deploy",
-    "db:studio": "pnpm with-env prisma studio"
+    "db:studio": "pnpm with-env prisma studio",
+    "smoke:chat-stream": "pnpm with-env tsx scripts/smoke-chat-stream.ts",
+    "check:agent-cache": "pnpm with-env tsx scripts/check-agent-cache.ts"
   },
   "dependencies": {
     "@anvia/client": "^1.1.2",

@@ -39,6 +39,7 @@ export const SearchQuerySchema = z.object({
 });
 
 export const ErrorResponseSchema = z.object({ error: z.string() });
+export const StreamProtocol = "application/x-ndjson" as const;
 export const BrdCreateResponseSchema = z.object({
   brd: z
     .object({ id: z.string(), currentVersion: z.number(), contentMarkdown: z.string() })

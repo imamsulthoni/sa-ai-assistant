@@ -1,73 +1,35 @@
-import type { UIMessage } from "@anvia/client";
+import type {
+  BrdDocument,
+  BrdFlowResponse,
+  BrdModificationResponse,
+  BrdVersion,
+  ClarificationQuestion,
+  DocumentSummary,
+  MessagesResponse,
+  SearchResult,
+  SessionSummary,
+  Settings,
+} from "./types.js";
+
+export type {
+  BrdDocument,
+  BrdFlowResponse,
+  BrdModificationResponse,
+  BrdVersion,
+  ClarificationQuestion,
+  DocumentSummary,
+  MessagesResponse,
+  SearchResult,
+  SessionSummary,
+  Settings,
+} from "./types.js";
 
 export const DEMO_USER_ID = "demo-user";
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-export type SessionSummary = {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  messageCount: number;
-};
-
-export type DocumentSummary = {
-  id: string;
-  title: string;
-  fileType: "PDF" | "MARKDOWN" | "IMAGE_FLOWCHART" | "DOCX" | "OTHER";
-  fileSize: number;
-  status: "UPLOADING" | "PROCESSING" | "READY" | "PENDING_CONFIRMATION" | "FAILED";
-  storageUrl: string;
-  createdAt: string;
-  error: string | null;
-};
-
-export type BrdVersion = {
-  id: string;
-  versionNumber: number;
-  contentMarkdown: string;
-  changeSummary: string | null;
-  createdBy: string;
-  createdAt: string;
-};
-
-export type BrdDocument = {
-  id: string;
-  sessionId: string;
-  title: string;
-  currentVersion: number;
-  contentMarkdown: string;
-  status: "DRAFT" | "IN_REVIEW" | "APPROVED";
-  createdAt: string;
-  updatedAt: string;
-  versions?: BrdVersion[];
-};
-
-export type Settings = {
-  id: string;
-  userId: string;
-  theme: "light" | "dark" | "system";
-  aiProvider: string;
-  aiModel: string;
-  customBaseUrl: string | null;
-  encryptedApiKey: string | null;
-  systemPrompt: string | null;
-  activeTemplateId: string | null;
-};
-
-export type SearchResult = {
-  type: "brd" | "document";
-  id: string;
-  title: string;
-  sessionId: string | null;
-  status?: string;
-  updatedAt: string;
-};
-
 type SessionResponse = { session: SessionSummary };
 type SessionsResponse = { sessions: SessionSummary[] };
-type MessagesResponse = { messages: UIMessage[] };
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -103,14 +65,26 @@ export function listSessions(): Promise<SessionsResponse> {
   return request("/sessions");
 }
 
-export function createSession(): Promise<SessionResponse> {
-  return request("/sessions", { method: "POST", body: "{}" });
+export function createSession(
+  input: { projectId?: string; templateId?: string } = {},
+): Promise<SessionResponse> {
+  return request("/sessions", { method: "POST", body: JSON.stringify(input) });
 }
 
 export function renameSession(id: string, title: string): Promise<SessionResponse> {
   return request(`/sessions/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify({ title }),
+  });
+}
+
+export function updateSessionTemplate(
+  id: string,
+  input: { projectId?: string | null; templateId?: string | null },
+): Promise<SessionResponse> {
+  return request(`/sessions/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
   });
 }
 
@@ -250,4 +224,96 @@ export function search(
   if (type) params.set("type", type);
   if (excludeSession) params.set("excludeSession", excludeSession);
   return request(`/search?${params}`);
+}
+
+export function runBrdFlow(
+  sessionId: string,
+  input: {
+    userStory: string;
+    answers?: Record<string, string>;
+    round?: number;
+    referenceContext?: string;
+  },
+): Promise<BrdFlowResponse> {
+  return request("/chat/flow", {
+    method: "POST",
+    headers: { "x-conversation-id": sessionId },
+    body: JSON.stringify(input),
+  });
+}
+
+export function modifyBrd(input: {
+  brd: string;
+  changeRequest: string;
+  referenceContext?: string;
+}): Promise<BrdModificationResponse> {
+  return request("/chat/modify", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function streamBrdFlow(
+  sessionId: string,
+  input: { userStory: string; answers?: Record<string, string>; phase: "CLARIFY" | "GENERATE" },
+  onText: (text: string) => void,
+  onClarification?: (questions: ClarificationQuestion[]) => void,
+): Promise<string> {
+  const prompt = input.answers
+    ? `${input.userStory}\n\nClarification answers:\n${Object.entries(input.answers)
+        .map(([key, value]) => `- ${key}: ${value}`)
+        .join("\n")}`
+    : input.userStory;
+  const response = await fetch(`${API_BASE}/chat/flow-stream`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-user-id": DEMO_USER_ID,
+      "x-conversation-id": sessionId,
+    },
+    body: JSON.stringify({
+      type: "messages",
+      messages: [
+        { id: crypto.randomUUID(), role: "user", parts: [{ type: "text", text: prompt }] },
+      ],
+      metadata: { phase: input.phase },
+    }),
+  });
+  if (!response.ok || !response.body) throw new Error(`BRD stream failed (${response.status})`);
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  let text = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += value;
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      type StreamEvent = {
+        type?: string;
+        name?: string;
+        data?: { clarification_questions?: ClarificationQuestion[] };
+        delta?: string;
+        text?: string;
+        status?: string;
+        error?: { message?: string };
+      };
+      const parsed = JSON.parse(line) as { event?: StreamEvent };
+      const payload = (parsed.event ?? parsed) as unknown as StreamEvent;
+      if (payload.type === "data" && payload.name === "clarification") {
+        onClarification?.(payload.data?.clarification_questions ?? []);
+      }
+      if (payload.type === "text_delta" && payload.delta) {
+        text += payload.delta;
+        onText(text);
+      }
+      if (payload.type === "text_end" && payload.text && !text) {
+        text = payload.text;
+        onText(text);
+      }
+      if (payload.type === "error") throw new Error(payload.error?.message ?? "BRD stream failed");
+      if (payload.type === "run_end" && payload.status === "error")
+        throw new Error("BRD stream failed");
+    }
+  }
+  return text;
 }

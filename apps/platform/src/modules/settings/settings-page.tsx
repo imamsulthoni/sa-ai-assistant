@@ -17,7 +17,7 @@ import {
   type DocumentSummary,
   type Settings,
 } from "#/lib/api";
-import { useSettings } from "#/hooks/use-settings";
+import { useSettings } from "#/modules/settings/hooks/use-settings";
 
 type TemplateStatus = DocumentSummary & {
   templateStructure?: unknown;

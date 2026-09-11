@@ -10,6 +10,7 @@ export function createBrdDraft(
   userStory: string,
   clarifications: readonly z.infer<typeof clarificationSchema>[],
   template: unknown,
+  referenceContext = "",
 ) {
   const clarificationText = clarifications.length
     ? clarifications.map((item) => `- ${item.id}: ${item.answer}`).join("\n")
@@ -18,7 +19,7 @@ export function createBrdDraft(
     ? []
     : ["Detail aktor, aturan validasi, dan skenario gagal perlu dikonfirmasi oleh System Analyst."];
   return {
-    markdown: `# BRD\n\n## 1. Document control\n- Status: Draft\n- Template: ${template ? "approved custom template" : "built-in default"}\n\n## 2. Summary and scope\n${userStory}\n\n## 3. Clarifications\n${clarificationText}\n\n## 4. Business requirements and rules\n### BR-001\nThe system shall implement the requested business outcome described in the user story.\n\n## 5. Functional requirements\n### FR-001\nThe system shall accept and process the requested user action and expose a clear success or failure outcome.\n\n## 6. Acceptance criteria\n- Given the stated user story, when the authorized actor performs the requested action, then the system produces the expected business outcome.\n\n## 7. Assumptions and open questions\n${assumptions.length ? assumptions.map((item) => `- ASSUMPTION: ${item}`).join("\n") : "- None identified from supplied context."}\n`,
+    markdown: `# BRD\n\n## 1. Document control\n- Status: Draft\n- Template: ${template ? "approved custom template" : "built-in default"}\n\n## 2. Summary and scope\n${userStory}\n\n## 3. Clarifications\n${clarificationText}\n\n## 4. Business requirements and rules\n### BR-001\nThe system shall implement the requested business outcome described in the user story.\n\n## 5. Functional requirements\n### FR-001\nThe system shall accept and process the requested user action and expose a clear success or failure outcome.\n\n## 6. Acceptance criteria\n- Given the stated user story, when the authorized actor performs the requested action, then the system produces the expected business outcome.\n\n## 7. Reference context\n${referenceContext.trim() || "- No reference context supplied."}\n\n## 8. Assumptions and open questions\n${assumptions.length ? assumptions.map((item) => `- ASSUMPTION: ${item}`).join("\n") : "- None identified from supplied context."}\n`,
     assumptions,
   };
 }
@@ -45,7 +46,7 @@ export const draftBrdTool = createTool({
         ],
       };
     }
-    const draft = createBrdDraft(userStory, clarifications, templateStructure);
+    const draft = createBrdDraft(userStory, clarifications, templateStructure, referenceContext);
     return {
       ready: true as const,
       ...draft,

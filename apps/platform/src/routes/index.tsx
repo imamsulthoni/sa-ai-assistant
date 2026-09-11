@@ -10,7 +10,7 @@ import {
   Sparkles,
   Upload,
 } from "lucide-react";
-import { SettingsDialog } from "#/components/settings/settings-page";
+import { SettingsDialog } from "#/modules/settings/settings-page";
 
 export const Route = createFileRoute("/")({ component: Landing });
 

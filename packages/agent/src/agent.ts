@@ -89,4 +89,19 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
   });
 }
 
+export function getSystemAnalystToolNames(options: CreateSystemAnalystAgentOptions = {}) {
+  const toolNames = [
+    "draft_brd",
+    "elicit_clarifications",
+    "modify_brd",
+    "answer_brd_question",
+    "verify_flowchart",
+    "search_context",
+    "get_template_structure",
+    "get_active_brd",
+    "web_search",
+  ];
+  return options.additionalTools ? toolNames.concat(options.additionalTools.map((tool) => tool.name)) : toolNames;
+}
+
 export { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";

@@ -11,6 +11,7 @@ type VersionHistoryProps = {
 
 export function VersionHistory({ brd, diff, onDiff, onRestore }: VersionHistoryProps) {
   const versions = brd.versions ?? [];
+  const diffLines = diff?.split("\n") ?? [];
 
   return (
     <aside className="flex w-full shrink-0 flex-col border-t bg-muted/30 lg:w-64 lg:border-l lg:border-t-0">
@@ -58,9 +59,26 @@ export function VersionHistory({ brd, diff, onDiff, onRestore }: VersionHistoryP
         {versions.length === 0 && <p className="text-xs text-muted-foreground">No versions yet.</p>}
       </div>
       {diff && (
-        <pre className="max-h-48 overflow-auto border-t bg-background p-3 text-[11px] leading-5 whitespace-pre-wrap">
-          {diff}
-        </pre>
+        <div className="max-h-64 overflow-auto border-t bg-background p-3 font-mono text-[11px] leading-5">
+          {diffLines.map((line, index) => {
+            const removed = line.startsWith("-");
+            const added = line.startsWith("+");
+            return (
+              <div
+                key={`${index}-${line}`}
+                className={
+                  removed
+                    ? "bg-red-100 px-1 text-red-800 dark:bg-red-950/40 dark:text-red-200"
+                    : added
+                      ? "bg-green-100 px-1 text-green-800 dark:bg-green-950/40 dark:text-green-200"
+                      : "px-1 text-muted-foreground"
+                }
+              >
+                {line || " "}
+              </div>
+            );
+          })}
+        </div>
       )}
     </aside>
   );
