@@ -1,18 +1,5 @@
-import {
-  MessagePrimitive,
-  useAttachment,
-  useMessage,
-  useMessagePart,
-} from "@anvia/react-ui";
-import {
-  Brain,
-  Copy,
-  FileText,
-  LoaderCircle,
-  RefreshCw,
-  Wrench,
-  X,
-} from "lucide-react";
+import { MessagePrimitive, useAttachment, useMessage, useMessagePart } from "@anvia/react-ui";
+import { Brain, Copy, FileText, LoaderCircle, RefreshCw, Wrench, X } from "lucide-react";
 
 export function MessageBubble() {
   const { message } = useMessage();
@@ -23,9 +10,7 @@ export function MessageBubble() {
       <div className="flex justify-end">
         <MessagePrimitive.Root className="max-w-[85%] rounded-2xl rounded-br-md bg-muted px-3 py-2 text-[15px] leading-7 sm:max-w-[75%]">
           <MessagePrimitive.Content>
-<MessagePrimitive.Parts>
-                {() => <UserPart />}
-              </MessagePrimitive.Parts>
+            <MessagePrimitive.Parts>{() => <UserPart />}</MessagePrimitive.Parts>
           </MessagePrimitive.Content>
         </MessagePrimitive.Root>
       </div>
@@ -37,9 +22,7 @@ export function MessageBubble() {
       <div className="flex max-w-[92%] flex-col gap-1.5 sm:max-w-[85%]">
         <MessagePrimitive.Root className="min-w-0">
           <MessagePrimitive.Content className="text-[15px] leading-7">
-            <MessagePrimitive.Parts>
-                {() => <AssistantPart />}
-              </MessagePrimitive.Parts>
+            <MessagePrimitive.Parts>{() => <AssistantPart />}</MessagePrimitive.Parts>
           </MessagePrimitive.Content>
         </MessagePrimitive.Root>
         <MessagePrimitive.Actions className="flex items-center gap-1 pl-1 opacity-100 focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
@@ -76,9 +59,7 @@ function AssistantPart() {
   const { part } = useMessagePart();
   switch (part.type) {
     case "text":
-      return (
-        <MessagePrimitive.Markdown className="min-w-0 whitespace-pre-wrap" />
-      );
+      return <MessagePrimitive.Markdown className="min-w-0 whitespace-pre-wrap" />;
     case "reasoning":
       return (
         <MessagePrimitive.Reasoning className="my-2 rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
@@ -100,9 +81,13 @@ function AssistantPart() {
         </MessagePrimitive.Attachment>
       );
     case "data":
-      return <MessagePrimitive.Data className="my-2 overflow-auto rounded-lg bg-muted/50 p-2 text-xs" />;
+      return (
+        <MessagePrimitive.Data className="my-2 overflow-auto rounded-lg bg-muted/50 p-2 text-xs" />
+      );
     default:
-      return <MessagePrimitive.Error className="my-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive" />;
+      return (
+        <MessagePrimitive.Error className="my-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive" />
+      );
   }
 }
 
@@ -110,8 +95,7 @@ function ToolCall() {
   const { part } = useMessagePart();
   if (part.type !== "tool") return null;
 
-  const running =
-    part.state === "input-streaming" || part.state === "input-available";
+  const running = part.state === "input-streaming" || part.state === "input-available";
 
   return (
     <MessagePrimitive.Tool className="my-2 inline-flex max-w-full items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
@@ -125,9 +109,7 @@ function ToolCall() {
       ) : (
         <MessagePrimitive.ToolStatus className="shrink-0" />
       )}
-      {part.state === "error" && (
-        <MessagePrimitive.ToolError className="text-destructive" />
-      )}
+      {part.state === "error" && <MessagePrimitive.ToolError className="text-destructive" />}
     </MessagePrimitive.Tool>
   );
 }
@@ -138,8 +120,7 @@ function AttachmentView({
   attachment: { name?: string; mediaType?: string; url?: string; data?: string };
 }) {
   const isImage =
-    attachment.mediaType?.startsWith("image/") ||
-    attachment.url?.startsWith("data:image/");
+    attachment.mediaType?.startsWith("image/") || attachment.url?.startsWith("data:image/");
 
   return (
     <div className="my-1 flex max-w-full items-center gap-2 overflow-hidden rounded-lg border bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground">
@@ -158,9 +139,7 @@ export function ComposerAttachment() {
   return (
     <div className="flex items-center gap-2 rounded-md border bg-muted px-2 py-1 text-xs text-foreground">
       <FileText size={14} className="shrink-0 text-muted-foreground" />
-      <span className="max-w-36 truncate sm:max-w-48">
-        {attachment.name ?? "Attachment"}
-      </span>
+      <span className="max-w-36 truncate sm:max-w-48">{attachment.name ?? "Attachment"}</span>
       {remove && (
         <button
           type="button"

@@ -72,12 +72,11 @@ GET    /documents       List documents for the active session
 DELETE /documents/:id   Delete a document and its R2 object
 ```
 
-The current upload milestone only stores files in R2 and marks them as
-`READY`. The BullMQ enqueue call in
-`apps/api/src/modules/document/router.ts` is intentionally commented out while
-the storage flow is being validated. OCR, summaries, embeddings, and Qdrant
-indexing remain implemented in `apps/api/src/worker/`, but are not triggered by
-uploads until that block is enabled.
+Uploads are stored in R2 and enqueued to the `doc-ingestion` BullMQ queue.
+The worker performs Markdown/DOCX extraction or OCR, stores pages and summary,
+embeds page content, and indexes it in Qdrant with user/session isolation.
+Template documents are subsequently sent to `template-extract`; flowchart
+images are sent to `flowchart-verify`.
 
 Required R2 configuration:
 
@@ -88,6 +87,7 @@ R2_SECRET_ACCESS_KEY=
 R2_BUCKET_NAME=
 R2_PUBLIC_BASE_URL=
 ```
+
 ## Useful commands
 
 ```sh

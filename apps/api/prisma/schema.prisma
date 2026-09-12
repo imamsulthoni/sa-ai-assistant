@@ -16,11 +16,13 @@ model AgentMemorySession {
   userId    String?
   title     String?
   metadata  Json
+  projectId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   messages AgentMemoryMessage[]
   errors   AgentMemoryError[]
+  project  Project? @relation(fields: [projectId], references: [id])
 
   @@index([sessionId, userId])
 }
@@ -56,6 +58,7 @@ enum DocumentStatus {
   UPLOADING
   PROCESSING
   READY
+  PENDING_CONFIRMATION
   FAILED
 }
 
@@ -79,13 +82,15 @@ model Document {
   objectKey   String         @unique
   fileSize    Int
   status      DocumentStatus @default(UPLOADING)
-  ocrResult   String?
   summary     String?
+  templateStructure Json?
+  report       Json?
   error       String?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  pages DocumentPage[]
+  pages   DocumentPage[]
+  project Project? @relation(fields: [projectId], references: [id])
 
   @@index([sessionId, userId])
   @@index([projectId])
@@ -103,4 +108,62 @@ model DocumentPage {
 
   @@unique([documentId, pageNumber])
   @@index([documentId])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  templateId  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions  AgentMemorySession[]
+  documents Document[]
+}
+
+model BrdDocument {
+  id              String   @id @default(cuid())
+  userId          String
+  sessionId       String
+  title           String
+  currentVersion  Int      @default(1)
+  contentMarkdown String
+  status          String   @default("DRAFT")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  versions BrdVersion[]
+
+  @@index([userId, sessionId])
+  @@index([userId, title])
+}
+
+model BrdVersion {
+  id              String   @id @default(cuid())
+  brdDocumentId   String
+  versionNumber   Int
+  contentMarkdown String
+  changeSummary   String?
+  createdBy       String   @default("AI_AGENT")
+  createdAt       DateTime @default(now())
+
+  brdDocument BrdDocument @relation(fields: [brdDocumentId], references: [id], onDelete: Cascade)
+
+  @@unique([brdDocumentId, versionNumber])
+  @@index([brdDocumentId])
+}
+
+model UserSetting {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  theme            String   @default("system")
+  aiProvider       String   @default("openai")
+  aiModel          String   @default("gpt-4o-mini")
+  customBaseUrl    String?
+  encryptedApiKey  String?
+  systemPrompt     String?
+  activeTemplateId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

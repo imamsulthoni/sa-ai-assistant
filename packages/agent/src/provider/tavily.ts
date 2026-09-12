@@ -14,9 +14,7 @@ export interface TavilyProviderOptions {
   apiKey?: string;
 }
 
-export function createTavilyProvider(
-  options: TavilyProviderOptions = {},
-): TavilyProvider {
+export function createTavilyProvider(options: TavilyProviderOptions = {}): TavilyProvider {
   const apiKey = options.apiKey ?? process.env.TAVILY_API_KEY;
   const client = apiKey ? tavily({ apiKey }) : undefined;
   return {
@@ -45,12 +43,13 @@ export interface ContextChunk {
 }
 
 export interface ContextRetriever {
-  retrieve(query: string, options?: { limit?: number; sessionId?: string }): Promise<readonly ContextChunk[]>;
+  retrieve(
+    query: string,
+    options?: { limit?: number; sessionId?: string },
+  ): Promise<readonly ContextChunk[]>;
 }
 
-export function createContextRetriever(
-  retrieve: ContextRetriever["retrieve"],
-): ContextRetriever {
+export function createContextRetriever(retrieve: ContextRetriever["retrieve"]): ContextRetriever {
   return {
     async retrieve(query, options) {
       const normalized = query.trim();

@@ -7,9 +7,7 @@ export interface LangfuseTracing {
 }
 
 export function createTracing(): LangfuseTracing {
-  const enabled = Boolean(
-    process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY,
-  );
+  const enabled = Boolean(process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY);
   const langfuse = new LangfuseClient({
     secretKey: process.env.LANGFUSE_SECRET_KEY,
     publicKey: process.env.LANGFUSE_PUBLIC_KEY,

@@ -1,0 +1,1 @@
+ALTER TABLE "Document" DROP COLUMN IF EXISTS "ocrResult";

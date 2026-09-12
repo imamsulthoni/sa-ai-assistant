@@ -38,9 +38,7 @@ export function ChatShell({ sidebar, headerAction, children }: ChatShellProps) {
                 Close
               </Button>
             </div>
-            <div className="min-h-0 flex-1 px-2 pb-2">
-              {sidebar}
-            </div>
+            <div className="min-h-0 flex-1 px-2 pb-2">{sidebar}</div>
           </aside>
         </div>
       )}
@@ -65,9 +63,7 @@ export function ChatShell({ sidebar, headerAction, children }: ChatShellProps) {
             </span>
           </div>
 
-          <div className="ml-auto flex items-center gap-1">
-            {headerAction}
-          </div>
+          <div className="ml-auto flex items-center gap-1">{headerAction}</div>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>

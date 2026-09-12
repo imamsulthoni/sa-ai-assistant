@@ -55,7 +55,11 @@ export const ModelName = {
   AgentMemoryMessage: 'AgentMemoryMessage',
   AgentMemoryError: 'AgentMemoryError',
   Document: 'Document',
-  DocumentPage: 'DocumentPage'
+  DocumentPage: 'DocumentPage',
+  Project: 'Project',
+  BrdDocument: 'BrdDocument',
+  BrdVersion: 'BrdVersion',
+  UserSetting: 'UserSetting'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -81,6 +85,7 @@ export const AgentMemorySessionScalarFieldEnum = {
   userId: 'userId',
   title: 'title',
   metadata: 'metadata',
+  projectId: 'projectId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -126,8 +131,9 @@ export const DocumentScalarFieldEnum = {
   objectKey: 'objectKey',
   fileSize: 'fileSize',
   status: 'status',
-  ocrResult: 'ocrResult',
   summary: 'summary',
+  templateStructure: 'templateStructure',
+  report: 'report',
   error: 'error',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -148,6 +154,63 @@ export const DocumentPageScalarFieldEnum = {
 export type DocumentPageScalarFieldEnum = (typeof DocumentPageScalarFieldEnum)[keyof typeof DocumentPageScalarFieldEnum]
 
 
+export const ProjectScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  templateId: 'templateId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ProjectScalarFieldEnum = (typeof ProjectScalarFieldEnum)[keyof typeof ProjectScalarFieldEnum]
+
+
+export const BrdDocumentScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  sessionId: 'sessionId',
+  title: 'title',
+  currentVersion: 'currentVersion',
+  contentMarkdown: 'contentMarkdown',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BrdDocumentScalarFieldEnum = (typeof BrdDocumentScalarFieldEnum)[keyof typeof BrdDocumentScalarFieldEnum]
+
+
+export const BrdVersionScalarFieldEnum = {
+  id: 'id',
+  brdDocumentId: 'brdDocumentId',
+  versionNumber: 'versionNumber',
+  contentMarkdown: 'contentMarkdown',
+  changeSummary: 'changeSummary',
+  createdBy: 'createdBy',
+  createdAt: 'createdAt'
+} as const
+
+export type BrdVersionScalarFieldEnum = (typeof BrdVersionScalarFieldEnum)[keyof typeof BrdVersionScalarFieldEnum]
+
+
+export const UserSettingScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  theme: 'theme',
+  aiProvider: 'aiProvider',
+  aiModel: 'aiModel',
+  customBaseUrl: 'customBaseUrl',
+  encryptedApiKey: 'encryptedApiKey',
+  systemPrompt: 'systemPrompt',
+  activeTemplateId: 'activeTemplateId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type UserSettingScalarFieldEnum = (typeof UserSettingScalarFieldEnum)[keyof typeof UserSettingScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -161,6 +224,14 @@ export const JsonNullValueInput = {
 } as const
 
 export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const QueryMode = {
