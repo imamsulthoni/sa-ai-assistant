@@ -1,6 +1,7 @@
 import { MistralClient } from "@anvia/mistral";
 import type { Job } from "bullmq";
 import { prisma } from "../lib/prisma.js";
+import { documentUrl } from "../modules/document/services.js";
 import type { FlowchartVerificationJob } from "../lib/queue.js";
 
 const mistral = new MistralClient({ apiKey: process.env.MISTRAL_API_KEY ?? "" });
@@ -48,7 +49,7 @@ export async function verifyFlowchart(job: Job<FlowchartVerificationJob>) {
   });
   try {
     const result = await ocrModel.ocr({
-      source: { type: "document_url", url: document.storageUrl },
+      source: { type: "document_url", url: documentUrl(document.objectKey) },
       includeImageBase64: false,
     });
     const flowchart = result.pages.map((page) => page.markdown).join("\n\n");

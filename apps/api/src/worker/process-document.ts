@@ -9,7 +9,7 @@ import { OpenAIClient } from "@anvia/openai";
 import { QdrantVectorClient } from "@anvia/qdrant";
 import type { Job } from "bullmq";
 import { prisma } from "../lib/prisma.js";
-import { downloadDocument } from "../modules/document/services.js";
+import { documentUrl, downloadDocument } from "../modules/document/services.js";
 import { templateQueue, retryPolicies, type DocumentIngestionJob } from "../lib/queue.js";
 import mammoth from "mammoth";
 
@@ -135,7 +135,7 @@ export async function processDocument(job: Job<DocumentIngestionJob>) {
       pages = await pagesFromDocx(document.objectKey);
     } else {
       const result = await ocrModel.ocr({
-        source: { type: "document_url", url: document.storageUrl },
+        source: { type: "document_url", url: documentUrl(document.objectKey) },
         includeImageBase64: false,
       });
       pages = result.pages.map((page) => ({
