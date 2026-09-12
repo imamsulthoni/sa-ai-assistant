@@ -46,7 +46,6 @@ export type DocumentMinAggregateOutputType = {
   objectKey: string | null
   fileSize: number | null
   status: $Enums.DocumentStatus | null
-  ocrResult: string | null
   summary: string | null
   error: string | null
   createdAt: Date | null
@@ -65,7 +64,6 @@ export type DocumentMaxAggregateOutputType = {
   objectKey: string | null
   fileSize: number | null
   status: $Enums.DocumentStatus | null
-  ocrResult: string | null
   summary: string | null
   error: string | null
   createdAt: Date | null
@@ -84,7 +82,6 @@ export type DocumentCountAggregateOutputType = {
   objectKey: number
   fileSize: number
   status: number
-  ocrResult: number
   summary: number
   templateStructure: number
   report: number
@@ -115,7 +112,6 @@ export type DocumentMinAggregateInputType = {
   objectKey?: true
   fileSize?: true
   status?: true
-  ocrResult?: true
   summary?: true
   error?: true
   createdAt?: true
@@ -134,7 +130,6 @@ export type DocumentMaxAggregateInputType = {
   objectKey?: true
   fileSize?: true
   status?: true
-  ocrResult?: true
   summary?: true
   error?: true
   createdAt?: true
@@ -153,7 +148,6 @@ export type DocumentCountAggregateInputType = {
   objectKey?: true
   fileSize?: true
   status?: true
-  ocrResult?: true
   summary?: true
   templateStructure?: true
   report?: true
@@ -261,7 +255,6 @@ export type DocumentGroupByOutputType = {
   objectKey: string
   fileSize: number
   status: $Enums.DocumentStatus
-  ocrResult: string | null
   summary: string | null
   templateStructure: runtime.JsonValue | null
   report: runtime.JsonValue | null
@@ -305,7 +298,6 @@ export type DocumentWhereInput = {
   objectKey?: Prisma.StringFilter<"Document"> | string
   fileSize?: Prisma.IntFilter<"Document"> | number
   status?: Prisma.EnumDocumentStatusFilter<"Document"> | $Enums.DocumentStatus
-  ocrResult?: Prisma.StringNullableFilter<"Document"> | string | null
   summary?: Prisma.StringNullableFilter<"Document"> | string | null
   templateStructure?: Prisma.JsonNullableFilter<"Document">
   report?: Prisma.JsonNullableFilter<"Document">
@@ -328,7 +320,6 @@ export type DocumentOrderByWithRelationInput = {
   objectKey?: Prisma.SortOrder
   fileSize?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  ocrResult?: Prisma.SortOrderInput | Prisma.SortOrder
   summary?: Prisma.SortOrderInput | Prisma.SortOrder
   templateStructure?: Prisma.SortOrderInput | Prisma.SortOrder
   report?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -354,7 +345,6 @@ export type DocumentWhereUniqueInput = Prisma.AtLeast<{
   storageUrl?: Prisma.StringFilter<"Document"> | string
   fileSize?: Prisma.IntFilter<"Document"> | number
   status?: Prisma.EnumDocumentStatusFilter<"Document"> | $Enums.DocumentStatus
-  ocrResult?: Prisma.StringNullableFilter<"Document"> | string | null
   summary?: Prisma.StringNullableFilter<"Document"> | string | null
   templateStructure?: Prisma.JsonNullableFilter<"Document">
   report?: Prisma.JsonNullableFilter<"Document">
@@ -377,7 +367,6 @@ export type DocumentOrderByWithAggregationInput = {
   objectKey?: Prisma.SortOrder
   fileSize?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  ocrResult?: Prisma.SortOrderInput | Prisma.SortOrder
   summary?: Prisma.SortOrderInput | Prisma.SortOrder
   templateStructure?: Prisma.SortOrderInput | Prisma.SortOrder
   report?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -406,7 +395,6 @@ export type DocumentScalarWhereWithAggregatesInput = {
   objectKey?: Prisma.StringWithAggregatesFilter<"Document"> | string
   fileSize?: Prisma.IntWithAggregatesFilter<"Document"> | number
   status?: Prisma.EnumDocumentStatusWithAggregatesFilter<"Document"> | $Enums.DocumentStatus
-  ocrResult?: Prisma.StringNullableWithAggregatesFilter<"Document"> | string | null
   summary?: Prisma.StringNullableWithAggregatesFilter<"Document"> | string | null
   templateStructure?: Prisma.JsonNullableWithAggregatesFilter<"Document">
   report?: Prisma.JsonNullableWithAggregatesFilter<"Document">
@@ -426,7 +414,6 @@ export type DocumentCreateInput = {
   objectKey: string
   fileSize: number
   status?: $Enums.DocumentStatus
-  ocrResult?: string | null
   summary?: string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -449,7 +436,6 @@ export type DocumentUncheckedCreateInput = {
   objectKey: string
   fileSize: number
   status?: $Enums.DocumentStatus
-  ocrResult?: string | null
   summary?: string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -470,7 +456,6 @@ export type DocumentUpdateInput = {
   objectKey?: Prisma.StringFieldUpdateOperationsInput | string
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus
-  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -493,7 +478,6 @@ export type DocumentUncheckedUpdateInput = {
   objectKey?: Prisma.StringFieldUpdateOperationsInput | string
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus
-  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -515,7 +499,6 @@ export type DocumentCreateManyInput = {
   objectKey: string
   fileSize: number
   status?: $Enums.DocumentStatus
-  ocrResult?: string | null
   summary?: string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -535,7 +518,6 @@ export type DocumentUpdateManyMutationInput = {
   objectKey?: Prisma.StringFieldUpdateOperationsInput | string
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus
-  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -556,7 +538,6 @@ export type DocumentUncheckedUpdateManyInput = {
   objectKey?: Prisma.StringFieldUpdateOperationsInput | string
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus
-  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -577,7 +558,6 @@ export type DocumentCountOrderByAggregateInput = {
   objectKey?: Prisma.SortOrder
   fileSize?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  ocrResult?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   templateStructure?: Prisma.SortOrder
   report?: Prisma.SortOrder
@@ -602,7 +582,6 @@ export type DocumentMaxOrderByAggregateInput = {
   objectKey?: Prisma.SortOrder
   fileSize?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  ocrResult?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   error?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -621,7 +600,6 @@ export type DocumentMinOrderByAggregateInput = {
   objectKey?: Prisma.SortOrder
   fileSize?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  ocrResult?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   error?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -726,7 +704,6 @@ export type DocumentCreateWithoutPagesInput = {
   objectKey: string
   fileSize: number
   status?: $Enums.DocumentStatus
-  ocrResult?: string | null
   summary?: string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -748,7 +725,6 @@ export type DocumentUncheckedCreateWithoutPagesInput = {
   objectKey: string
   fileSize: number
   status?: $Enums.DocumentStatus
-  ocrResult?: string | null
   summary?: string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -784,7 +760,6 @@ export type DocumentUpdateWithoutPagesInput = {
   objectKey?: Prisma.StringFieldUpdateOperationsInput | string
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus
-  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -806,7 +781,6 @@ export type DocumentUncheckedUpdateWithoutPagesInput = {
   objectKey?: Prisma.StringFieldUpdateOperationsInput | string
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus
-  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -826,7 +800,6 @@ export type DocumentCreateWithoutProjectInput = {
   objectKey: string
   fileSize: number
   status?: $Enums.DocumentStatus
-  ocrResult?: string | null
   summary?: string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -847,7 +820,6 @@ export type DocumentUncheckedCreateWithoutProjectInput = {
   objectKey: string
   fileSize: number
   status?: $Enums.DocumentStatus
-  ocrResult?: string | null
   summary?: string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -898,7 +870,6 @@ export type DocumentScalarWhereInput = {
   objectKey?: Prisma.StringFilter<"Document"> | string
   fileSize?: Prisma.IntFilter<"Document"> | number
   status?: Prisma.EnumDocumentStatusFilter<"Document"> | $Enums.DocumentStatus
-  ocrResult?: Prisma.StringNullableFilter<"Document"> | string | null
   summary?: Prisma.StringNullableFilter<"Document"> | string | null
   templateStructure?: Prisma.JsonNullableFilter<"Document">
   report?: Prisma.JsonNullableFilter<"Document">
@@ -918,7 +889,6 @@ export type DocumentCreateManyProjectInput = {
   objectKey: string
   fileSize: number
   status?: $Enums.DocumentStatus
-  ocrResult?: string | null
   summary?: string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -938,7 +908,6 @@ export type DocumentUpdateWithoutProjectInput = {
   objectKey?: Prisma.StringFieldUpdateOperationsInput | string
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus
-  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -959,7 +928,6 @@ export type DocumentUncheckedUpdateWithoutProjectInput = {
   objectKey?: Prisma.StringFieldUpdateOperationsInput | string
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus
-  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -980,7 +948,6 @@ export type DocumentUncheckedUpdateManyWithoutProjectInput = {
   objectKey?: Prisma.StringFieldUpdateOperationsInput | string
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumDocumentStatusFieldUpdateOperationsInput | $Enums.DocumentStatus
-  ocrResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   templateStructure?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   report?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1032,7 +999,6 @@ export type DocumentSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   objectKey?: boolean
   fileSize?: boolean
   status?: boolean
-  ocrResult?: boolean
   summary?: boolean
   templateStructure?: boolean
   report?: boolean
@@ -1056,7 +1022,6 @@ export type DocumentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   objectKey?: boolean
   fileSize?: boolean
   status?: boolean
-  ocrResult?: boolean
   summary?: boolean
   templateStructure?: boolean
   report?: boolean
@@ -1078,7 +1043,6 @@ export type DocumentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   objectKey?: boolean
   fileSize?: boolean
   status?: boolean
-  ocrResult?: boolean
   summary?: boolean
   templateStructure?: boolean
   report?: boolean
@@ -1100,7 +1064,6 @@ export type DocumentSelectScalar = {
   objectKey?: boolean
   fileSize?: boolean
   status?: boolean
-  ocrResult?: boolean
   summary?: boolean
   templateStructure?: boolean
   report?: boolean
@@ -1109,7 +1072,7 @@ export type DocumentSelectScalar = {
   updatedAt?: boolean
 }
 
-export type DocumentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "sessionId" | "projectId" | "title" | "fileType" | "isTemplate" | "storageUrl" | "objectKey" | "fileSize" | "status" | "ocrResult" | "summary" | "templateStructure" | "report" | "error" | "createdAt" | "updatedAt", ExtArgs["result"]["document"]>
+export type DocumentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "sessionId" | "projectId" | "title" | "fileType" | "isTemplate" | "storageUrl" | "objectKey" | "fileSize" | "status" | "summary" | "templateStructure" | "report" | "error" | "createdAt" | "updatedAt", ExtArgs["result"]["document"]>
 export type DocumentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   pages?: boolean | Prisma.Document$pagesArgs<ExtArgs>
   project?: boolean | Prisma.Document$projectArgs<ExtArgs>
@@ -1140,7 +1103,6 @@ export type $DocumentPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     objectKey: string
     fileSize: number
     status: $Enums.DocumentStatus
-    ocrResult: string | null
     summary: string | null
     templateStructure: runtime.JsonValue | null
     report: runtime.JsonValue | null
@@ -1583,7 +1545,6 @@ export interface DocumentFieldRefs {
   readonly objectKey: Prisma.FieldRef<"Document", 'String'>
   readonly fileSize: Prisma.FieldRef<"Document", 'Int'>
   readonly status: Prisma.FieldRef<"Document", 'DocumentStatus'>
-  readonly ocrResult: Prisma.FieldRef<"Document", 'String'>
   readonly summary: Prisma.FieldRef<"Document", 'String'>
   readonly templateStructure: Prisma.FieldRef<"Document", 'Json'>
   readonly report: Prisma.FieldRef<"Document", 'Json'>

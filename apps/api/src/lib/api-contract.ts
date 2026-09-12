@@ -32,6 +32,13 @@ export const SettingsPatchSchema = z.object({
   systemPrompt: z.string().max(20_000).nullable().optional(),
 });
 
+// Structure is validated and normalized server-side via the agent package
+// (normalizeTemplateStructure) before it is persisted.
+export const TemplateStructurePatchSchema = z.object({
+  templateStructure: z.unknown(),
+});
+export type TemplateStructurePatchInput = z.infer<typeof TemplateStructurePatchSchema>;
+
 export const SearchQuerySchema = z.object({
   q: z.string().trim().min(1).max(200),
   type: z.enum(["brd", "document"]).optional(),
@@ -74,3 +81,4 @@ export const ContractDateSchema = isoDate;
 export type BrdCreateInput = z.infer<typeof BrdCreateSchema>;
 export type BrdVersionCreateInput = z.infer<typeof BrdVersionCreateSchema>;
 export type SettingsPatchInput = z.infer<typeof SettingsPatchSchema>;
+

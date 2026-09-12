@@ -82,7 +82,6 @@ model Document {
   objectKey   String         @unique
   fileSize    Int
   status      DocumentStatus @default(UPLOADING)
-  ocrResult   String?
   summary     String?
   templateStructure Json?
   report       Json?

@@ -10,6 +10,16 @@ export function agentFingerprint(
   settingsUpdatedAt: string | undefined,
   phase: AgentPhase | undefined,
   brdId?: string,
+  templateId = "none",
+  templateUpdatedAt = "none",
 ): string {
-  return JSON.stringify([userId, sessionId, settingsUpdatedAt ?? "none", phase, brdId]);
+  return JSON.stringify([
+    userId,
+    sessionId,
+    settingsUpdatedAt ?? "none",
+    phase,
+    brdId,
+    templateId,
+    templateUpdatedAt,
+  ]);
 }

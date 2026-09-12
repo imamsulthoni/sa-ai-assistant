@@ -6,7 +6,10 @@ import {
   createBrdDraft,
   createSystemAnalystAgent,
   distillContext,
+  normalizeTemplateStructure,
+  templateInstructionBlock,
   type AgentContextAdapters,
+  type BrdTemplateStructure,
 } from "@sa-ai-assistant/agent";
 import { PrismaMemoryStore } from "@anvia/memory-prisma";
 import { retrieveDocuments, vectorFilter } from "@anvia/core/vector-store";
@@ -106,6 +109,21 @@ async function adaptersFor(
   };
 }
 
+async function activeTemplateFor(
+  userId: string,
+): Promise<{ templateId: string; updatedAt: string; structure: BrdTemplateStructure } | null> {
+  const settings = await prisma.userSetting.findUnique({ where: { userId } });
+  if (!settings?.activeTemplateId) return null;
+  const template = await prisma.document.findFirst({
+    where: { id: settings.activeTemplateId, userId, isTemplate: true, status: "READY" },
+    select: { id: true, templateStructure: true, updatedAt: true },
+  });
+  if (!template) return null;
+  const structure = normalizeTemplateStructure(template.templateStructure);
+  if (!structure) return null;
+  return { templateId: template.id, updatedAt: template.updatedAt.toISOString(), structure };
+}
+
 export async function agentFor(
   userId: string,
   sessionId: string,
@@ -113,12 +131,15 @@ export async function agentFor(
   brdId?: string,
 ) {
   const settings = await prisma.userSetting.findUnique({ where: { userId } });
+  const activeTemplate = await activeTemplateFor(userId);
   const fingerprint = agentFingerprint(
     userId,
     sessionId,
     settings?.updatedAt?.toISOString(),
     phase,
     brdId,
+    activeTemplate?.templateId,
+    activeTemplate?.updatedAt,
   );
   const cacheKey = agentCacheKey(userId, sessionId);
   const cached = agentCache.get(cacheKey);
@@ -131,6 +152,9 @@ export async function agentFor(
     baseUrl: undefined,
     phase,
     systemPrompt: settings?.systemPrompt ?? undefined,
+    templateInstruction: activeTemplate
+      ? templateInstructionBlock(activeTemplate.structure)
+      : undefined,
     contextAdapters: await adaptersFor(userId, sessionId, brdId),
     memory: { store: memory, savePolicy: "turn" },
     enableTracing: false,
@@ -216,10 +240,11 @@ export async function runBrdFlow(
     };
   }
 
+  const activeTemplate = await activeTemplateFor(userId);
   const draft = createBrdDraft(
     userStory,
     Object.entries(answers).map(([id, answer]) => ({ id, answer })),
-    undefined,
+    activeTemplate?.structure,
     referenceContext,
   );
 

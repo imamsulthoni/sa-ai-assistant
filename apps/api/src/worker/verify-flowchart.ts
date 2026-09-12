@@ -75,7 +75,7 @@ export async function verifyFlowchart(job: Job<FlowchartVerificationJob>) {
     };
     await prisma.document.update({
       where: { id: document.id },
-      data: { report, ocrResult: flowchart, status: "READY", error: null },
+      data: { report, status: "READY", error: null },
     });
   } catch (error) {
     await prisma.document.update({

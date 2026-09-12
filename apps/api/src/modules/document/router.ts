@@ -99,7 +99,6 @@ export const documentModule = new Hono()
         isTemplate: true,
         status: true,
         summary: true,
-        ocrResult: true,
         templateStructure: true,
         report: true,
         error: true,

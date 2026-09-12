@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { normalizeTemplateStructure } from "@sa-ai-assistant/agent";
 import { USER_ID_HEADER, CONVERSATION_ID_HEADER, resolveUserId } from "../../lib/identity.js";
 import { SettingsPatchSchema } from "../../lib/api-contract.js";
 import {
@@ -12,6 +13,7 @@ import {
   getSettings,
   getTemplate,
   patchSettings,
+  patchTemplateStructure,
   rejectTemplate,
   uploadTemplate,
 } from "./services.js";
@@ -48,6 +50,20 @@ export const settingsModule = new Hono()
   })
   .get("/template/:id", async (c) => {
     const document = await getTemplate(user(c), c.req.param("id"));
+    return document ? c.json({ document }) : c.json({ error: "Template not found" }, 404);
+  })
+  .patch("/template/:id", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { templateStructure?: unknown } | null;
+    if (!body || body.templateStructure === undefined) {
+      return c.json({ error: "templateStructure is required" }, 400);
+    }
+    const normalized = normalizeTemplateStructure(body.templateStructure);
+    if (!normalized) return c.json({ error: "Invalid template structure" }, 400);
+    const owner = user(c);
+    if (!(await patchTemplateStructure(owner, c.req.param("id"), normalized))) {
+      return c.json({ error: "Template not found" }, 404);
+    }
+    const document = await getTemplate(owner, c.req.param("id"));
     return document ? c.json({ document }) : c.json({ error: "Template not found" }, 404);
   })
   .post("/template/:id/approve", async (c) => {

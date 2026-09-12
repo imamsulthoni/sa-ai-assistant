@@ -131,7 +131,6 @@ export const DocumentScalarFieldEnum = {
   objectKey: 'objectKey',
   fileSize: 'fileSize',
   status: 'status',
-  ocrResult: 'ocrResult',
   summary: 'summary',
   templateStructure: 'templateStructure',
   report: 'report',

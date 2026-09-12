@@ -36,6 +36,8 @@ export interface CreateSystemAnalystAgentOptions {
   phase?: "CLARIFY" | "GENERATE" | "QA";
   contextAdapters?: AgentContextAdapters;
   systemPrompt?: string;
+  /** Rendered active BRD template guidance; output MUST follow it when present. */
+  templateInstruction?: string;
 }
 
 export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOptions = {}) {
@@ -63,7 +65,7 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
     name: "System Analyst AI Assistant",
     description: "Drafts and reviews BRDs and grounded specifications.",
     model,
-    instructions: `${SYSTEM_ANALYST_INSTRUCTIONS}\n\n${BRD_OUTPUT_GUIDANCE}${options.systemPrompt ? `\n\nAdditional user instructions:\n${options.systemPrompt}` : ""}`,
+    instructions: `${SYSTEM_ANALYST_INSTRUCTIONS}\n\n${BRD_OUTPUT_GUIDANCE}${options.templateInstruction ? `\n\n${options.templateInstruction}` : ""}${options.systemPrompt ? `\n\nAdditional user instructions:\n${options.systemPrompt}` : ""}`,
     tools: [
       draftBrdTool,
       elicitClarificationsTool,
@@ -105,3 +107,4 @@ export function getSystemAnalystToolNames(options: CreateSystemAnalystAgentOptio
 }
 
 export { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";
+

@@ -13,6 +13,7 @@ import {
   approveTemplate,
   getTemplate,
   rejectTemplate,
+  updateTemplateStructure,
   uploadTemplate,
   type DocumentSummary,
   type Settings,
@@ -69,6 +70,7 @@ export function SettingsContent() {
   const [uploading, setUploading] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [structureText, setStructureText] = useState("");
 
   useEffect(() => {
     if (settings) setForm(settings);
@@ -99,6 +101,13 @@ export function SettingsContent() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.activeTemplateId]);
+
+  // Keep the editable JSON in sync when a freshly extracted structure arrives.
+  useEffect(() => {
+    if (template?.templateStructure) {
+      setStructureText(JSON.stringify(template.templateStructure, null, 2));
+    }
+  }, [template?.templateStructure]);
 
   if (loading) {
     return <div className="p-8 text-sm text-muted-foreground">Loading settings…</div>;
@@ -150,6 +159,24 @@ export function SettingsContent() {
     try {
       await rejectTemplate(template.id);
       setTemplate({ ...template, status: "FAILED", error: "Template rejected by user" });
+    } catch (caught) {
+      setTemplateError(messageOf(caught));
+    }
+  };
+
+  const onSaveStructure = async () => {
+    if (!template) return;
+    setTemplateError(null);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(structureText);
+    } catch {
+      setTemplateError("Structure is not valid JSON");
+      return;
+    }
+    try {
+      const response = await updateTemplateStructure(template.id, parsed);
+      setTemplate(response.document as TemplateStatus);
     } catch (caught) {
       setTemplateError(messageOf(caught));
     }
@@ -292,7 +319,24 @@ export function SettingsContent() {
                 </div>
               )}
             </div>
-            {template.templateStructure ? (
+            {template.status === "PENDING_CONFIRMATION" && template.templateStructure ? (
+              <div className="mt-3">
+                <textarea
+                  value={structureText}
+                  onChange={(event) => setStructureText(event.target.value)}
+                  spellCheck={false}
+                  className="min-h-48 w-full rounded-lg border bg-background p-3 font-mono text-xs"
+                />
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => void onSaveStructure()}>
+                    Save structure
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Editable JSON — the approved structure is enforced during BRD drafting.
+                  </span>
+                </div>
+              </div>
+            ) : template.templateStructure ? (
               <pre className="mt-3 max-h-56 overflow-auto rounded-lg bg-background p-3 text-xs">
                 {JSON.stringify(template.templateStructure, null, 2)}
               </pre>

@@ -215,6 +215,16 @@ export function rejectTemplate(id: string): Promise<{ ok: boolean }> {
   return request(`/settings/template/${encodeURIComponent(id)}/reject`, { method: "POST" });
 }
 
+export function updateTemplateStructure(
+  id: string,
+  templateStructure: unknown,
+): Promise<{ document: DocumentSummary & { templateStructure?: unknown; error: string | null } }> {
+  return request(`/settings/template/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ templateStructure }),
+  });
+}
+
 export function search(
   query: string,
   type?: "brd" | "document",

@@ -70,6 +70,18 @@ export async function getTemplate(userId: string, id: string) {
   });
 }
 
+export async function patchTemplateStructure(
+  userId: string,
+  templateId: string,
+  templateStructure: object,
+): Promise<boolean> {
+  const updated = await prisma.document.updateMany({
+    where: { id: templateId, userId, isTemplate: true },
+    data: { templateStructure },
+  });
+  return updated.count > 0;
+}
+
 export async function approveTemplate(userId: string, templateId: string) {
   const document = await prisma.document.findFirst({
     where: { id: templateId, userId, isTemplate: true },
