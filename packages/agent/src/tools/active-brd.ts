@@ -6,11 +6,12 @@ export function createActiveBrdTool(adapters: AgentContextAdapters = {}) {
   const resolved = contextAdapters(adapters);
   return createTool({
     name: "get_active_brd",
-    description: "Read the selected BRD and its versions without modifying it.",
+    description:
+      "Read the selected BRD and its versions without modifying it. The active session and user are resolved automatically from the current conversation — never ask the user for a session ID, user ID, or BRD ID.",
     inputSchema: z.object({
-      userId: z.string().min(1),
-      sessionId: z.string().min(1),
-      brdId: z.string().min(1).optional(),
+      userId: z.string().optional(),
+      sessionId: z.string().optional(),
+      brdId: z.string().optional(),
     }),
     execute: async (input) => {
       const brd = await resolved.getActiveBrd(input);

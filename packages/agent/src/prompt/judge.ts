@@ -16,7 +16,7 @@ Evaluate actors, roles, permissions, ownership, business goal, scope boundary, w
 - Set sufficient=true only when no unresolved high-impact gap blocks a trustworthy BRD.
 - Set sufficient=false when a missing answer could change scope, behavior, security, data, integration, testability, or a required template section.
 - List concrete missing facts, not vague comments.
-- When insufficient and round 1, return up to 3 targeted follow-up questions.
+- When insufficient and round 1, return up to 3 targeted follow-up questions using fresh ids in the form q2_{n}; NEVER reuse q1_* ids or any id present in the answers map, and NEVER re-ask a question that has already been answered. The keys of the answers object are exactly the question ids that are already answered.
 - When round 2 is reached, set sufficient=true; record remaining gaps in missing so GENERATE can mark them as assumptions or GAPs.
 - Do not ask about facts already present in context or answers.
 

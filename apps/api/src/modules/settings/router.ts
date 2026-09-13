@@ -15,6 +15,7 @@ import {
   patchSettings,
   patchTemplateStructure,
   rejectTemplate,
+  resetActiveTemplate,
   uploadTemplate,
 } from "./services.js";
 
@@ -74,4 +75,5 @@ export const settingsModule = new Hono()
   .post("/template/:id/reject", async (c) => {
     const ok = await rejectTemplate(user(c), c.req.param("id"));
     return ok ? c.json({ ok: true }) : c.json({ error: "Template not found" }, 404);
-  });
+  })
+  .post("/template/reset", async (c) => c.json({ ok: await resetActiveTemplate(user(c)) }));

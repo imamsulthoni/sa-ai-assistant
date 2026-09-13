@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getBrd, listBrds, type BrdDocument } from "#/lib/api";
 
 function messageOf(error: unknown): string {
@@ -10,6 +10,9 @@ export function useBrds(sessionId: string | null) {
   const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [cachedActive, setCachedActive] = useState<BrdDocument | null>(null);
+  // Tracks ids chosen through select()/setActive() so the list effect never
+  // resets a freshly created BRD that is not yet present in the query cache.
+  const selectedRef = useRef<string | null>(null);
 
   const listQuery = useQuery({
     queryKey: ["brds", sessionId],
@@ -21,12 +24,16 @@ export function useBrds(sessionId: string | null) {
   useEffect(() => {
     setCachedActive(null);
     if (!sessionId) {
+      selectedRef.current = null;
       setActiveId(null);
       return;
     }
-    if (activeId && brds.some((brd) => brd.id === activeId)) return;
-    setActiveId(brds[0]?.id ?? null);
-  }, [sessionId, brds, activeId]);
+    const preferred =
+      selectedRef.current && brds.some((brd) => brd.id === selectedRef.current)
+        ? selectedRef.current
+        : brds[0]?.id ?? null;
+    setActiveId(preferred);
+  }, [sessionId, brds]);
 
   const activeQuery = useQuery({
     queryKey: ["brd", activeId],
@@ -46,9 +53,17 @@ export function useBrds(sessionId: string | null) {
       : null;
   const loading = listQuery.isPending || (activeId !== null && activeQuery.isPending);
 
-  const select = useCallback((id: string) => setActiveId(id), []);
+  const select = useCallback(
+    (id: string) => {
+      selectedRef.current = id;
+      setActiveId(id);
+      void queryClient.invalidateQueries({ queryKey: ["brds", sessionId] });
+    },
+    [queryClient, sessionId],
+  );
 
   const setActive = useCallback((brd: BrdDocument | null) => {
+    selectedRef.current = brd?.id ?? null;
     setActiveId(brd?.id ?? null);
     setCachedActive(brd);
   }, []);

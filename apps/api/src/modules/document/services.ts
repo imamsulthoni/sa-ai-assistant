@@ -77,3 +77,13 @@ export function documentUrl(objectKey: string) {
     .join("/");
   return `${baseUrl}/${encodedKey}`;
 }
+
+import { QdrantVectorClient } from "@anvia/qdrant";
+
+const qdrant = new QdrantVectorClient({ url: process.env.QDRANT_URL ?? "http://127.0.0.1:6333" });
+const documentVectorStore = qdrant.vectorStore({ collectionName: "documents", dimensions: 384, metric: "cosine" });
+
+export async function deleteDocumentVectors(documentId: string, pageCount: number) {
+  if (pageCount <= 0) return;
+  await documentVectorStore.delete({ documentIds: Array.from({ length: pageCount }, (_, index) => `${documentId}-page-${index}`) });
+}

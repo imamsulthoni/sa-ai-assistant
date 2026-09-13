@@ -29,7 +29,7 @@ export function createTavilyProvider(options: TavilyProviderOptions = {}): Tavil
       return response.results.map((result) => ({
         title: result.title ?? result.url,
         url: result.url,
-        text: result.content,
+        text: result.content ?? "",
       }));
     },
   };

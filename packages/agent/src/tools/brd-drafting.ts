@@ -59,7 +59,7 @@ export const TemplateExtractionSchema = z.object({
 const KNOWN_SECTION_HINTS: Array<{ match: RegExp; body: string }> = [
   {
     match: /document.?control|kontrol.?dokumen/i,
-    body: "- Status: Draft\n- Template: {{templateName}}\n- Date: (fill from generation date)",
+    body: "- Status: Draft\n- Template: {{templateName}}\n- Tanggal: (isi tanggal generasi)",
   },
   {
     match: /summar|scope|ringkas|ruang.?lingkup/i,
@@ -71,15 +71,15 @@ const KNOWN_SECTION_HINTS: Array<{ match: RegExp; body: string }> = [
   },
   {
     match: /business.?requirement|business.?rule|kebutuhan.?bisnis|aturan.?bisnis/i,
-    body: "### BR-001\nThe system shall implement the requested business outcome described in the user story.",
+    body: "### BR-001\nSistem harus mewujudkan hasil bisnis yang diminta dalam user story secara jelas dan terukur.",
   },
   {
     match: /functional|fungsional/i,
-    body: "### FR-001\nThe system shall accept and process the requested user action and expose a clear success or failure outcome.",
+    body: "### FR-001\nSistem harus menerima dan memproses aksi yang diminta pengguna serta menampilkan hasil sukses atau gagal yang jelas.",
   },
   {
     match: /acceptance|kriteria.?terima/i,
-    body: "- Given the stated user story, when the authorized actor performs the requested action, then the system produces the expected business outcome.",
+    body: "- Diberikan user story yang disebutkan, ketika aktor yang berwenang melakukan aksi yang diminta, maka sistem menghasilkan outcome bisnis yang diharapkan.",
   },
   {
     match: /assumption|asumsi|open.?question|review/i,
@@ -88,6 +88,10 @@ const KNOWN_SECTION_HINTS: Array<{ match: RegExp; body: string }> = [
   {
     match: /reference|referensi|traceab/i,
     body: "{{referenceContext}}",
+  },
+  {
+    match: /flowchart|diagram.?alur|alur.?proses|proses.?bisnis|workflow/i,
+    body: "{{flowchart}}",
   },
 ];
 
@@ -102,6 +106,7 @@ function sectionBody(
     clarificationText: string;
     assumptionsText: string;
     referenceText: string;
+    flowchart: string;
   },
   template: BrdTemplateStructure,
 ): string {
@@ -110,11 +115,12 @@ function sectionBody(
   );
   const body = hint?.body ?? section.expectedFormat ?? section.purpose ?? "";
   return body
-    .replaceAll("{{templateName}}", template.metadata?.templateName ?? "approved custom template")
+    .replaceAll("{{templateName}}", template.metadata?.templateName ?? "template custom yang disetujui")
     .replaceAll("{{userStory}}", fallback.userStory)
     .replaceAll("{{clarifications}}", fallback.clarificationText)
     .replaceAll("{{assumptions}}", fallback.assumptionsText)
-    .replaceAll("{{referenceContext}}", fallback.referenceText);
+    .replaceAll("{{referenceContext}}", fallback.referenceText)
+    .replaceAll("{{flowchart}}", fallback.flowchart);
 }
 
 export function normalizeTemplateStructure(value: unknown): BrdTemplateStructure | null {
@@ -130,6 +136,7 @@ export function renderTemplateScaffold(
     clarificationText: string;
     assumptionsText: string;
     referenceText: string;
+    flowchart: string;
   },
 ): string {
   const sections = orderedSections(template);
@@ -193,6 +200,7 @@ export function createBrdDraft(
   clarifications: readonly z.infer<typeof clarificationSchema>[],
   template: unknown,
   referenceContext = "",
+  flowchart = "",
 ) {
   const clarificationText = clarifications.length
     ? clarifications.map((item) => `- ${item.id}: ${item.answer}`).join("\n")
@@ -204,9 +212,10 @@ export function createBrdDraft(
   const parts = {
     clarificationText,
     assumptionsText: assumptions.length
-      ? assumptions.map((item) => `- ASSUMPTION: ${item}`).join("\n")
-      : "- None identified from supplied context.",
-    referenceText: referenceContext.trim() || "- No reference context supplied.",
+      ? assumptions.map((item) => `- ASUMSI: ${item}`).join("\n")
+      : "- Tidak ada asumsi yang teridentifikasi dari konteks yang diberikan.",
+    referenceText: referenceContext.trim() || "- Tidak ada konteks referensi yang diberikan.",
+    flowchart: flowchart.trim() || "- Alur proses utama belum tersedia; deskripsikan alur pada bagian ini.",
   };
   const markdown = normalized
     ? `# BRD\n\n${renderTemplateScaffold(normalized, {
@@ -214,8 +223,38 @@ export function createBrdDraft(
         clarificationText: `\n${userStory}\n\n${parts.clarificationText}`,
         assumptionsText: parts.assumptionsText,
         referenceText: parts.referenceText,
+        flowchart: parts.flowchart,
       })}`
-    : `# BRD\n\n## 1. Document control\n- Status: Draft\n- Template: built-in default\n\n## 2. Summary and scope\n${userStory}\n\n## 3. Clarifications\n${parts.clarificationText}\n\n## 4. Business requirements and rules\n### BR-001\nThe system shall implement the requested business outcome described in the user story.\n\n## 5. Functional requirements\n### FR-001\nThe system shall accept and process the requested user action and expose a clear success or failure outcome.\n\n## 6. Acceptance criteria\n- Given the stated user story, when the authorized actor performs the requested action, then the system produces the expected business outcome.\n\n## 7. Reference context\n${parts.referenceText}\n\n## 8. Assumptions and open questions\n${parts.assumptionsText}\n`;
+    : `# BRD
+
+## 1. Kontrol dokumen
+- Status: Draft
+- Template: bawaan sistem
+- Tanggal: (isi tanggal generasi)
+
+## 2. Ringkasan dan ruang lingkup
+${userStory}
+
+## 3. Klarifikasi
+${parts.clarificationText}
+
+## 4. Kebutuhan bisnis dan aturan
+### BR-001
+Sistem harus mewujudkan hasil bisnis yang diminta dalam user story secara jelas dan terukur.
+
+## 5. Kebutuhan fungsional
+### FR-001
+Sistem harus menerima dan memproses aksi yang diminta pengguna serta menampilkan hasil sukses atau gagal yang jelas.
+
+## 6. Kriteria penerimaan
+- Diberikan user story yang disebutkan, ketika aktor yang berwenang melakukan aksi yang diminta, maka sistem menghasilkan outcome bisnis yang diharapkan.
+
+## 7. Konteks referensi
+${parts.referenceText}
+
+## 8. Asumsi dan pertanyaan terbuka
+${parts.assumptionsText}
+`;
   return { markdown, assumptions, templateSource: normalized ? "custom" : "builtin" as const };
 }
 
@@ -227,9 +266,10 @@ export const draftBrdTool = createTool({
     clarifications: z.array(clarificationSchema).default([]),
     templateStructure: z.unknown().optional(),
     referenceContext: z.string().default(""),
+    flowchart: z.string().default(""),
     force: z.boolean().default(false),
   }),
-  execute: async ({ userStory, clarifications, templateStructure, referenceContext, force }) => {
+  execute: async ({ userStory, clarifications, templateStructure, referenceContext, flowchart, force }) => {
     const sufficient = clarifications.length > 0 || referenceContext.trim().length > 0 || force;
     if (!sufficient) {
       return {
@@ -240,7 +280,7 @@ export const draftBrdTool = createTool({
         gaps: ["Clarification is required before drafting, or pass force=true after the round cap or an explicit skip."],
       };
     }
-    const draft = createBrdDraft(userStory, clarifications, templateStructure, referenceContext);
+    const draft = createBrdDraft(userStory, clarifications, templateStructure, referenceContext, flowchart);
     const normalized = normalizeTemplateStructure(templateStructure);
     const validation = normalized ? validateBrdAgainstTemplate(draft.markdown, normalized) : null;
     const gaps = [

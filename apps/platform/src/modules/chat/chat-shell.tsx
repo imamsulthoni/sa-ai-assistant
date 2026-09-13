@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Menu } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "#/components/ui/button";
 
 type ChatShellProps = {
@@ -8,15 +8,36 @@ type ChatShellProps = {
   children: React.ReactNode;
 };
 
+const SIDEBAR_STORAGE_KEY = "sa.sidebarCollapsed";
+
+function initialSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function ChatShell({ sidebar, headerAction, children }: ChatShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, sidebarCollapsed ? "1" : "0");
+    } catch {
+      // localStorage may be unavailable; the toggle still works for this session
+    }
+  }, [sidebarCollapsed]);
 
   return (
     <main className="flex h-dvh w-full overflow-hidden bg-white text-neutral-900">
       {/* Desktop sidebar */}
-      <aside className="hidden w-72 shrink-0 border-r bg-muted md:block">
-        <div className="flex h-full flex-col">{sidebar}</div>
-      </aside>
+      {!sidebarCollapsed && (
+        <aside className="hidden w-72 shrink-0 border-r bg-muted md:block">
+          <div className="flex h-full flex-col">{sidebar}</div>
+        </aside>
+      )}
 
       {/* Mobile sidebar */}
       {mobileOpen && (
@@ -54,6 +75,19 @@ export function ChatShell({ sidebar, headerAction, children }: ChatShellProps) {
             aria-label="Open menu"
           >
             <Menu size={20} />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="hidden md:inline-flex"
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+            aria-pressed={sidebarCollapsed}
+            title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
           </Button>
 
           <div className="flex min-w-0 items-center gap-2 text-sm font-semibold">

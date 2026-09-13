@@ -1,5 +1,6 @@
 import type {
   BrdDocument,
+  BrdVersion,
   ClarificationQuestion,
   DocumentSummary,
   MessagesResponse,
@@ -225,6 +226,10 @@ export function updateTemplateStructure(
     method: "PATCH",
     body: JSON.stringify({ templateStructure }),
   });
+}
+
+export function resetTemplate(): Promise<{ ok: boolean }> {
+  return request("/settings/template/reset", { method: "POST" });
 }
 
 export function search(

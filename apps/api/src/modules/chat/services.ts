@@ -1,7 +1,6 @@
 import {
   createSystemAnalystAgent,
   normalizeTemplateStructure,
-  templateInstructionBlock,
   type AgentContextAdapters,
   type BrdTemplateStructure,
 } from "@sa-ai-assistant/agent";
@@ -52,8 +51,8 @@ async function adaptersFor(
         model: await embeddingModel(),
         store: contextStore,
         filter: vectorFilter.and(
-          vectorFilter.eq("userId", filters.userId),
-          vectorFilter.eq("sessionId", filters.sessionId),
+          vectorFilter.eq("userId", filters.userId ?? userId),
+          vectorFilter.eq("sessionId", filters.sessionId ?? sessionId),
         ),
       });
       return results.map((result) => ({
@@ -61,7 +60,11 @@ async function adaptersFor(
         pageNumber:
           typeof result.metadata?.pageNumber === "number" ? result.metadata.pageNumber : null,
         content:
-          typeof result.document === "string" ? result.document : JSON.stringify(result.document),
+          typeof result.document === "string"
+            ? result.document
+            : result.document != null
+              ? JSON.stringify(result.document)
+              : "",
         score: result.score,
       }));
     },
@@ -98,12 +101,23 @@ async function adaptersFor(
         },
         include: { versions: { orderBy: { versionNumber: "asc" } } },
       });
-      return brd ? { contentMarkdown: brd.contentMarkdown, versions: brd.versions } : null;
+      if (!brd) return null;
+      return {
+        contentMarkdown: brd.contentMarkdown,
+        versions: brd.versions.map((version) => ({
+          id: version.id,
+          versionNumber: version.versionNumber,
+          contentMarkdown: version.contentMarkdown,
+          changeSummary: version.changeSummary,
+          createdBy: version.createdBy,
+          createdAt: version.createdAt.toISOString(),
+        })),
+      };
     },
   };
 }
 
-async function activeTemplateFor(
+export async function activeTemplateFor(
   userId: string,
 ): Promise<{ templateId: string; updatedAt: string; structure: BrdTemplateStructure } | null> {
   const settings = await prisma.userSetting.findUnique({ where: { userId } });
@@ -145,6 +159,7 @@ export async function agentFor(
     apiKey: undefined,
     baseUrl: undefined,
     phase,
+    contextAdapters: await adaptersFor(userId, sessionId, brdId),
     allowedTools:
       phase === "CLARIFY"
         ? ["elicit_clarifications", "search_context", "get_active_brd", "web_search"]
@@ -154,7 +169,13 @@ export async function agentFor(
             ? ["answer_brd_question", "modify_brd", "search_context", "get_active_brd", "web_search"]
             : undefined,
     systemPrompt: settings?.systemPrompt ?? undefined,
-    memory: { store: memory, savePolicy: "turn" },
+    // Flow phases (CLARIFY/JUDGE/GENERATE) are stateless per request and must
+    // not pollute the session chat history. Only interactive chat (QA / no
+    // phase) is persisted so the transcript stays empty after BRD v1.
+    memory:
+      phase === undefined || phase === "QA"
+        ? { store: memory, savePolicy: "turn" }
+        : undefined,
     enableTracing: false,
   });
 

@@ -13,6 +13,7 @@ import {
   approveTemplate,
   getTemplate,
   rejectTemplate,
+  resetTemplate,
   updateTemplateStructure,
   uploadTemplate,
   type DocumentSummary,
@@ -49,7 +50,7 @@ export function SettingsDialog() {
           <SettingsIcon size={16} /> Settings
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] max-w-3xl gap-5 overflow-y-auto">
+      <DialogContent className="max-h-[95dvh] max-w-5xl gap-5 overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
@@ -159,6 +160,19 @@ export function SettingsContent() {
     try {
       await rejectTemplate(template.id);
       setTemplate({ ...template, status: "FAILED", error: "Template rejected by user" });
+    } catch (caught) {
+      setTemplateError(messageOf(caught));
+    }
+  };
+
+  const onResetTemplate = async () => {
+    if (!window.confirm("Reset active BRD template and delete its reference file?")) return;
+    setTemplateError(null);
+    try {
+      await resetTemplate();
+      setTemplate(null);
+      setStructureText("");
+      await refresh();
     } catch (caught) {
       setTemplateError(messageOf(caught));
     }
@@ -301,12 +315,13 @@ export function SettingsContent() {
         {template && (
           <div className="mt-5 rounded-xl border bg-muted/30 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="font-medium">{template.title}</p>
-                <p className="text-xs text-muted-foreground">Status: {template.status}</p>
-                {template.error && (
-                  <p className="mt-1 text-xs text-destructive">{template.error}</p>
-                )}
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium">{template.title}</p>
+                  <p className="text-xs text-muted-foreground">Status: {template.status}</p>
+                  {template.error && <p className="mt-1 text-xs text-destructive">{template.error}</p>}
+                </div>
+                <Button size="sm" variant="outline" onClick={() => void onResetTemplate()}><X size={14} /> Reset template</Button>
               </div>
               {template.status === "PENDING_CONFIRMATION" && (
                 <div className="flex gap-2">

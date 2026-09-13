@@ -1,7 +1,7 @@
 import { prisma } from "../../lib/prisma.js";
 import type { SettingsPatchInput } from "../../lib/api-contract.js";
 import { documentQueue, retryPolicies } from "../../lib/queue.js";
-import { documentUrl, uploadDocument } from "../document/services.js";
+import { deleteDocument, deleteDocumentVectors, documentUrl, uploadDocument } from "../document/services.js";
 import { documentFileType } from "../document/types.js";
 
 export async function getSettings(userId: string) {
@@ -104,4 +104,21 @@ export async function rejectTemplate(userId: string, templateId: string) {
     data: { status: "FAILED", error: "Template rejected by user" },
   });
   return updated.count > 0;
+}
+
+export async function resetActiveTemplate(userId: string) {
+  const settings = await prisma.userSetting.findUnique({ where: { userId }, select: { activeTemplateId: true } });
+  if (!settings?.activeTemplateId) return false;
+  const template = await prisma.document.findFirst({ where: { id: settings.activeTemplateId, userId, isTemplate: true }, include: { pages: { select: { pageNumber: true } } } });
+  if (!template) {
+    await prisma.userSetting.update({ where: { userId }, data: { activeTemplateId: null } });
+    return false;
+  }
+  await deleteDocumentVectors(template.id, template.pages.length);
+  await deleteDocument(template.objectKey);
+  await prisma.$transaction([
+    prisma.userSetting.update({ where: { userId }, data: { activeTemplateId: null } }),
+    prisma.document.delete({ where: { id: template.id } }),
+  ]);
+  return true;
 }

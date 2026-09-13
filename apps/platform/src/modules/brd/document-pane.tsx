@@ -49,7 +49,11 @@ export function DocumentPane({ brd, content, diff, onDiff, onRestore, onClearDif
         </div>
       </div>
       {diff && <div className="mx-4 mt-3 max-h-48 overflow-auto rounded-lg border bg-muted/30"><div className="flex items-center justify-between border-b px-3 py-1.5 text-xs font-medium text-muted-foreground"><span>Diff v{selected} → v{current}</span><button type="button" aria-label="Close diff" onClick={onClearDiff} className="rounded p-0.5 hover:bg-muted"><X size={14} /></button></div><div className="p-3 font-mono text-[11px] leading-5">{diffLines.map((line, index) => <div key={`${index}-${line}`} className={line.startsWith("-") ? "bg-red-100 px-1 text-red-800 dark:bg-red-950/40 dark:text-red-200" : line.startsWith("+") ? "bg-green-100 px-1 text-green-800 dark:bg-green-950/40 dark:text-green-200" : "px-1 text-muted-foreground"}>{line || " "}</div>)}</div></div>}
-      <div className="min-h-0 flex-1 overflow-auto p-4"><MDEditor.Markdown source={brd.pendingContentMarkdown ?? content} /></div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div className="mx-auto w-full max-w-4xl p-4 md:p-6">
+          <MDEditor.Markdown source={brd.pendingContentMarkdown ?? content} />
+        </div>
+      </div>
     </section>
   );
 }

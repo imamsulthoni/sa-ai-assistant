@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createHttpClientTransport } from "@anvia/client";
 import { useChat, type UseChatStatus } from "@anvia/react";
 import { ChatProvider, ComposerPrimitive, ThreadPrimitive, useComposer } from "@anvia/react-ui";
-import { AtSign, LoaderCircle, Paperclip, Send, Square } from "lucide-react";
+import { AtSign, FileText, LoaderCircle, Paperclip, Send, Square } from "lucide-react";
 import type { UIMessage } from "@anvia/client";
 import { DEMO_USER_ID, type SearchResult } from "#/lib/api";
 import { ComposerAttachment, MessageBubble } from "#/modules/chat/message-bubble";
@@ -33,7 +33,11 @@ export function AnviaChat({
           "x-user-id": DEMO_USER_ID,
           "x-conversation-id": sessionId,
         },
-        body: brdDocumentId ? { metadata: { phase: "QA", brdDocumentId } } : undefined,
+        body: (context) =>
+          JSON.stringify({
+            ...context.request,
+            metadata: brdDocumentId ? { phase: "QA", brdDocumentId } : undefined,
+          }),
       }),
     [brdDocumentId, sessionId],
   );
@@ -54,6 +58,7 @@ export function AnviaChat({
 
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
+  const brdActive = Boolean(brdDocumentId);
 
   useEffect(() => {
     const input = document.querySelector<HTMLTextAreaElement>(
@@ -92,13 +97,30 @@ export function AnviaChat({
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 md:py-10">
               <ThreadPrimitive.Empty>
                 <div className="py-16 text-center">
-                  <h1 className="text-2xl font-semibold tracking-tight">
-                    System Analyst AI Assistant
-                  </h1>
-                  <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                    Describe a user story, ask about an existing BRD, or request a web search to
-                    research companies and requirements.
-                  </p>
+                  {brdActive ? (
+                    <>
+                      <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+                        <FileText size={22} />
+                      </div>
+                      <h1 className="text-2xl font-semibold tracking-tight">
+                        BRD ready — how can I help?
+                      </h1>
+                      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                        Ask about any section, request a modification, or verify the flowchart
+                        against the document. Edits are staged as a preview until you approve them.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h1 className="text-2xl font-semibold tracking-tight">
+                        System Analyst AI Assistant
+                      </h1>
+                      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                        Describe a user story, ask about an existing BRD, or request a web search to
+                        research companies and requirements.
+                      </p>
+                    </>
+                  )}
                 </div>
               </ThreadPrimitive.Empty>
 
@@ -138,7 +160,11 @@ export function AnviaChat({
 
                 <ComposerPrimitive.TextareaInput
                   className="max-h-48 min-h-10 w-full resize-none border-0 bg-transparent px-1 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground"
-                  placeholder="Describe your user story… (tip: @ mentions BRDs from other sessions)"
+                  placeholder={
+                    brdActive
+                      ? "Ask about the BRD… (tip: @ mentions BRDs from other sessions)"
+                      : "Describe your user story… (tip: @ mentions BRDs from other sessions)"
+                  }
                 />
 
                 <ComposerSubmitArea />

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const ContextFilterSchema = z.object({
-  userId: z.string().min(1),
-  sessionId: z.string().min(1),
+  userId: z.string().optional(),
+  sessionId: z.string().optional(),
 });
 
 export const ContextChunkSchema = z.object({
@@ -22,13 +22,13 @@ export interface AgentContextAdapters {
     topK: number;
   }) => Promise<readonly ContextChunk[]> | readonly ContextChunk[];
   getTemplateStructure?: (input: {
-    userId: string;
-    sessionId: string;
+    userId?: string;
+    sessionId?: string;
     projectId?: string;
   }) => Promise<unknown | null> | unknown | null;
   getActiveBrd?: (input: {
-    userId: string;
-    sessionId: string;
+    userId?: string;
+    sessionId?: string;
     brdId?: string;
   }) =>
     | Promise<{ contentMarkdown: string; versions: readonly unknown[] } | null>
