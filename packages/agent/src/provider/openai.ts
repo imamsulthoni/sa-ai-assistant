@@ -6,9 +6,7 @@ export interface OpenAIProviderOptions {
   modelId?: string;
 }
 
-export function createOpenAIModel(
-  options: OpenAIProviderOptions = {},
-): OpenAICompletionModel {
+export function createOpenAIModel(options: OpenAIProviderOptions = {}): OpenAICompletionModel {
   const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is required to create the OpenAI model");
@@ -16,7 +14,7 @@ export function createOpenAIModel(
 
   const client = new OpenAIClient({
     apiKey,
-    ...(options.baseUrl ?? process.env.OPENAI_BASE_URL
+    ...((options.baseUrl ?? process.env.OPENAI_BASE_URL)
       ? { baseUrl: options.baseUrl ?? process.env.OPENAI_BASE_URL }
       : {}),
   });
