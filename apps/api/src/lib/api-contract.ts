@@ -9,6 +9,12 @@ export const BrdCreateSchema = z.object({
   changeSummary: z.string().trim().max(500).optional(),
 });
 
+export const BrdImportSchema = z.object({
+  sessionId: z.string().trim().min(1),
+  documentId: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(200).optional(),
+});
+
 export const BrdVersionCreateSchema = z.object({
   contentMarkdown: z.string().min(1),
   changeSummary: z.string().trim().max(500).nullable().optional(),
@@ -42,6 +48,7 @@ export type TemplateStructurePatchInput = z.infer<typeof TemplateStructurePatchS
 export const SearchQuerySchema = z.object({
   q: z.string().trim().min(1).max(200),
   type: z.enum(["brd", "document"]).optional(),
+  sessionId: z.string().trim().min(1).optional(),
   excludeSession: z.string().trim().min(1).optional(),
 });
 
@@ -79,6 +86,7 @@ export const SearchResponseSchema = z.object({
 export const ContractDateSchema = isoDate;
 
 export type BrdCreateInput = z.infer<typeof BrdCreateSchema>;
+export type BrdImportInput = z.infer<typeof BrdImportSchema>;
 export type BrdVersionCreateInput = z.infer<typeof BrdVersionCreateSchema>;
 export type SettingsPatchInput = z.infer<typeof SettingsPatchSchema>;
 

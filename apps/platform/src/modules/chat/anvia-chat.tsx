@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { createHttpClientTransport } from "@anvia/client";
 import { useChat, type UseChatStatus } from "@anvia/react";
 import { ChatProvider, ComposerPrimitive, ThreadPrimitive, useComposer } from "@anvia/react-ui";
-import { AtSign, FileText, LoaderCircle, Paperclip, Send, Square } from "lucide-react";
+import { AtSign, FileText, LoaderCircle, Paperclip, Send, Square, X } from "lucide-react";
 import type { UIMessage } from "@anvia/client";
-import { DEMO_USER_ID, type SearchResult } from "#/lib/api";
+import { DEMO_USER_ID, deleteDocument, uploadDocument } from "#/lib/api";
 import { ComposerAttachment, MessageBubble } from "#/modules/chat/message-bubble";
-import { MentionPopover, type MentionAction } from "#/modules/brd/mention-popover";
+import { MentionPopover } from "#/modules/brd/mention-popover";
 
 type AnviaChatProps = {
   sessionId: string;
@@ -14,7 +15,22 @@ type AnviaChatProps = {
   initialMessages: UIMessage[];
   onRunEnded?: () => void;
   onStatusChange?: (status: UseChatStatus) => void;
-  onMention?: (result: SearchResult, action: MentionAction) => void;
+};
+
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+
+type SessionUpload = {
+  key: string;
+  name: string;
+  isImage: boolean;
+  previewUrl?: string;
+  status: "uploading" | "ready";
+  documentId?: string;
+};
+
+type MentionItem = {
+  id: string;
+  name: string;
 };
 
 export function AnviaChat({
@@ -23,8 +39,92 @@ export function AnviaChat({
   initialMessages,
   onRunEnded,
   onStatusChange,
-  onMention,
 }: AnviaChatProps) {
+  const queryClient = useQueryClient();
+  const [uploads, setUploads] = useState<SessionUpload[]>([]);
+  const [mentions, setMentions] = useState<MentionItem[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const contextFilesRef = useRef<MentionItem[]>([]);
+
+  useEffect(() => {
+    contextFilesRef.current = [
+      ...uploads
+        .filter((item) => item.status === "ready" && item.documentId)
+        .map((item) => ({ id: item.documentId as string, name: item.name })),
+      ...mentions,
+    ];
+  }, [uploads, mentions]);
+
+  const clearComposerContext = useCallback(() => {
+    setMentions([]);
+    setUploads((prev) => {
+      for (const item of prev) {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      }
+      return [];
+    });
+  }, []);
+
+  const refreshSessionDocuments = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["session", sessionId, "documents"] });
+  }, [queryClient, sessionId]);
+
+  const attachFiles = useCallback(
+    async (files: FileList) => {
+      setUploadError(null);
+      for (const file of Array.from(files)) {
+        if (file.size > MAX_ATTACHMENT_BYTES) {
+          setUploadError(`${file.name} melebihi batas 10MB.`);
+          continue;
+        }
+        const key = crypto.randomUUID();
+        const isImage = file.type.startsWith("image/");
+        const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
+        setUploads((prev) => [
+          ...prev,
+          { key, name: file.name, isImage, previewUrl, status: "uploading" },
+        ]);
+        try {
+          const response = await uploadDocument(sessionId, file);
+          setUploads((prev) =>
+            prev.map((item) =>
+              item.key === key
+                ? { ...item, status: "ready", documentId: response.document.id }
+                : item,
+            ),
+          );
+          refreshSessionDocuments();
+        } catch (caught) {
+          setUploads((prev) => prev.filter((item) => item.key !== key));
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+          setUploadError(
+            caught instanceof Error ? caught.message : "Gagal mengunggah file.",
+          );
+        }
+      }
+    },
+    [refreshSessionDocuments, sessionId],
+  );
+
+  const removeUpload = useCallback(
+    async (item: SessionUpload) => {
+      if (item.status !== "ready") return;
+      setUploadError(null);
+      setUploads((prev) => prev.filter((entry) => entry.key !== item.key));
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      if (!item.documentId) return;
+      try {
+        await deleteDocument(sessionId, item.documentId);
+        refreshSessionDocuments();
+      } catch (caught) {
+        setUploadError(
+          caught instanceof Error ? caught.message : "Gagal menghapus file.",
+        );
+      }
+    },
+    [refreshSessionDocuments, sessionId],
+  );
+
   const transport = useMemo(
     () =>
       createHttpClientTransport({
@@ -33,11 +133,22 @@ export function AnviaChat({
           "x-user-id": DEMO_USER_ID,
           "x-conversation-id": sessionId,
         },
-        body: (context) =>
-          JSON.stringify({
+        body: (context) => {
+          const files = contextFilesRef.current;
+          const attachedFiles = files.map((item) => item.name);
+          const attachedDocumentIds = files.map((item) => item.id);
+          const requestMetadata =
+            (context.request as { metadata?: Record<string, unknown> }).metadata ?? {};
+          const metadata = {
+            ...requestMetadata,
+            ...(brdDocumentId ? { phase: "QA", brdDocumentId } : {}),
+            ...(attachedFiles.length ? { attachedFiles, attachedDocumentIds } : {}),
+          };
+          return JSON.stringify({
             ...context.request,
-            metadata: brdDocumentId ? { phase: "QA", brdDocumentId } : undefined,
-          }),
+            metadata: Object.keys(metadata).length ? metadata : undefined,
+          });
+        },
       }),
     [brdDocumentId, sessionId],
   );
@@ -47,6 +158,7 @@ export function AnviaChat({
     initialMessages,
     onEvent: (event) => {
       if (event.type === "run_end" || event.type === "error") {
+        clearComposerContext();
         onRunEnded?.();
       }
     },
@@ -59,6 +171,13 @@ export function AnviaChat({
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const brdActive = Boolean(brdDocumentId);
+
+  const addMention = useCallback((item: MentionItem) => {
+    setMentions((prev) => (prev.some((entry) => entry.id === item.id) ? prev : [...prev, item]));
+  }, []);
+  const removeMention = useCallback((id: string) => {
+    setMentions((prev) => prev.filter((entry) => entry.id !== id));
+  }, []);
 
   useEffect(() => {
     const input = document.querySelector<HTMLTextAreaElement>(
@@ -138,20 +257,75 @@ export function AnviaChat({
               {(attachment) => <ComposerAttachment key={attachment.id} />}
             </ComposerPrimitive.Attachments>
 
+            {uploads.length > 0 && (
+              <div className="mx-auto mb-2 flex w-full max-w-3xl flex-wrap items-center gap-2">
+                {uploads.map((item) => (
+                  <div
+                    key={item.key}
+                    className="flex items-center gap-2 rounded-lg border bg-muted/50 px-2 py-1 text-xs"
+                  >
+                    {item.isImage && item.previewUrl ? (
+                      <img
+                        src={item.previewUrl}
+                        alt={item.name}
+                        className="size-8 rounded object-cover"
+                      />
+                    ) : (
+                      <FileText size={14} className="shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="max-w-40 truncate" title={item.name}>
+                      {item.name}
+                    </span>
+                    {item.status === "uploading" ? (
+                      <LoaderCircle size={12} className="animate-spin text-muted-foreground" />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void removeUpload(item)}
+                        aria-label={`Hapus ${item.name}`}
+                        className="grid size-4 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {mentions.length > 0 && <MentionChips mentions={mentions} onRemove={removeMention} />}
+
+            {uploadError && (
+              <p className="mx-auto mb-2 w-full max-w-3xl text-xs text-destructive">
+                {uploadError}
+              </p>
+            )}
+
             <div className="relative mx-auto w-full max-w-3xl">
               <div className="flex items-end gap-2 rounded-2xl border bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
-                <ComposerPrimitive.AddAttachment
-                  multiple
-                  className="grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-                  aria-label="Attach files"
+                <label
+                  className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  title="Lampirkan dokumen atau gambar (maks 10MB)"
                 >
                   <Paperclip size={18} />
-                </ComposerPrimitive.AddAttachment>
+                  <input
+                    type="file"
+                    multiple
+                    className="sr-only"
+                    accept=".pdf,.md,.markdown,.docx,.png,.jpg,.jpeg,.webp,.tiff"
+                    onChange={(event) => {
+                      if (event.currentTarget.files?.length) {
+                        void attachFiles(event.currentTarget.files);
+                      }
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
 
                 <button
                   type="button"
-                  aria-label="Mention a BRD from another session"
-                  title="Mention a BRD from another session (@)"
+                  aria-label="Mention a file from this session"
+                  title="Mention a file from this session (@)"
                   onClick={() => setMentionOpen((open) => !open)}
                   className="grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
@@ -162,30 +336,104 @@ export function AnviaChat({
                   className="max-h-48 min-h-10 w-full resize-none border-0 bg-transparent px-1 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground"
                   placeholder={
                     brdActive
-                      ? "Ask about the BRD… (tip: @ mentions BRDs from other sessions)"
-                      : "Describe your user story… (tip: @ mentions BRDs from other sessions)"
+                      ? "Ask about the BRD… (tip: @ mentions session files)"
+                      : "Describe your user story… (tip: @ mentions session files)"
                   }
                 />
 
                 <ComposerSubmitArea />
               </div>
 
-              {mentionOpen && (
-                <MentionPopover
-                  sessionId={sessionId}
-                  query={mentionQuery}
-                  onClose={() => setMentionOpen(false)}
-                  onPick={(result, action) => {
-                    onMention?.(result, action);
-                    setMentionOpen(false);
-                  }}
-                />
-              )}
+              <MentionDock
+                sessionId={sessionId}
+                open={mentionOpen}
+                query={mentionQuery}
+                onPicked={addMention}
+                onClose={() => setMentionOpen(false)}
+              />
             </div>
           </ComposerPrimitive.Root>
         </ThreadPrimitive.Root>
       </ChatProvider>
     </div>
+  );
+}
+
+function MentionChips({
+  mentions,
+  onRemove,
+}: {
+  mentions: MentionItem[];
+  onRemove: (id: string) => void;
+}) {
+  const composer = useComposer();
+  return (
+    <div className="mx-auto mb-2 flex w-full max-w-3xl flex-wrap items-center gap-2">
+      {mentions.map((item) => (
+        <div
+          key={item.id}
+          className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-2 py-1 text-xs text-primary"
+        >
+          <AtSign size={12} className="shrink-0" />
+          <span className="max-w-40 truncate" title={item.name}>
+            {item.name}
+          </span>
+          <button
+            type="button"
+            aria-label={`Hapus mention ${item.name}`}
+            onClick={() => {
+              composer.setInput(
+                composer.input
+                  .split(`@${item.name}`)
+                  .join("")
+                  .replace(/ {2,}/g, " ")
+                  .trimStart(),
+              );
+              onRemove(item.id);
+            }}
+            className="grid size-4 shrink-0 place-items-center rounded text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MentionDock({
+  sessionId,
+  open,
+  query,
+  onPicked,
+  onClose,
+}: {
+  sessionId: string;
+  open: boolean;
+  query: string;
+  onPicked: (item: MentionItem) => void;
+  onClose: () => void;
+}) {
+  const composer = useComposer();
+
+  if (!open) return null;
+
+  return (
+    <MentionPopover
+      sessionId={sessionId}
+      query={query}
+      onClose={onClose}
+      onPick={(result) => {
+        const mention = `@${result.title} `;
+        const current = composer.input;
+        const next = /@([^\s@]*)$/.test(current)
+          ? current.replace(/@([^\s@]*)$/, mention)
+          : `${current}${current && !current.endsWith(" ") ? " " : ""}${mention}`;
+        composer.setInput(next);
+        onPicked({ id: result.id, name: result.title });
+        onClose();
+      }}
+    />
   );
 }
 

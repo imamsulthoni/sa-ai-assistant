@@ -6,4 +6,6 @@ export type FlowMetadata = {
   round?: number;
   answers?: Record<string, string>;
   force?: boolean;
+  attachedFiles?: string[];
+  attachedDocumentIds?: string[];
 };

@@ -1,5 +1,5 @@
 import { prisma } from "../../lib/prisma.js";
-import type { BrdCreateInput, BrdVersionCreateInput } from "../../lib/api-contract.js";
+import type { BrdCreateInput, BrdImportInput, BrdVersionCreateInput } from "../../lib/api-contract.js";
 import { simpleDiff } from "./utils.js";
 import { z } from "zod";
 import { ClarificationOutputSchema, JudgeOutputSchema, templateInstructionBlock, type BrdTemplateStructure, type JudgeOutput } from "@sa-ai-assistant/agent";
@@ -29,6 +29,34 @@ export async function createBrd(userId: string, input: BrdCreateInput) {
       },
     },
     include: { versions: true },
+  });
+}
+
+export async function importBrdFromDocument(userId: string, input: BrdImportInput) {
+  const document = await prisma.document.findFirst({
+    where: {
+      id: input.documentId,
+      userId,
+      sessionId: input.sessionId,
+      status: { in: ["READY", "PENDING_CONFIRMATION"] },
+    },
+  });
+  if (!document) return null;
+  const pages = await prisma.documentPage.findMany({
+    where: { documentId: document.id },
+    orderBy: { pageNumber: "asc" },
+  });
+  const contentMarkdown = pages
+    .map((page) => page.content.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  if (!contentMarkdown) return null;
+  const fallbackTitle = document.title.replace(/\.[^.]+$/, "").trim().slice(0, 200);
+  return createBrd(userId, {
+    sessionId: input.sessionId,
+    title: input.title ?? (fallbackTitle || "Imported BRD"),
+    contentMarkdown,
+    changeSummary: "Imported from existing BRD",
   });
 }
 

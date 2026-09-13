@@ -42,8 +42,8 @@ const FEATURES = [
   },
   {
     icon: AtSign,
-    title: "Cross-session @mention",
-    body: "Type @ to find BRDs from other sessions and copy them into the current workspace as a new baseline.",
+    title: "Session file @mention",
+    body: "Type @ to reference uploaded documents and flowcharts in this session as grounded chat context.",
   },
 ];
 
@@ -60,7 +60,7 @@ const STEPS = [
   ["Review & edit", "Fine-tune the draft in the split markdown editor and save versions."],
   [
     "Export & share",
-    "Download Markdown/PDF, or reference the BRD from other sessions via @mention.",
+    "Download Markdown/PDF, or mention session files with @ to ground the assistant.",
   ],
 ];
 

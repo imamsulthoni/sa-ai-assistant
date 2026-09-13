@@ -110,6 +110,15 @@ export function uploadDocument(
   });
 }
 
+export function getDocument(
+  sessionId: string,
+  id: string,
+): Promise<{ document: DocumentSummary & { error: string | null } }> {
+  return request(`/documents/${encodeURIComponent(id)}`, {
+    headers: { "x-conversation-id": sessionId },
+  });
+}
+
 export function deleteDocument(sessionId: string, id: string): Promise<{ ok: boolean }> {
   return request(`/documents/${encodeURIComponent(id)}`, {
     method: "DELETE",
@@ -119,6 +128,14 @@ export function deleteDocument(sessionId: string, id: string): Promise<{ ok: boo
 
 export function listBrds(sessionId: string): Promise<{ brds: BrdDocument[] }> {
   return request(`/brd?sessionId=${encodeURIComponent(sessionId)}`);
+}
+
+export function importBrd(input: {
+  sessionId: string;
+  documentId: string;
+  title?: string;
+}): Promise<{ brd: BrdDocument }> {
+  return request("/brd/import", { method: "POST", body: JSON.stringify(input) });
 }
 
 export function getBrd(id: string): Promise<{ brd: BrdDocument }> {
@@ -235,11 +252,11 @@ export function resetTemplate(): Promise<{ ok: boolean }> {
 export function search(
   query: string,
   type?: "brd" | "document",
-  excludeSession?: string,
+  sessionId?: string,
 ): Promise<{ results: SearchResult[] }> {
   const params = new URLSearchParams({ q: query });
   if (type) params.set("type", type);
-  if (excludeSession) params.set("excludeSession", excludeSession);
+  if (sessionId) params.set("sessionId", sessionId);
   return request(`/search?${params}`);
 }
 

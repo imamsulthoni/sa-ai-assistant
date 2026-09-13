@@ -3,10 +3,24 @@ import { createClientStreamResponse } from "@anvia/server";
 import { agentToClientStream, parseClientStreamRequest } from "@anvia/client";
 import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
 import { titleSessionFromFirstMessage } from "../session/service.js";
-import { agentFor } from "./services.js";
+import { agentFor, attachmentContextBlock } from "./services.js";
 import { stageBrdModification } from "../brd/services.js";
 import type { FlowMetadata } from "./types.js";
 export const chatModule = new Hono();
+
+/** Extract readable text from a message whose content may be a string or an array of parts. */
+function messageText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter(
+      (part): part is { text: string } =>
+        Boolean(part) && typeof part === "object" && typeof (part as { text?: unknown }).text === "string",
+    )
+    .map((part) => part.text)
+    .join(" ")
+    .trim();
+}
 
 chatModule.post("/", async (c) => {
   const body = parseClientStreamRequest(await c.req.json());
@@ -34,8 +48,25 @@ chatModule.post("/", async (c) => {
   const phase = metadata?.brdDocumentId ? "QA" : metadata?.phase;
   const agent = await agentFor(userId, sessionId, phase, metadata?.brdDocumentId);
 
+  const attachedFiles = (metadata?.attachedFiles ?? [])
+    .filter((name) => typeof name === "string" && name.trim())
+    .slice(0, 10);
+  const attachedDocumentIds = (metadata?.attachedDocumentIds ?? [])
+    .filter((id) => typeof id === "string" && id.trim())
+    .slice(0, 5);
+  const attachmentBlock = attachedDocumentIds.length
+    ? await attachmentContextBlock(userId, sessionId, attachedDocumentIds)
+    : "";
+  const fileInstruction = attachedFiles.length
+    ? `[File sesi yang dilampirkan pada pesan ini: ${attachedFiles.join(", ")}. Panggil search_context untuk membaca isinya sebelum menjawab bila relevan.]`
+    : "";
+  const contextBlock = attachmentBlock || fileInstruction;
+  const promptContent = contextBlock
+    ? [messageText(latest.content), contextBlock].filter(Boolean).join("\n\n")
+    : latest.content;
+
   const agentStream = agent.stream({
-    prompt: { role: "user", content: latest.content },
+    prompt: { role: "user", content: promptContent },
     session: {
       sessionId,
       userId,

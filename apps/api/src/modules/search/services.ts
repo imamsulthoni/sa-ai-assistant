@@ -7,6 +7,7 @@ export async function searchUserContent(
   query: string,
   type: SearchType | undefined,
   excludeSession: string | undefined,
+  sessionId?: string | undefined,
 ): Promise<Array<Record<string, unknown>>> {
   const contains = { contains: query, mode: "insensitive" as const };
   const results: Array<Record<string, unknown>> = [];
@@ -15,6 +16,7 @@ export async function searchUserContent(
       where: {
         userId,
         title: contains,
+        ...(sessionId ? { sessionId } : {}),
         ...(excludeSession ? { NOT: { sessionId: excludeSession } } : {}),
       },
       take: 20,
@@ -35,6 +37,7 @@ export async function searchUserContent(
       where: {
         userId,
         title: contains,
+        ...(sessionId ? { sessionId } : {}),
         ...(excludeSession ? { NOT: { sessionId: excludeSession } } : {}),
       },
       take: 20,

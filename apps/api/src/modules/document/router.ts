@@ -3,7 +3,7 @@ import { prisma } from "../../lib/prisma.js";
 import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
 import { documentQueue, flowchartQueue, retryPolicies } from "../../lib/queue.js";
 import { DOCUMENT_MIME_TYPES, MAX_DOCUMENT_SIZE, UploadDocumentSchema } from "./schema.js";
-import { deleteDocument, documentUrl, uploadDocument } from "./services.js";
+import { deleteDocument, deleteDocumentVectors, documentUrl, uploadDocument } from "./services.js";
 import { documentFileType } from "./types.js";
 
 export const documentModule = new Hono()
@@ -115,6 +115,15 @@ export const documentModule = new Hono()
     const document = await prisma.document.findFirst({ where: { id, userId } });
     if (!document) return c.json({ error: "Document not found" }, 404);
 
+    const pageCount = await prisma.documentPage.count({ where: { documentId: document.id } });
+    try {
+      await deleteDocumentVectors(document.id, pageCount);
+    } catch (error) {
+      console.warn("Failed to delete document vectors", {
+        documentId: document.id,
+        error: error instanceof Error ? error.message : error,
+      });
+    }
     await deleteDocument(document.objectKey);
     await prisma.document.delete({ where: { id: document.id } });
     return c.json({ ok: true });

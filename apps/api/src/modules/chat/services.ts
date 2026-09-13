@@ -57,6 +57,8 @@ async function adaptersFor(
       });
       return results.map((result) => ({
         documentId: String(result.metadata?.documentId ?? result.id),
+        title:
+          typeof result.metadata?.documentName === "string" ? result.metadata.documentName : null,
         pageNumber:
           typeof result.metadata?.pageNumber === "number" ? result.metadata.pageNumber : null,
         content:
@@ -166,7 +168,7 @@ export async function agentFor(
         : phase === "GENERATE"
           ? ["draft_brd", "search_context", "get_template_structure", "get_active_brd", "web_search"]
           : phase === "QA"
-            ? ["answer_brd_question", "modify_brd", "search_context", "get_active_brd", "web_search"]
+            ? ["answer_brd_question", "modify_brd", "search_context", "get_active_brd", "web_search", "verify_flowchart"]
             : undefined,
     systemPrompt: settings?.systemPrompt ?? undefined,
     // Flow phases (CLARIFY/JUDGE/GENERATE) are stateless per request and must
@@ -193,6 +195,59 @@ export async function distillSessionContext(userId: string, sessionId: string): 
     filter: vectorFilter.and(vectorFilter.eq("userId", userId), vectorFilter.eq("sessionId", sessionId)),
   });
   return results.map((result) => typeof result.document === "string" ? result.document : JSON.stringify(result.document)).join("\n").slice(0, 4000);
+}
+
+const MAX_ATTACHMENT_CONTEXT_CHARS = 6000;
+
+/**
+ * Build a prompt block with the extracted content of documents the user attached
+ * or mentioned in the current session, so the agent never has to guess whether
+ * OCR/text extraction is available.
+ */
+export async function attachmentContextBlock(
+  userId: string,
+  sessionId: string,
+  documentIds: string[],
+): Promise<string> {
+  const ids = [...new Set(documentIds.filter((id) => typeof id === "string" && id.trim()))].slice(0, 5);
+  if (!ids.length) return "";
+
+  const documents = await prisma.document.findMany({
+    where: { id: { in: ids }, userId, sessionId },
+    select: { id: true, title: true, status: true },
+  });
+  if (!documents.length) return "";
+
+  const blocks: string[] = [];
+  let budget = MAX_ATTACHMENT_CONTEXT_CHARS;
+  for (const document of documents) {
+    if (document.status !== "READY" && document.status !== "PENDING_CONFIRMATION") {
+      blocks.push(
+        `### File: ${document.title}\n(status: ${document.status} — masih diproses; beri tahu user untuk menunggu sebentar lalu coba lagi)`,
+      );
+      continue;
+    }
+    const pages = await prisma.documentPage.findMany({
+      where: { documentId: document.id },
+      orderBy: { pageNumber: "asc" },
+      select: { pageNumber: true, content: true },
+    });
+    for (const page of pages) {
+      if (budget <= 0) break;
+      const content = page.content.trim();
+      if (!content) continue;
+      const slice = content.slice(0, budget);
+      budget -= slice.length;
+      blocks.push(`### File: ${document.title} (halaman ${page.pageNumber})\n${slice}`);
+    }
+  }
+  if (!blocks.length) return "";
+
+  return [
+    "[Konten file sesi yang dirujuk user — jadikan sumber utama, jangan bilang tidak punya akses:",
+    blocks.join("\n\n"),
+    "Gunakan search_context bila butuh bagian lain dari file tersebut.]",
+  ].join("\n");
 }
 
 

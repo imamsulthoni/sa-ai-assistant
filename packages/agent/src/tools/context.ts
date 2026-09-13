@@ -7,6 +7,7 @@ export const ContextFilterSchema = z.object({
 
 export const ContextChunkSchema = z.object({
   documentId: z.string().min(1),
+  title: z.string().nullable().optional(),
   pageNumber: z.number().int().positive().nullable(),
   content: z.string(),
   score: z.number().finite(),

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Check,
   CheckCircle2,
@@ -21,16 +22,14 @@ import { useVersionHistory } from "#/modules/brd/hooks/use-version-history";
 import { NewBrdPanel } from "#/modules/brd/new-brd-panel";
 import { FeedbackForm, type ClarificationQuestion } from "#/modules/brd/feedback-form";
 import { DocumentPane } from "#/modules/brd/document-pane";
-import type { MentionAction } from "#/modules/brd/mention-popover";
 import {
   clarifyBrd,
   createBrd,
-  createBrdVersion,
-  getBrd,
+  getDocument,
+  importBrd,
   submitClarification,
   uploadDocument,
   type BrdDocument,
-  type SearchResult,
 } from "#/lib/api";
 
 type ChatSearch = { session?: string };
@@ -53,6 +52,18 @@ export const Route = createFileRoute("/workspace")({
 
 function isStreaming(status: UseChatStatus): boolean {
   return status === "submitted" || status === "streaming" || status === "waiting";
+}
+
+async function waitForDocumentReady(sessionId: string, documentId: string) {
+  for (let attempt = 0; attempt < 90; attempt += 1) {
+    const { document } = await getDocument(sessionId, documentId);
+    if (document.status === "READY" || document.status === "PENDING_CONFIRMATION") return document;
+    if (document.status === "FAILED") {
+      throw new Error(document.error ?? "Document processing failed");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  throw new Error("Document processing timed out");
 }
 
 type StepKey = "story" | "clarify" | "generate";
@@ -230,6 +241,7 @@ function GeneratingView() {
 function Workspace() {
   const { session } = Route.useSearch();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const onNavigate = useCallback(
     (id: string) => {
       void navigate({
@@ -253,6 +265,10 @@ function Workspace() {
   } = useSessions({ sessionId: session, onNavigate });
   const documentState = useDocuments(activeId);
   const brdState = useBrds(activeId);
+  const refreshDocuments = useCallback(() => {
+    if (!activeId) return;
+    void queryClient.invalidateQueries({ queryKey: ["session", activeId, "documents"] });
+  }, [activeId, queryClient]);
   const [phase, setPhase] = useState<Phase>("EMPTY_SESSION");
   const [questions, setQuestions] = useState<ClarificationQuestion[]>([]);
   const [round, setRound] = useState(1);
@@ -260,6 +276,7 @@ function Workspace() {
   const [userStory, setUserStory] = useState("");
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"chat" | "brd">("chat");
@@ -313,6 +330,11 @@ function Workspace() {
     }
   }, [brdState.active, brdState.loading]);
 
+  const pendingModification = brdState.active?.pendingContentMarkdown ?? null;
+  useEffect(() => {
+    if (pendingModification) setBrdPaneVisible(true);
+  }, [pendingModification]);
+
   const persistV1 = useCallback(
     async (base: string) => {
       if (!activeId || !base.trim()) throw new Error("Agent returned an empty BRD");
@@ -324,6 +346,7 @@ function Workspace() {
           contentMarkdown: base.trim(),
           changeSummary: "Initial draft",
         });
+        setBrdPaneVisible(true);
         await brdState.select(created.brd.id);
         setDraft(created.brd.contentMarkdown);
         setQuestions([]);
@@ -372,7 +395,10 @@ function Workspace() {
       if (!activeId) return;
       setFlowError(null);
       try {
-        if (file) await uploadDocument(activeId, file);
+        if (file) {
+          await uploadDocument(activeId, file);
+          refreshDocuments();
+        }
         setUserStory(story);
         setRound(1);
         setRoundAnswers({});
@@ -387,7 +413,7 @@ function Workspace() {
         setPhase("EMPTY_SESSION");
       }
     },
-    [activeId, runGeneration],
+    [activeId, runGeneration, refreshDocuments],
   );
 
   const submitAnswers = useCallback(
@@ -404,45 +430,34 @@ function Workspace() {
     void runGeneration(roundAnswers, true);
   }, [roundAnswers, runGeneration]);
 
-  const copyMention = useCallback(
-    async (result: SearchResult) => {
+  const importExisting = useCallback(
+    async (file: File) => {
       if (!activeId) return;
       setFlowError(null);
+      setImporting(true);
       try {
-        const source = (await getBrd(result.id)).brd;
-        const created = await createBrd({
+        const uploaded = await uploadDocument(activeId, file);
+        const processed = await waitForDocumentReady(activeId, uploaded.document.id);
+        const imported = await importBrd({
           sessionId: activeId,
-          title: `${source.title} (copy)`,
-          contentMarkdown: source.contentMarkdown,
-          changeSummary: `Copied from ${source.title}`,
+          documentId: processed.id,
+          title: file.name.replace(/\.[^.]+$/, "").trim() || undefined,
         });
-        for (const version of (source.versions ?? []).filter((v) => v.versionNumber > 1)) {
-          await createBrdVersion(created.brd.id, {
-            contentMarkdown: version.contentMarkdown,
-            changeSummary: version.changeSummary ?? undefined,
-            createdBy: version.createdBy === "AI_AGENT" ? "AI_AGENT" : "USER_MANUAL",
-          });
-        }
-        await brdState.select(created.brd.id);
-        setNotice(`Copied @${source.title} into this session as a new BRD.`);
-      } catch (caught) {
-        setFlowError(`Copy failed: ${messageOf(caught)}`);
-      }
-    },
-    [activeId, brdState],
-  );
-
-  const pickMention = useCallback(
-    (result: SearchResult, action: MentionAction) => {
-      if (action === "copy") {
-        void copyMention(result);
-      } else {
+        refreshDocuments();
+        setBrdPaneVisible(false);
+        await brdState.select(imported.brd.id);
+        setDraft(imported.brd.contentMarkdown);
+        setPhase("BRD_ACTIVE");
         setNotice(
-          `Referenced @${result.title} (read-only). Mention copy duplicates it into this session.`,
+          `BRD existing "${imported.brd.title}" berhasil diimpor. Tanyakan isinya atau minta modifikasi — panel BRD muncul saat ada preview perubahan untuk di-approve.`,
         );
+      } catch (caught) {
+        setFlowError(`Import failed: ${messageOf(caught)}`);
+      } finally {
+        setImporting(false);
       }
     },
-    [copyMention],
+    [activeId, brdState, refreshDocuments],
   );
 
   const stepKey: StepKey =
@@ -559,9 +574,11 @@ function Workspace() {
                 sessionId={activeId}
                 brdDocumentId={brdState.active.id}
                 initialMessages={initialMessages}
-                onRunEnded={refreshAfterRun}
+                onRunEnded={() => {
+                  void refreshAfterRun();
+                  void brdState.refresh();
+                }}
                 onStatusChange={(status) => setStreaming(isStreaming(status))}
-                onMention={pickMention}
               />
             </div>
 
@@ -619,7 +636,9 @@ function Workspace() {
             ) : (
               <NewBrdPanel
                 onGenerate={(story, file) => void generate(story, file)}
+                onImport={(file) => void importExisting(file)}
                 busy={streaming}
+                importing={importing}
               />
             )}
           </div>

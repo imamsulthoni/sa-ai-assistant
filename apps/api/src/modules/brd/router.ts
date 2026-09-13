@@ -5,6 +5,7 @@ import {
   BrdClarifySchema,
   BrdCreateSchema,
   BrdDiffQuerySchema,
+  BrdImportSchema,
   BrdRestoreSchema,
   BrdSubmitClarificationSchema,
   BrdVersionCreateSchema,
@@ -19,6 +20,7 @@ import {
   diffBrdVersions,
   getBrd,
   getBrdForExport,
+  importBrdFromDocument,
   listBrds,
   rejectBrdModification,
   restoreBrdVersion,
@@ -56,6 +58,12 @@ export const brdModule = new Hono()
     const parsed = BrdCreateSchema.safeParse(await bodyOf(c));
     if (!parsed.success) return c.json({ error: "Invalid BRD payload", issues: parsed.error.issues }, 400);
     return c.json({ brd: await createBrd(owner(c), parsed.data) }, 201);
+  })
+  .post("/import", async (c) => {
+    const parsed = BrdImportSchema.safeParse(await bodyOf(c));
+    if (!parsed.success) return c.json({ error: "Invalid BRD import payload", issues: parsed.error.issues }, 400);
+    const brd = await importBrdFromDocument(owner(c), parsed.data);
+    return brd ? c.json({ brd }, 201) : c.json({ error: "Document is not ready or has no extracted content" }, 404);
   })
   .get("/", async (c) => c.json({ brds: await listBrds(owner(c), c.req.query("sessionId") ?? undefined) }))
   .get("/:id", async (c) => {
