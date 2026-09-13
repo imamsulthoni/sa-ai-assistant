@@ -1225,6 +1225,8 @@ export const BrdDocumentScalarFieldEnum = {
   title: 'title',
   currentVersion: 'currentVersion',
   contentMarkdown: 'contentMarkdown',
+  pendingContentMarkdown: 'pendingContentMarkdown',
+  pendingChangeSummary: 'pendingChangeSummary',
   status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

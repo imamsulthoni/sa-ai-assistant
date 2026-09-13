@@ -10,6 +10,7 @@ import { MentionPopover, type MentionAction } from "#/modules/brd/mention-popove
 
 type AnviaChatProps = {
   sessionId: string;
+  brdDocumentId?: string;
   initialMessages: UIMessage[];
   onRunEnded?: () => void;
   onStatusChange?: (status: UseChatStatus) => void;
@@ -18,6 +19,7 @@ type AnviaChatProps = {
 
 export function AnviaChat({
   sessionId,
+  brdDocumentId,
   initialMessages,
   onRunEnded,
   onStatusChange,
@@ -31,8 +33,9 @@ export function AnviaChat({
           "x-user-id": DEMO_USER_ID,
           "x-conversation-id": sessionId,
         },
+        body: brdDocumentId ? { metadata: { phase: "QA", brdDocumentId } } : undefined,
       }),
-    [sessionId],
+    [brdDocumentId, sessionId],
   );
 
   const chat = useChat({

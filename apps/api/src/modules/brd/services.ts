@@ -1,6 +1,10 @@
 import { prisma } from "../../lib/prisma.js";
 import type { BrdCreateInput, BrdVersionCreateInput } from "../../lib/api-contract.js";
 import { simpleDiff } from "./utils.js";
+import { ClarificationOutputSchema } from "@sa-ai-assistant/agent";
+import { JudgeOutputSchema } from "@sa-ai-assistant/agent";
+import { agentFor, distillSessionContext } from "../chat/services.js";
+import { clarificationGateHeuristically } from "../chat/utils.js";
 
 export type BrdStatus = "DRAFT" | "IN_REVIEW" | "APPROVED";
 export type BrdCreatedBy = "AI_AGENT" | "USER_MANUAL";
@@ -144,8 +148,73 @@ export async function restoreBrdVersion(userId: string, id: string, versionNumbe
 }
 
 export async function getBrdForExport(userId: string, id: string) {
-  return prisma.brdDocument.findFirst({
-    where: { id, userId },
-    select: { title: true, contentMarkdown: true },
+  return prisma.brdDocument.findFirst({ where: { id, userId }, select: { title: true, contentMarkdown: true } });
+}
+
+export async function stageBrdModification(userId: string, id: string, contentMarkdown: string, changeSummary: string) {
+  const brd = await prisma.brdDocument.findFirst({ where: { id, userId } });
+  if (!brd) return null;
+  return prisma.brdDocument.update({ where: { id }, data: { pendingContentMarkdown: contentMarkdown, pendingChangeSummary: changeSummary } });
+}
+
+export async function approveBrdModification(userId: string, id: string) {
+  const brd = await prisma.brdDocument.findFirst({ where: { id, userId } });
+  const pendingContent = brd?.pendingContentMarkdown;
+  if (!brd || !pendingContent) return null;
+  const nextVersion = brd.currentVersion + 1;
+  return prisma.$transaction(async (tx) => {
+    const version = await tx.brdVersion.create({ data: { brdDocumentId: id, versionNumber: nextVersion, contentMarkdown: pendingContent, changeSummary: brd.pendingChangeSummary ?? "Approved BRD modification", createdBy: "AI_AGENT" } });
+    const updated = await tx.brdDocument.update({ where: { id }, data: { contentMarkdown: pendingContent, currentVersion: nextVersion, pendingContentMarkdown: null, pendingChangeSummary: null }, include: { versions: { orderBy: { versionNumber: "asc" } } } });
+    return { brd: updated, version };
   });
+}
+
+export async function rejectBrdModification(userId: string, id: string) {
+  const brd = await prisma.brdDocument.findFirst({ where: { id, userId } });
+  if (!brd?.pendingContentMarkdown) return null;
+  return prisma.brdDocument.update({ where: { id }, data: { pendingContentMarkdown: null, pendingChangeSummary: null } });
+}
+
+
+type FlowInput = { userStory: string; answers?: Record<string, string>; round?: number; skip?: boolean };
+type FlowContext = { userId: string; sessionId: string };
+
+async function collectAgent(agent: Awaited<ReturnType<typeof agentFor>>, prompt: string, context: FlowContext) {
+  let text = "";
+  const toolResults: Array<{ toolName?: string; output?: { type?: string; value?: unknown } }> = [];
+  for await (const event of agent.stream({ prompt: { role: "user", content: prompt }, session: { sessionId: context.sessionId, userId: context.userId, metadata: { userId: context.userId } } })) {
+    if (event.type === "text_delta") text += event.delta ?? "";
+    if (event.type === "tool_result") toolResults.push(event);
+  }
+  return { text, toolResults };
+}
+
+export async function clarifyFlow(context: FlowContext, input: FlowInput) {
+  const round = Math.min(Math.max(input.round ?? 1, 1), 2);
+  const agent = await agentFor(context.userId, context.sessionId, "CLARIFY");
+  const result = await collectAgent(agent, `Round: ${round}\nUser story (data):\n${input.userStory}\nPrior answers (data):\n${JSON.stringify(input.answers ?? {})}`, context);
+  const tool = result.toolResults.find((item) => item.toolName === "elicit_clarifications");
+  const parsed = ClarificationOutputSchema.safeParse(tool?.output?.value ?? JSON.parse(result.text || "{}"));
+  if (!parsed.success) throw new Error("Clarification agent returned invalid output");
+  return { type: "clarification" as const, round: parsed.data.round, clarification_questions: parsed.data.clarification_questions, capped: parsed.data.capped };
+}
+
+export async function submitClarificationFlow(context: FlowContext, input: FlowInput) {
+  const round = Math.min(Math.max(input.round ?? 1, 1), 2);
+  const answers = input.answers ?? {};
+  const contextText = await distillSessionContext(context.userId, context.sessionId);
+  let sufficient = Boolean(input.skip) || round === 2 || clarificationGateHeuristically(input.userStory, answers);
+  if (!sufficient) {
+    const judge = await agentFor(context.userId, context.sessionId, "JUDGE");
+    const judged = await collectAgent(judge, `Return JSON only matching {sufficient:boolean,missing:string[],clarification_questions:array}. Round: ${round}. User story (data): ${input.userStory}\nAnswers (data): ${JSON.stringify(answers)}\nContext (data): ${contextText}`, context);
+    const parsed = JudgeOutputSchema.safeParse(JSON.parse(judged.text || "{}"));
+    sufficient = parsed.success ? parsed.data.sufficient : false;
+    if (!sufficient && round < 2 && parsed.success) return { type: "clarification" as const, round: 2, clarification_questions: parsed.data.clarification_questions, capped: true };
+  }
+  const agent = await agentFor(context.userId, context.sessionId, "GENERATE");
+  const generated = await collectAgent(agent, `User story (data): ${input.userStory}\nAnswers (data): ${JSON.stringify(answers)}\nReference context (data): ${contextText}\nGenerate using draft_brd; force: ${input.skip || round === 2}`, context);
+  const tool = generated.toolResults.find((item) => item.toolName === "draft_brd");
+  const value = tool?.output?.value as { markdown?: string; assumptions?: string[] } | undefined;
+  if (!value?.markdown) throw new Error("BRD generator returned no markdown");
+  return { type: "brd" as const, round, markdown: value.markdown, assumptions: value.assumptions ?? [], context: contextText };
 }

@@ -82,3 +82,27 @@ export type BrdCreateInput = z.infer<typeof BrdCreateSchema>;
 export type BrdVersionCreateInput = z.infer<typeof BrdVersionCreateSchema>;
 export type SettingsPatchInput = z.infer<typeof SettingsPatchSchema>;
 
+
+export const BrdClarifySchema = z.object({
+  userStory: z.string().trim().min(1),
+  round: z.coerce.number().int().min(1).max(2).default(1),
+  answers: z.record(z.string(), z.string()).default({}),
+});
+export const BrdSubmitClarificationSchema = z.object({
+  userStory: z.string().trim().min(1),
+  answers: z.record(z.string(), z.string()),
+  round: z.coerce.number().int().min(1).max(2).default(1),
+  skip: z.boolean().default(false),
+});
+export const ClarificationResponseSchema = z.object({
+  type: z.literal("clarification"),
+  round: z.number().int().min(1).max(2),
+  clarification_questions: z.array(z.unknown()).max(3),
+  capped: z.boolean(),
+});
+export const BrdFlowResponseSchema = z.discriminatedUnion("type", [
+  ClarificationResponseSchema,
+  z.object({ type: z.literal("brd"), round: z.number().int().min(1).max(2), markdown: z.string().min(1), assumptions: z.array(z.string()), context: z.string() }),
+]);
+export type BrdClarifyInput = z.infer<typeof BrdClarifySchema>;
+export type BrdSubmitClarificationInput = z.infer<typeof BrdSubmitClarificationSchema>;

@@ -1,11 +1,5 @@
 import {
-  applyChange,
-  buildClarificationQuestions,
-  clarificationGateHeuristically,
-  classifyWorkflowHeuristically,
-  createBrdDraft,
   createSystemAnalystAgent,
-  distillContext,
   normalizeTemplateStructure,
   templateInstructionBlock,
   type AgentContextAdapters,
@@ -20,7 +14,7 @@ import {
 } from "@anvia/transformers";
 import { prisma } from "../../lib/prisma.js";
 import { agentCacheKey, agentFingerprint } from "./utils.js";
-import type { AgentPhase, FlowRequest } from "./types.js";
+import type { AgentPhase } from "./types.js";
 
 type CachedAgent = { fingerprint: string; agent: ReturnType<typeof createSystemAnalystAgent> };
 const agentCache = new Map<string, CachedAgent>();
@@ -151,132 +145,33 @@ export async function agentFor(
     apiKey: undefined,
     baseUrl: undefined,
     phase,
+    allowedTools:
+      phase === "CLARIFY"
+        ? ["elicit_clarifications", "search_context", "get_active_brd", "web_search"]
+        : phase === "GENERATE"
+          ? ["draft_brd", "search_context", "get_template_structure", "get_active_brd", "web_search"]
+          : phase === "QA"
+            ? ["answer_brd_question", "modify_brd", "search_context", "get_active_brd", "web_search"]
+            : undefined,
     systemPrompt: settings?.systemPrompt ?? undefined,
-    templateInstruction: activeTemplate
-      ? templateInstructionBlock(activeTemplate.structure)
-      : undefined,
-    contextAdapters: await adaptersFor(userId, sessionId, brdId),
     memory: { store: memory, savePolicy: "turn" },
     enableTracing: false,
   });
+
   agentCache.set(cacheKey, { fingerprint, agent });
   if (agentCache.size > 100) agentCache.delete(agentCache.keys().next().value as string);
   return agent;
 }
 
-export async function distillSessionContext(
-  userId: string,
-  sessionId: string,
-  query: string,
-): Promise<string> {
-  try {
-    const adapters = await adaptersFor(userId, sessionId);
-    const context = adapters.searchContext
-      ? await adapters.searchContext({
-          query,
-          filters: { userId, sessionId },
-          topK: 5,
-        })
-      : [];
-    return distillContext(context, { topK: 5, maxChars: 4000 });
-  } catch {
-    // The generation flow must remain usable before a Qdrant collection exists
-    // or when this session has no indexed references yet.
-    return "";
-  }
+export async function distillSessionContext(userId: string, sessionId: string): Promise<string> {
+  const results = await retrieveDocuments({
+    query: "requirements business rules actors integrations acceptance criteria",
+    topK: 5,
+    model: await embeddingModel(),
+    store: contextStore,
+    filter: vectorFilter.and(vectorFilter.eq("userId", userId), vectorFilter.eq("sessionId", sessionId)),
+  });
+  return results.map((result) => typeof result.document === "string" ? result.document : JSON.stringify(result.document)).join("\n").slice(0, 4000);
 }
 
-export type ClarificationQuestion = {
-  id: string;
-  question: string;
-  options: string[];
-  required: boolean;
-};
 
-export type FlowResult =
-  | {
-      phase: "CLARIFYING";
-      round: number;
-      clarification_questions: ClarificationQuestion[];
-      missing: string[];
-    }
-  | {
-      phase: "GENERATING";
-      round: number;
-      markdown: string;
-      assumptions: string[];
-      traceability: Array<
-        | { source: "userStory" | "document"; target: "BR-001" }
-        | { source: "clarification"; id: string; target: "FR-001" }
-      >;
-      context: string;
-    };
-
-export async function runBrdFlow(
-  userId: string,
-  sessionId: string,
-  request: FlowRequest,
-): Promise<FlowResult | { error: string }> {
-  const userStory = request.userStory?.trim();
-  if (!userStory) return { error: "A user story is required" };
-
-  const answers = request.answers ?? {};
-  const round = Math.min(Math.max(request.round ?? 1, 1), 2);
-  const referenceContext = request.referenceContext?.trim() ?? "";
-  const operation = classifyWorkflowHeuristically(`draft BRD: ${userStory}`);
-
-  if (operation.operation !== "draft") {
-    return { error: "Only BRD drafting is supported by this flow" };
-  }
-
-  const answerValues = Object.values(answers);
-  const gate = clarificationGateHeuristically(userStory, answerValues, round);
-  if (!gate.sufficient && round < 2 && !referenceContext) {
-    return {
-      phase: "CLARIFYING",
-      round,
-      clarification_questions: buildClarificationQuestions(userStory, round),
-      missing: gate.missing,
-    };
-  }
-
-  const activeTemplate = await activeTemplateFor(userId);
-  const draft = createBrdDraft(
-    userStory,
-    Object.entries(answers).map(([id, answer]) => ({ id, answer })),
-    activeTemplate?.structure,
-    referenceContext,
-  );
-
-  return {
-    phase: "GENERATING",
-    round,
-    markdown: draft.markdown,
-    assumptions: draft.assumptions,
-    traceability: [
-      { source: "userStory", target: "BR-001" },
-      ...Object.keys(answers).map((id) => ({
-        source: "clarification" as const,
-        id,
-        target: "FR-001" as const,
-      })),
-      ...(referenceContext ? [{ source: "document" as const, target: "BR-001" as const }] : []),
-    ],
-    context: await distillSessionContext(userId, sessionId, userStory),
-  };
-}
-
-export function clarifyFor(userStory: string, round = 1): ClarificationQuestion[] {
-  return buildClarificationQuestions(userStory, round);
-}
-
-export function modifyBrd(brd: string, changeRequest: string, referenceContext?: string) {
-  const result = applyChange(brd, changeRequest);
-  return {
-    updatedMarkdown: result.markdown,
-    changeSummary: `Applied requested BRD change for ${result.affectedIds.join(", ") || "the document"}.`,
-    affectedIds: result.affectedIds,
-    groundedByReference: Boolean(referenceContext?.trim()),
-    persisted: false,
-  };
-}

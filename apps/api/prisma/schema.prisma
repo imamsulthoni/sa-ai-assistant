@@ -123,15 +123,17 @@ model Project {
 }
 
 model BrdDocument {
-  id              String   @id @default(cuid())
-  userId          String
-  sessionId       String
-  title           String
-  currentVersion  Int      @default(1)
-  contentMarkdown String
-  status          String   @default("DRAFT")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  userId                String
+  sessionId             String
+  title                 String
+  currentVersion        Int      @default(1)
+  contentMarkdown       String
+  pendingContentMarkdown String?
+  pendingChangeSummary  String?
+  status                String   @default("DRAFT")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   versions BrdVersion[]
 

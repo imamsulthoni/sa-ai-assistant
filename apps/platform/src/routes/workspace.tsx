@@ -13,13 +13,13 @@ import { useVersionHistory } from "#/modules/brd/hooks/use-version-history";
 import { NewBrdPanel } from "#/modules/brd/new-brd-panel";
 import { FeedbackForm, type ClarificationQuestion } from "#/modules/brd/feedback-form";
 import { DocumentPane } from "#/modules/brd/document-pane";
-import { VersionHistory } from "#/modules/brd/version-history";
 import type { MentionAction } from "#/modules/brd/mention-popover";
 import {
+  clarifyBrd,
   createBrd,
   createBrdVersion,
   getBrd,
-  streamBrdFlow,
+  submitClarification,
   uploadDocument,
   type BrdDocument,
   type SearchResult,
@@ -97,15 +97,13 @@ function Workspace() {
 
   const persistV1 = useCallback(
     async (base: string, answers: Record<string, string>) => {
-      if (!activeId) return;
+      if (!activeId || !base.trim()) throw new Error("Agent returned an empty BRD");
       setPhase("GENERATING");
       try {
-        const lines = Object.entries(answers).map(([key, value]) => `- ${key}: ${value}`);
-        const content = `${base}\n\n## Clarifications\n${lines.length ? lines.join("\n") : "- (skipped — see ASSUMPTIONS)"}`;
         const created = await createBrd({
           sessionId: activeId,
           title: "New BRD",
-          contentMarkdown: content,
+          contentMarkdown: base.trim(),
           changeSummary: "Initial draft",
         });
         await brdState.select(created.brd.id);
@@ -114,85 +112,64 @@ function Workspace() {
       } catch (caught) {
         setFlowError(messageOf(caught));
         setPhase("CLARIFYING");
+        throw caught;
       }
     },
     [activeId, brdState],
   );
 
-  const generate = useCallback(
-    async (userStory: string, file?: File) => {
-      if (!activeId) return;
-      setFlowError(null);
-
-      try {
-        if (file) await uploadDocument(activeId, file);
-        setUserStory(userStory);
-        setPhase("GENERATING");
-        let clarificationQuestions: ClarificationQuestion[] = [];
-        await streamBrdFlow(activeId, { userStory, phase: "CLARIFY" }, setDraft, (questions) => {
-          clarificationQuestions = questions;
-        });
-        if (clarificationQuestions.length) {
-          setRound(1);
-          setQuestions(clarificationQuestions);
-          setPhase("CLARIFYING");
-          return;
-        }
-      } catch (caught) {
-        setFlowError(`Reference upload failed: ${messageOf(caught)}`);
+  const runGeneration = useCallback(async (answers: Record<string, string>, force: boolean, story = userStory) => {
+    if (!activeId) return;
+    setPhase("GENERATING");
+    try {
+      const result = await submitClarification(activeId, { userStory: story, answers, round, skip: force });
+      if (result.type === "clarification") {
+        setQuestions(result.clarification_questions);
+        setRound(result.round);
+        setPhase("CLARIFYING");
         return;
       }
-    },
-    [activeId],
-  );
+      setQuestions([]);
+      await persistV1(result.markdown, answers);
+    } catch (caught) { setFlowError(messageOf(caught)); setPhase("CLARIFYING"); }
+  }, [activeId, persistV1, round, userStory]);
 
-  const submitAnswers = useCallback(
-    (answers: Record<string, string>) => {
-      const merged = { ...roundAnswers, ...answers };
-      setRoundAnswers(merged);
+  const generate = useCallback(async (story: string, file?: File) => {
+    if (!activeId) return;
+    setFlowError(null);
+    try {
+      if (file) await uploadDocument(activeId, file);
+      setUserStory(story);
+      setRound(1);
+      setRoundAnswers({});
       setPhase("GENERATING");
-      void streamBrdFlow(
-        activeId ?? "",
-        {
-          userStory,
-          answers: merged,
-          phase: "GENERATE",
-        },
-        setDraft,
-      )
-        .then((markdown) => {
-          setQuestions([]);
-          return persistV1(markdown, merged);
-        })
-        .catch((caught) => {
-          setFlowError(messageOf(caught));
-          setPhase("CLARIFYING");
-        });
-    },
-    [activeId, roundAnswers, persistV1, userStory],
-  );
+      const result = await clarifyBrd(activeId, { userStory: story, round: 1 });
+      if (result.clarification_questions.length) {
+        setQuestions(result.clarification_questions);
+        setPhase("CLARIFYING");
+      } else await runGeneration({}, true, story);
+    } catch (caught) { setFlowError(`Unable to start BRD generation: ${messageOf(caught)}`); setPhase("EMPTY_SESSION"); }
+  }, [activeId, runGeneration]);
+
+  const submitAnswers = useCallback((answers: Record<string, string>) => {
+    const merged = { ...roundAnswers, ...answers };
+    setRoundAnswers(merged);
+    void runGeneration(merged, false);
+  }, [roundAnswers, runGeneration]);
 
   const skipClarification = useCallback(() => {
     setQuestions([]);
-    setPhase("GENERATING");
-    void streamBrdFlow(
-      activeId ?? "",
-      {
-        userStory,
-        answers: roundAnswers,
-        phase: "GENERATE",
-      },
-      setDraft,
-    )
-      .then((markdown) => {
-        return persistV1(markdown, roundAnswers);
-      })
-      .catch((caught) => {
-        setFlowError(messageOf(caught));
-        setPhase("CLARIFYING");
-      });
-  }, [activeId, persistV1, roundAnswers, userStory]);
+    void runGeneration(roundAnswers, true);
+  }, [roundAnswers, runGeneration]);
 
+  const retryClarification = useCallback(() => {
+    setFlowError(null);
+    setPhase("GENERATING");
+    void clarifyBrd(activeId ?? "", { userStory, answers: roundAnswers, round }).then((result) => {
+      setQuestions(result.clarification_questions);
+      setPhase(result.clarification_questions.length ? "CLARIFYING" : "GENERATING");
+    }).catch((caught) => { setFlowError(messageOf(caught)); setPhase("CLARIFYING"); });
+  }, [activeId, round, roundAnswers, userStory]);
   const copyMention = useCallback(
     async (result: SearchResult) => {
       if (!activeId) return;
@@ -273,11 +250,32 @@ function Workspace() {
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           {loading ? "Loading…" : "No conversation selected"}
         </div>
-      ) : phase === "EMPTY_SESSION" ? (
-        <NewBrdPanel
-          onGenerate={(userStory, file) => void generate(userStory, file)}
-          busy={streaming}
-        />
+      ) : brdState.active ? (
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          <AnviaChat
+            key={activeId}
+            sessionId={activeId}
+            brdDocumentId={brdState.active.id}
+            initialMessages={initialMessages}
+            onRunEnded={refreshAfterRun}
+            onStatusChange={(status) => setStreaming(isStreaming(status))}
+            onMention={pickMention}
+          />
+          <DocumentPane
+            brd={brdState.active}
+            content={draft}
+            diff={history.diff}
+            onDiff={(from, to) => void history.showDiff(from, to)}
+            onRestore={(version) => void history.restore(version)}
+            onClearDiff={history.clearDiff}
+            onApproved={(next) => { brdState.setActive(next); setDraft(next.contentMarkdown); }}
+            busy={history.busy}
+          />
+        </div>
+      ) : brdState.loading ? (
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+          Loading conversation…
+        </div>
       ) : phase === "CLARIFYING" ? (
         <FeedbackForm
           questions={questions}
@@ -290,34 +288,10 @@ function Workspace() {
           Generating BRD…
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <AnviaChat
-            key={activeId}
-            sessionId={activeId}
-            initialMessages={initialMessages}
-            onRunEnded={refreshAfterRun}
-            onStatusChange={(status) => setStreaming(isStreaming(status))}
-            onMention={pickMention}
-          />
-          {brdState.active && (
-            <DocumentPane
-              brd={brdState.active}
-              content={draft}
-              onChange={setDraft}
-              onSave={() => void history.save(draft)}
-              onChangeRequest={(markdown) => setDraft(markdown)}
-              busy={history.busy}
-            />
-          )}
-          {brdState.active && (
-            <VersionHistory
-              brd={brdState.active}
-              diff={history.diff}
-              onDiff={(from, to) => void history.showDiff(from, to)}
-              onRestore={(version) => void history.restore(version)}
-            />
-          )}
-        </div>
+        <NewBrdPanel
+          onGenerate={(userStory, file) => void generate(userStory, file)}
+          busy={streaming}
+        />
       )}
     </ChatShell>
   );

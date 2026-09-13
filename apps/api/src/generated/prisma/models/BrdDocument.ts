@@ -41,6 +41,8 @@ export type BrdDocumentMinAggregateOutputType = {
   title: string | null
   currentVersion: number | null
   contentMarkdown: string | null
+  pendingContentMarkdown: string | null
+  pendingChangeSummary: string | null
   status: string | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -53,6 +55,8 @@ export type BrdDocumentMaxAggregateOutputType = {
   title: string | null
   currentVersion: number | null
   contentMarkdown: string | null
+  pendingContentMarkdown: string | null
+  pendingChangeSummary: string | null
   status: string | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -65,6 +69,8 @@ export type BrdDocumentCountAggregateOutputType = {
   title: number
   currentVersion: number
   contentMarkdown: number
+  pendingContentMarkdown: number
+  pendingChangeSummary: number
   status: number
   createdAt: number
   updatedAt: number
@@ -87,6 +93,8 @@ export type BrdDocumentMinAggregateInputType = {
   title?: true
   currentVersion?: true
   contentMarkdown?: true
+  pendingContentMarkdown?: true
+  pendingChangeSummary?: true
   status?: true
   createdAt?: true
   updatedAt?: true
@@ -99,6 +107,8 @@ export type BrdDocumentMaxAggregateInputType = {
   title?: true
   currentVersion?: true
   contentMarkdown?: true
+  pendingContentMarkdown?: true
+  pendingChangeSummary?: true
   status?: true
   createdAt?: true
   updatedAt?: true
@@ -111,6 +121,8 @@ export type BrdDocumentCountAggregateInputType = {
   title?: true
   currentVersion?: true
   contentMarkdown?: true
+  pendingContentMarkdown?: true
+  pendingChangeSummary?: true
   status?: true
   createdAt?: true
   updatedAt?: true
@@ -210,6 +222,8 @@ export type BrdDocumentGroupByOutputType = {
   title: string
   currentVersion: number
   contentMarkdown: string
+  pendingContentMarkdown: string | null
+  pendingChangeSummary: string | null
   status: string
   createdAt: Date
   updatedAt: Date
@@ -245,6 +259,8 @@ export type BrdDocumentWhereInput = {
   title?: Prisma.StringFilter<"BrdDocument"> | string
   currentVersion?: Prisma.IntFilter<"BrdDocument"> | number
   contentMarkdown?: Prisma.StringFilter<"BrdDocument"> | string
+  pendingContentMarkdown?: Prisma.StringNullableFilter<"BrdDocument"> | string | null
+  pendingChangeSummary?: Prisma.StringNullableFilter<"BrdDocument"> | string | null
   status?: Prisma.StringFilter<"BrdDocument"> | string
   createdAt?: Prisma.DateTimeFilter<"BrdDocument"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"BrdDocument"> | Date | string
@@ -258,6 +274,8 @@ export type BrdDocumentOrderByWithRelationInput = {
   title?: Prisma.SortOrder
   currentVersion?: Prisma.SortOrder
   contentMarkdown?: Prisma.SortOrder
+  pendingContentMarkdown?: Prisma.SortOrderInput | Prisma.SortOrder
+  pendingChangeSummary?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -274,6 +292,8 @@ export type BrdDocumentWhereUniqueInput = Prisma.AtLeast<{
   title?: Prisma.StringFilter<"BrdDocument"> | string
   currentVersion?: Prisma.IntFilter<"BrdDocument"> | number
   contentMarkdown?: Prisma.StringFilter<"BrdDocument"> | string
+  pendingContentMarkdown?: Prisma.StringNullableFilter<"BrdDocument"> | string | null
+  pendingChangeSummary?: Prisma.StringNullableFilter<"BrdDocument"> | string | null
   status?: Prisma.StringFilter<"BrdDocument"> | string
   createdAt?: Prisma.DateTimeFilter<"BrdDocument"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"BrdDocument"> | Date | string
@@ -287,6 +307,8 @@ export type BrdDocumentOrderByWithAggregationInput = {
   title?: Prisma.SortOrder
   currentVersion?: Prisma.SortOrder
   contentMarkdown?: Prisma.SortOrder
+  pendingContentMarkdown?: Prisma.SortOrderInput | Prisma.SortOrder
+  pendingChangeSummary?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -307,6 +329,8 @@ export type BrdDocumentScalarWhereWithAggregatesInput = {
   title?: Prisma.StringWithAggregatesFilter<"BrdDocument"> | string
   currentVersion?: Prisma.IntWithAggregatesFilter<"BrdDocument"> | number
   contentMarkdown?: Prisma.StringWithAggregatesFilter<"BrdDocument"> | string
+  pendingContentMarkdown?: Prisma.StringNullableWithAggregatesFilter<"BrdDocument"> | string | null
+  pendingChangeSummary?: Prisma.StringNullableWithAggregatesFilter<"BrdDocument"> | string | null
   status?: Prisma.StringWithAggregatesFilter<"BrdDocument"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"BrdDocument"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"BrdDocument"> | Date | string
@@ -319,6 +343,8 @@ export type BrdDocumentCreateInput = {
   title: string
   currentVersion?: number
   contentMarkdown: string
+  pendingContentMarkdown?: string | null
+  pendingChangeSummary?: string | null
   status?: string
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -332,6 +358,8 @@ export type BrdDocumentUncheckedCreateInput = {
   title: string
   currentVersion?: number
   contentMarkdown: string
+  pendingContentMarkdown?: string | null
+  pendingChangeSummary?: string | null
   status?: string
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -345,6 +373,8 @@ export type BrdDocumentUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   currentVersion?: Prisma.IntFieldUpdateOperationsInput | number
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
+  pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -358,6 +388,8 @@ export type BrdDocumentUncheckedUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   currentVersion?: Prisma.IntFieldUpdateOperationsInput | number
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
+  pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -371,6 +403,8 @@ export type BrdDocumentCreateManyInput = {
   title: string
   currentVersion?: number
   contentMarkdown: string
+  pendingContentMarkdown?: string | null
+  pendingChangeSummary?: string | null
   status?: string
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -383,6 +417,8 @@ export type BrdDocumentUpdateManyMutationInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   currentVersion?: Prisma.IntFieldUpdateOperationsInput | number
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
+  pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -395,6 +431,8 @@ export type BrdDocumentUncheckedUpdateManyInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   currentVersion?: Prisma.IntFieldUpdateOperationsInput | number
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
+  pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -407,6 +445,8 @@ export type BrdDocumentCountOrderByAggregateInput = {
   title?: Prisma.SortOrder
   currentVersion?: Prisma.SortOrder
   contentMarkdown?: Prisma.SortOrder
+  pendingContentMarkdown?: Prisma.SortOrder
+  pendingChangeSummary?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -423,6 +463,8 @@ export type BrdDocumentMaxOrderByAggregateInput = {
   title?: Prisma.SortOrder
   currentVersion?: Prisma.SortOrder
   contentMarkdown?: Prisma.SortOrder
+  pendingContentMarkdown?: Prisma.SortOrder
+  pendingChangeSummary?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -435,6 +477,8 @@ export type BrdDocumentMinOrderByAggregateInput = {
   title?: Prisma.SortOrder
   currentVersion?: Prisma.SortOrder
   contentMarkdown?: Prisma.SortOrder
+  pendingContentMarkdown?: Prisma.SortOrder
+  pendingChangeSummary?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -470,6 +514,8 @@ export type BrdDocumentCreateWithoutVersionsInput = {
   title: string
   currentVersion?: number
   contentMarkdown: string
+  pendingContentMarkdown?: string | null
+  pendingChangeSummary?: string | null
   status?: string
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -482,6 +528,8 @@ export type BrdDocumentUncheckedCreateWithoutVersionsInput = {
   title: string
   currentVersion?: number
   contentMarkdown: string
+  pendingContentMarkdown?: string | null
+  pendingChangeSummary?: string | null
   status?: string
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -510,6 +558,8 @@ export type BrdDocumentUpdateWithoutVersionsInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   currentVersion?: Prisma.IntFieldUpdateOperationsInput | number
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
+  pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -522,6 +572,8 @@ export type BrdDocumentUncheckedUpdateWithoutVersionsInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   currentVersion?: Prisma.IntFieldUpdateOperationsInput | number
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
+  pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -565,6 +617,8 @@ export type BrdDocumentSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   title?: boolean
   currentVersion?: boolean
   contentMarkdown?: boolean
+  pendingContentMarkdown?: boolean
+  pendingChangeSummary?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -579,6 +633,8 @@ export type BrdDocumentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   title?: boolean
   currentVersion?: boolean
   contentMarkdown?: boolean
+  pendingContentMarkdown?: boolean
+  pendingChangeSummary?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -591,6 +647,8 @@ export type BrdDocumentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   title?: boolean
   currentVersion?: boolean
   contentMarkdown?: boolean
+  pendingContentMarkdown?: boolean
+  pendingChangeSummary?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -603,12 +661,14 @@ export type BrdDocumentSelectScalar = {
   title?: boolean
   currentVersion?: boolean
   contentMarkdown?: boolean
+  pendingContentMarkdown?: boolean
+  pendingChangeSummary?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type BrdDocumentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "sessionId" | "title" | "currentVersion" | "contentMarkdown" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["brdDocument"]>
+export type BrdDocumentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "sessionId" | "title" | "currentVersion" | "contentMarkdown" | "pendingContentMarkdown" | "pendingChangeSummary" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["brdDocument"]>
 export type BrdDocumentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   versions?: boolean | Prisma.BrdDocument$versionsArgs<ExtArgs>
   _count?: boolean | Prisma.BrdDocumentCountOutputTypeDefaultArgs<ExtArgs>
@@ -628,6 +688,8 @@ export type $BrdDocumentPayload<ExtArgs extends runtime.Types.Extensions.Interna
     title: string
     currentVersion: number
     contentMarkdown: string
+    pendingContentMarkdown: string | null
+    pendingChangeSummary: string | null
     status: string
     createdAt: Date
     updatedAt: Date
@@ -1061,6 +1123,8 @@ export interface BrdDocumentFieldRefs {
   readonly title: Prisma.FieldRef<"BrdDocument", 'String'>
   readonly currentVersion: Prisma.FieldRef<"BrdDocument", 'Int'>
   readonly contentMarkdown: Prisma.FieldRef<"BrdDocument", 'String'>
+  readonly pendingContentMarkdown: Prisma.FieldRef<"BrdDocument", 'String'>
+  readonly pendingChangeSummary: Prisma.FieldRef<"BrdDocument", 'String'>
   readonly status: Prisma.FieldRef<"BrdDocument", 'String'>
   readonly createdAt: Prisma.FieldRef<"BrdDocument", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"BrdDocument", 'DateTime'>

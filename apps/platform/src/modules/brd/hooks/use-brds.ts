@@ -44,7 +44,7 @@ export function useBrds(sessionId: string | null) {
     : activeQuery.isError
       ? messageOf(activeQuery.error)
       : null;
-  const loading = listQuery.isPending || activeQuery.isPending;
+  const loading = listQuery.isPending || (activeId !== null && activeQuery.isPending);
 
   const select = useCallback((id: string) => setActiveId(id), []);
 

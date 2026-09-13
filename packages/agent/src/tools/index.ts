@@ -2,7 +2,7 @@ export { draftBrdTool } from "./brd-drafting.js";
 export { modifyBrdTool } from "./brd-modification.js";
 export { answerBrdQuestionTool } from "./brd-question.js";
 export { verifyFlowchartTool } from "./flowchart-verification.js";
-export { elicitClarificationsTool } from "./clarifications.js";
+export { ClarificationOutputSchema, elicitClarificationsTool } from "./clarifications.js";
 export { searchContextTool, createSearchContextTool } from "./context-search.js";
 export { getTemplateStructureTool, createTemplateStructureTool } from "./template-structure.js";
 export { getActiveBrdTool, createActiveBrdTool } from "./active-brd.js";

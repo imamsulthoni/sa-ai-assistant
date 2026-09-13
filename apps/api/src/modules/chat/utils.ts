@@ -23,3 +23,9 @@ export function agentFingerprint(
     templateUpdatedAt,
   ]);
 }
+
+export function clarificationGateHeuristically(userStory: string, answers: Record<string, string>): boolean {
+  const story = userStory.trim();
+  const answered = Object.values(answers).filter((answer) => answer.trim()).length;
+  return story.length >= 80 && answered > 0;
+}

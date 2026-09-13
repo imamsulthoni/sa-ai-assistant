@@ -6,7 +6,7 @@ import type { OpenAICompletionModel } from "@anvia/openai";
 import { createOpenAIModel } from "./openai.js";
 
 export type TaskDifficulty = "easy" | "medium" | "hard";
-export type AgentPhase = "CLARIFY" | "GENERATE" | "QA";
+export type AgentPhase = "CLARIFY" | "JUDGE" | "GENERATE" | "QA";
 
 export interface ModelRouterOptions {
   apiKey?: string;

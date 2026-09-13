@@ -17,7 +17,14 @@ type FeedbackFormProps = {
 
 export function FeedbackForm({ questions, round, onSubmit, onSkip }: FeedbackFormProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
+  const submit = () => {
+    const missing = questions.find((question) => question.required && !answers[question.id]?.trim());
+    if (missing) return;
+    setSubmitting(true);
+    onSubmit(answers);
+  };
   return (
     <section className="mx-auto w-full max-w-2xl px-5 py-8">
       <div className="mb-6">
@@ -67,9 +74,11 @@ export function FeedbackForm({ questions, round, onSubmit, onSkip }: FeedbackFor
           </fieldset>
         ))}
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => onSubmit(answers)}>Submit answers</Button>
-          <Button variant="outline" onClick={onSkip}>
-            Generate BRD directly
+          <Button disabled={submitting} onClick={submit}>
+            {submitting ? "Preparing BRD…" : "Continue"}
+          </Button>
+          <Button disabled={submitting} variant="outline" onClick={onSkip}>
+            Generate with assumptions
           </Button>
         </div>
       </div>

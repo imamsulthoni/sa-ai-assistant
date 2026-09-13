@@ -221,24 +221,23 @@ export function createBrdDraft(
 
 export const draftBrdTool = createTool({
   name: "draft_brd",
-  description: "Create a grounded BRD draft after clarification sufficiency has been reached.",
+  description: "Create a grounded BRD draft after the analyst agent has resolved or explicitly accepted remaining gaps.",
   inputSchema: z.object({
     userStory: z.string().min(1),
     clarifications: z.array(clarificationSchema).default([]),
     templateStructure: z.unknown().optional(),
     referenceContext: z.string().default(""),
+    force: z.boolean().default(false),
   }),
-  execute: async ({ userStory, clarifications, templateStructure, referenceContext }) => {
-    const sufficient = clarifications.length > 0 || referenceContext.trim().length > 0;
+  execute: async ({ userStory, clarifications, templateStructure, referenceContext, force }) => {
+    const sufficient = clarifications.length > 0 || referenceContext.trim().length > 0 || force;
     if (!sufficient) {
       return {
         ready: false as const,
         markdown: null,
         assumptions: [],
         traceability: [],
-        gaps: [
-          "Clarification gate belum terpenuhi; berikan jawaban klarifikasi atau gunakan forced generation pada round cap.",
-        ],
+        gaps: ["Clarification is required before drafting, or pass force=true after the round cap or an explicit skip."],
       };
     }
     const draft = createBrdDraft(userStory, clarifications, templateStructure, referenceContext);
@@ -246,9 +245,7 @@ export const draftBrdTool = createTool({
     const validation = normalized ? validateBrdAgainstTemplate(draft.markdown, normalized) : null;
     const gaps = [
       ...(validation?.missingRequired.map((id) => `Template section missing: ${id}`) ?? []),
-      ...(validation?.missingIdConventions.map(
-        (convention) => `ID convention not satisfied: ${convention}`,
-      ) ?? []),
+      ...(validation?.missingIdConventions.map((convention) => `ID convention not satisfied: ${convention}`) ?? []),
     ];
     return {
       ready: true as const,
@@ -256,12 +253,8 @@ export const draftBrdTool = createTool({
       gaps,
       traceability: [
         { source: "userStory" as const, target: "BR-001" },
-        ...clarifications.map((item) => ({
-          source: "clarification" as const,
-          id: item.id,
-          target: "FR-001",
-        })),
-        ...(referenceContext.trim() ? [{ source: "document" as const, target: "BR-001" }] : []),
+        ...clarifications.map((item) => ({ source: "clarification" as const, id: item.id, target: "FR-001" })),
+        ...(referenceContext.trim() ? [{ source: "document" as const, target: "BR-001" as const }] : []),
       ],
     };
   },

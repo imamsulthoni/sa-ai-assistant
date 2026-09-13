@@ -49,7 +49,7 @@ export function SettingsDialog() {
           <SettingsIcon size={16} /> Settings
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85dvh] max-w-2xl gap-5 overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] max-w-3xl gap-5 overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>

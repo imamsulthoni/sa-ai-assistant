@@ -34,6 +34,8 @@ export type BrdDocument = {
   title: string;
   currentVersion: number;
   contentMarkdown: string;
+  pendingContentMarkdown: string | null;
+  pendingChangeSummary: string | null;
   status: "DRAFT" | "IN_REVIEW" | "APPROVED";
   createdAt: string;
   updatedAt: string;
@@ -66,30 +68,6 @@ export type ClarificationQuestion = {
   question: string;
   options: string[];
   required: boolean;
-};
-
-export type BrdFlowResponse =
-  | {
-      phase: "CLARIFYING";
-      round: number;
-      clarification_questions: ClarificationQuestion[];
-      missing: string[];
-    }
-  | {
-      phase: "GENERATING";
-      round: number;
-      markdown: string;
-      assumptions: string[];
-      traceability: Array<Record<string, string>>;
-      context: string;
-    };
-
-export type BrdModificationResponse = {
-  updatedMarkdown: string;
-  changeSummary: string;
-  affectedIds: string[];
-  groundedByReference: boolean;
-  persisted: false;
 };
 
 export type MessagesResponse = { messages: UIMessage[] };

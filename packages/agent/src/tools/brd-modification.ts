@@ -56,6 +56,7 @@ export const modifyBrdTool = createTool({
       affectedIds: result.affectedIds,
       groundedByReference: Boolean(referenceContext.trim()),
       persisted: false as const,
+      userNotice: "BRD berhasil dimodifikasi sebagai preview. Review perubahan di panel BRD, lalu approve untuk menyimpan versi baru.",
     };
   },
 });

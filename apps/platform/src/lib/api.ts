@@ -1,8 +1,5 @@
 import type {
   BrdDocument,
-  BrdFlowResponse,
-  BrdModificationResponse,
-  BrdVersion,
   ClarificationQuestion,
   DocumentSummary,
   MessagesResponse,
@@ -13,8 +10,6 @@ import type {
 
 export type {
   BrdDocument,
-  BrdFlowResponse,
-  BrdModificationResponse,
   BrdVersion,
   ClarificationQuestion,
   DocumentSummary,
@@ -24,9 +19,8 @@ export type {
   Settings,
 } from "./types.js";
 
-export const DEMO_USER_ID = "demo-user";
-
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+export const DEMO_USER_ID = "demo-user";
 
 type SessionResponse = { session: SessionSummary };
 type SessionsResponse = { sessions: SessionSummary[] };
@@ -171,6 +165,14 @@ export function restoreBrd(
   });
 }
 
+export function approveBrdModification(id: string): Promise<{ brd: BrdDocument }> {
+  return request(`/brd/${encodeURIComponent(id)}/approve-modification`, { method: "POST" });
+}
+
+export function rejectBrdModification(id: string): Promise<{ ok: boolean }> {
+  return request(`/brd/${encodeURIComponent(id)}/reject-modification`, { method: "POST" });
+}
+
 export async function exportBrd(id: string, format: "markdown" | "pdf"): Promise<void> {
   const response = await fetch(`${API_BASE}/brd/${encodeURIComponent(id)}/export/${format}`, {
     headers: { "x-user-id": DEMO_USER_ID },
@@ -236,94 +238,14 @@ export function search(
   return request(`/search?${params}`);
 }
 
-export function runBrdFlow(
-  sessionId: string,
-  input: {
-    userStory: string;
-    answers?: Record<string, string>;
-    round?: number;
-    referenceContext?: string;
-  },
-): Promise<BrdFlowResponse> {
-  return request("/chat/flow", {
-    method: "POST",
-    headers: { "x-conversation-id": sessionId },
-    body: JSON.stringify(input),
-  });
+export type BrdFlowResponse =
+  | { type: "clarification"; round: number; clarification_questions: ClarificationQuestion[]; capped: boolean }
+  | { type: "brd"; round: number; markdown: string; assumptions: string[]; context: string };
+
+export function clarifyBrd(sessionId: string, input: { userStory: string; round?: number; answers?: Record<string, string> }): Promise<Extract<BrdFlowResponse, { type: "clarification" }>> {
+  return request("/brd/clarify", { method: "POST", headers: { "x-conversation-id": sessionId }, body: JSON.stringify(input) });
 }
 
-export function modifyBrd(input: {
-  brd: string;
-  changeRequest: string;
-  referenceContext?: string;
-}): Promise<BrdModificationResponse> {
-  return request("/chat/modify", { method: "POST", body: JSON.stringify(input) });
-}
-
-export async function streamBrdFlow(
-  sessionId: string,
-  input: { userStory: string; answers?: Record<string, string>; phase: "CLARIFY" | "GENERATE" },
-  onText: (text: string) => void,
-  onClarification?: (questions: ClarificationQuestion[]) => void,
-): Promise<string> {
-  const prompt = input.answers
-    ? `${input.userStory}\n\nClarification answers:\n${Object.entries(input.answers)
-        .map(([key, value]) => `- ${key}: ${value}`)
-        .join("\n")}`
-    : input.userStory;
-  const response = await fetch(`${API_BASE}/chat/flow-stream`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-user-id": DEMO_USER_ID,
-      "x-conversation-id": sessionId,
-    },
-    body: JSON.stringify({
-      type: "messages",
-      messages: [
-        { id: crypto.randomUUID(), role: "user", parts: [{ type: "text", text: prompt }] },
-      ],
-      metadata: { phase: input.phase },
-    }),
-  });
-  if (!response.ok || !response.body) throw new Error(`BRD stream failed (${response.status})`);
-  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-  let buffer = "";
-  let text = "";
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += value;
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      type StreamEvent = {
-        type?: string;
-        name?: string;
-        data?: { clarification_questions?: ClarificationQuestion[] };
-        delta?: string;
-        text?: string;
-        status?: string;
-        error?: { message?: string };
-      };
-      const parsed = JSON.parse(line) as { event?: StreamEvent };
-      const payload = (parsed.event ?? parsed) as unknown as StreamEvent;
-      if (payload.type === "data" && payload.name === "clarification") {
-        onClarification?.(payload.data?.clarification_questions ?? []);
-      }
-      if (payload.type === "text_delta" && payload.delta) {
-        text += payload.delta;
-        onText(text);
-      }
-      if (payload.type === "text_end" && payload.text && !text) {
-        text = payload.text;
-        onText(text);
-      }
-      if (payload.type === "error") throw new Error(payload.error?.message ?? "BRD stream failed");
-      if (payload.type === "run_end" && payload.status === "error")
-        throw new Error("BRD stream failed");
-    }
-  }
-  return text;
+export function submitClarification(sessionId: string, input: { userStory: string; answers: Record<string, string>; round?: number; skip?: boolean }): Promise<BrdFlowResponse> {
+  return request("/brd/submit-clarification", { method: "POST", headers: { "x-conversation-id": sessionId }, body: JSON.stringify(input) });
 }
