@@ -26,8 +26,7 @@ is stored with the document and will be used later by the OCR worker.
 
 ## Development
 
-Run the API and platform from the repo root (a `predev` hook frees ports 8000/3000
-from stale processes before starting):
+Run the API and platform from the repo root:
 
 ```sh
 pnpm dev
@@ -57,8 +56,8 @@ pnpm --filter api worker
 ## Document Uploads
 
 The platform provides a session-scoped document list in the conversation
-sidebar. Supported uploads include PDF, Markdown, DOCX, and common flowchart
-image formats.
+sidebar. Supported uploads include PDF, Markdown, DOCX, and common image
+formats (flowcharts, wireframes, screenshots).
 
 The API stores uploaded files in Cloudflare R2 and stores their metadata in
 PostgreSQL. Documents are associated with the active conversation through the
@@ -75,8 +74,8 @@ DELETE /documents/:id   Delete a document and its R2 object
 Uploads are stored in R2 and enqueued to the `doc-ingestion` BullMQ queue.
 The worker performs Markdown/DOCX extraction or OCR, stores pages and summary,
 embeds page content, and indexes it in Qdrant with user/session isolation.
-Template documents are subsequently sent to `template-extract`; flowchart
-images are sent to `flowchart-verify`.
+Template documents are subsequently sent to `template-extract`. Every other
+file, including images, becomes session context through the same pipeline.
 
 Required R2 configuration:
 
@@ -98,7 +97,26 @@ pnpm --filter api build
 pnpm --filter platform build
 pnpm lint
 pnpm format:check
+pnpm test
+pnpm typecheck
 ```
+
+## Agent runners
+
+Live agent-flow checks (require `OPENAI_API_KEY`) live in
+`packages/agent/src/runners`. Each scenario makes real model calls, so run them
+one at a time while iterating:
+
+```sh
+pnpm --filter @sa-ai-assistant/agent runner -- --list
+pnpm --filter @sa-ai-assistant/agent runner -- clarify --verbose
+pnpm --filter @sa-ai-assistant/agent runner -- all
+```
+
+Scenarios: `clarify`, `judge`, `generate`, `modify`, `qa`, `injection`,
+`full-flow`. Results are printed with per-assertion detail and written to
+`packages/agent/runners/.artifacts/*.json` (gitignored). Without an API key the
+runner skips and exits successfully; pass `--require-env` to fail instead.
 
 ## Repository layout
 
@@ -106,4 +124,5 @@ pnpm format:check
 - `.env.example` — safe environment template
 - `apps/api/src/modules/document` — R2 upload API and document metadata handling
 - `apps/api/src/worker` — OCR, summary, embedding, and Qdrant processing worker
-- `apps/platform/src/hooks/use-documents.ts` — session document upload/status state
+- `packages/agent/src/runners` — live agent-flow test scenarios
+- `apps/platform/src/modules/chat/hooks/use-documents.ts` — session document upload/status state
