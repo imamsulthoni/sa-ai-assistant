@@ -23,12 +23,12 @@ sessionModule.get("/", async (c) => {
 
 sessionModule.post("/", async (c) => {
   const userId = userIdFrom(c);
-  const body = (await c.req.json().catch(() => null)) as
-    | { title?: string; projectId?: string; templateId?: string }
-    | null;
+  const body = (await c.req.json().catch(() => null)) as {
+    title?: string;
+    projectId?: string;
+  } | null;
   const session = await createSession(userId, body?.title, {
     projectId: body?.projectId,
-    templateId: body?.templateId,
   });
   return c.json({ session }, 201);
 });
@@ -43,15 +43,16 @@ sessionModule.get("/:id/messages", async (c) => {
 sessionModule.patch("/:id", async (c) => {
   const userId = userIdFrom(c);
   const sessionId = c.req.param("id");
-  const body = (await c.req.json().catch(() => null)) as
-    | { title?: string; projectId?: string | null; templateId?: string | null }
-    | null;
-  if (!body || (!body.title?.trim() && body.projectId === undefined && body.templateId === undefined)) {
+  const body = (await c.req.json().catch(() => null)) as {
+    title?: string;
+    projectId?: string | null;
+  } | null;
+  if (!body || (!body.title?.trim() && body.projectId === undefined)) {
     return c.json({ error: "At least one session field is required" }, 400);
   }
   try {
     const session =
-      body.projectId !== undefined || body.templateId !== undefined
+      body.projectId !== undefined
         ? await updateSession(userId, sessionId, body)
         : await renameSession(userId, sessionId, body.title ?? "");
     if (!session) return c.json({ error: "Session not found" }, 404);

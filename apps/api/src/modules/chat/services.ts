@@ -1,4 +1,5 @@
 import {
+  allowedToolsForPhase,
   createSystemAnalystAgent,
   normalizeTemplateStructure,
   type AgentContextAdapters,
@@ -73,9 +74,8 @@ async function adaptersFor(
     getTemplateStructure: async () => {
       const session = await prisma.agentMemorySession.findFirst({
         where: { sessionId, userId },
-        select: { projectId: true, metadata: true },
+        select: { projectId: true },
       });
-      const metadata = session?.metadata as { templateId?: string } | null;
       const settings = await prisma.userSetting.findUnique({
         where: { userId },
         select: { activeTemplateId: true },
@@ -86,7 +86,7 @@ async function adaptersFor(
             select: { templateId: true },
           })
         : null;
-      const templateId = metadata?.templateId ?? project?.templateId ?? settings?.activeTemplateId;
+      const templateId = project?.templateId ?? settings?.activeTemplateId;
       if (!templateId) return null;
       const template = await prisma.document.findFirst({
         where: { id: templateId, userId, isTemplate: true, status: "READY" },
@@ -160,24 +160,17 @@ export async function agentFor(
     modelId: undefined,
     apiKey: undefined,
     baseUrl: undefined,
+    // Empty object activates the env-driven per-phase model routing.
+    modelRouter: {},
     phase,
     contextAdapters: await adaptersFor(userId, sessionId, brdId),
-    allowedTools:
-      phase === "CLARIFY"
-        ? ["elicit_clarifications", "search_context", "get_active_brd", "web_search"]
-        : phase === "GENERATE"
-          ? ["draft_brd", "search_context", "get_template_structure", "get_active_brd", "web_search"]
-          : phase === "QA"
-            ? ["answer_brd_question", "modify_brd", "search_context", "get_active_brd", "web_search", "verify_flowchart"]
-            : undefined,
+    allowedTools: allowedToolsForPhase(phase),
     systemPrompt: settings?.systemPrompt ?? undefined,
     // Flow phases (CLARIFY/JUDGE/GENERATE) are stateless per request and must
     // not pollute the session chat history. Only interactive chat (QA / no
     // phase) is persisted so the transcript stays empty after BRD v1.
     memory:
-      phase === undefined || phase === "QA"
-        ? { store: memory, savePolicy: "turn" }
-        : undefined,
+      phase === undefined || phase === "QA" ? { store: memory, savePolicy: "turn" } : undefined,
     enableTracing: false,
   });
 
@@ -192,9 +185,17 @@ export async function distillSessionContext(userId: string, sessionId: string): 
     topK: 5,
     model: await embeddingModel(),
     store: contextStore,
-    filter: vectorFilter.and(vectorFilter.eq("userId", userId), vectorFilter.eq("sessionId", sessionId)),
+    filter: vectorFilter.and(
+      vectorFilter.eq("userId", userId),
+      vectorFilter.eq("sessionId", sessionId),
+    ),
   });
-  return results.map((result) => typeof result.document === "string" ? result.document : JSON.stringify(result.document)).join("\n").slice(0, 4000);
+  return results
+    .map((result) =>
+      typeof result.document === "string" ? result.document : JSON.stringify(result.document),
+    )
+    .join("\n")
+    .slice(0, 4000);
 }
 
 const MAX_ATTACHMENT_CONTEXT_CHARS = 6000;
@@ -209,7 +210,10 @@ export async function attachmentContextBlock(
   sessionId: string,
   documentIds: string[],
 ): Promise<string> {
-  const ids = [...new Set(documentIds.filter((id) => typeof id === "string" && id.trim()))].slice(0, 5);
+  const ids = [...new Set(documentIds.filter((id) => typeof id === "string" && id.trim()))].slice(
+    0,
+    5,
+  );
   if (!ids.length) return "";
 
   const documents = await prisma.document.findMany({
@@ -249,5 +253,3 @@ export async function attachmentContextBlock(
     "Gunakan search_context bila butuh bagian lain dari file tersebut.]",
   ].join("\n");
 }
-
-
