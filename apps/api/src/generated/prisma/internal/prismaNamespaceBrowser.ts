@@ -133,7 +133,6 @@ export const DocumentScalarFieldEnum = {
   status: 'status',
   summary: 'summary',
   templateStructure: 'templateStructure',
-  report: 'report',
   error: 'error',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -176,6 +175,8 @@ export const BrdDocumentScalarFieldEnum = {
   pendingContentMarkdown: 'pendingContentMarkdown',
   pendingChangeSummary: 'pendingChangeSummary',
   status: 'status',
+  approvedAt: 'approvedAt',
+  approvedBy: 'approvedBy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

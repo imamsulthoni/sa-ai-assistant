@@ -60,9 +60,7 @@ export function listSessions(): Promise<SessionsResponse> {
   return request("/sessions");
 }
 
-export function createSession(
-  input: { projectId?: string; templateId?: string } = {},
-): Promise<SessionResponse> {
+export function createSession(input: { projectId?: string } = {}): Promise<SessionResponse> {
   return request("/sessions", { method: "POST", body: JSON.stringify(input) });
 }
 
@@ -70,16 +68,6 @@ export function renameSession(id: string, title: string): Promise<SessionRespons
   return request(`/sessions/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify({ title }),
-  });
-}
-
-export function updateSessionTemplate(
-  id: string,
-  input: { projectId?: string | null; templateId?: string | null },
-): Promise<SessionResponse> {
-  return request(`/sessions/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    body: JSON.stringify(input),
   });
 }
 
@@ -191,18 +179,46 @@ export function rejectBrdModification(id: string): Promise<{ ok: boolean }> {
   return request(`/brd/${encodeURIComponent(id)}/reject-modification`, { method: "POST" });
 }
 
+export function updateBrdStatus(
+  id: string,
+  status: BrdDocument["status"],
+): Promise<{ brd: BrdDocument }> {
+  return request(`/brd/${encodeURIComponent(id)}/status`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
+}
+
+/** Parse a server download filename, including the RFC 5987 UTF-8 form. */
+export function filenameFromDisposition(disposition: string | null, fallback: string): string {
+  if (!disposition) return fallback;
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  if (utf8?.[1]) {
+    try {
+      return decodeURIComponent(utf8[1]);
+    } catch {
+      // fall through to the plain filename
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(disposition);
+  return plain?.[1] ?? fallback;
+}
+
 export async function exportBrd(id: string, format: "markdown" | "pdf"): Promise<void> {
   const response = await fetch(`${API_BASE}/brd/${encodeURIComponent(id)}/export/${format}`, {
     headers: { "x-user-id": DEMO_USER_ID },
   });
-  if (!response.ok) throw new Error(`Export failed (${response.status})`);
+  if (!response.ok) throw new Error(`Export gagal (${response.status})`);
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `brd.${format === "markdown" ? "md" : "pdf"}`;
+  link.download = filenameFromDisposition(
+    response.headers.get("content-disposition"),
+    `brd.${format === "markdown" ? "md" : "pdf"}`,
+  );
   link.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function getSettings(): Promise<{ settings: Settings | null }> {
@@ -261,13 +277,32 @@ export function search(
 }
 
 export type BrdFlowResponse =
-  | { type: "clarification"; round: number; clarification_questions: ClarificationQuestion[]; capped: boolean }
+  | {
+      type: "clarification";
+      round: number;
+      clarification_questions: ClarificationQuestion[];
+      capped: boolean;
+    }
   | { type: "brd"; round: number; markdown: string; assumptions: string[]; context: string };
 
-export function clarifyBrd(sessionId: string, input: { userStory: string; round?: number; answers?: Record<string, string> }): Promise<Extract<BrdFlowResponse, { type: "clarification" }>> {
-  return request("/brd/clarify", { method: "POST", headers: { "x-conversation-id": sessionId }, body: JSON.stringify(input) });
+export function clarifyBrd(
+  sessionId: string,
+  input: { userStory: string; round?: number; answers?: Record<string, string> },
+): Promise<Extract<BrdFlowResponse, { type: "clarification" }>> {
+  return request("/brd/clarify", {
+    method: "POST",
+    headers: { "x-conversation-id": sessionId },
+    body: JSON.stringify(input),
+  });
 }
 
-export function submitClarification(sessionId: string, input: { userStory: string; answers: Record<string, string>; round?: number; skip?: boolean }): Promise<BrdFlowResponse> {
-  return request("/brd/submit-clarification", { method: "POST", headers: { "x-conversation-id": sessionId }, body: JSON.stringify(input) });
+export function submitClarification(
+  sessionId: string,
+  input: { userStory: string; answers: Record<string, string>; round?: number; skip?: boolean },
+): Promise<BrdFlowResponse> {
+  return request("/brd/submit-clarification", {
+    method: "POST",
+    headers: { "x-conversation-id": sessionId },
+    body: JSON.stringify(input),
+  });
 }

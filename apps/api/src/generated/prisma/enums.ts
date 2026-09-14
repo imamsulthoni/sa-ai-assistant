@@ -29,3 +29,12 @@ export const DocumentFileType = {
 } as const
 
 export type DocumentFileType = (typeof DocumentFileType)[keyof typeof DocumentFileType]
+
+
+export const BrdDocumentStatus = {
+  DRAFT: 'DRAFT',
+  IN_REVIEW: 'IN_REVIEW',
+  APPROVED: 'APPROVED'
+} as const
+
+export type BrdDocumentStatus = (typeof BrdDocumentStatus)[keyof typeof BrdDocumentStatus]

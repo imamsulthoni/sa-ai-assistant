@@ -37,6 +37,8 @@ export type BrdDocument = {
   pendingContentMarkdown: string | null;
   pendingChangeSummary: string | null;
   status: "DRAFT" | "IN_REVIEW" | "APPROVED";
+  approvedAt: string | null;
+  approvedBy: string | null;
   createdAt: string;
   updatedAt: string;
   versions?: BrdVersion[];

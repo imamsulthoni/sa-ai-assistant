@@ -70,6 +70,12 @@ enum DocumentFileType {
   OTHER
 }
 
+enum BrdDocumentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+}
+
 model Document {
   id          String         @id @default(cuid())
   userId      String
@@ -84,7 +90,6 @@ model Document {
   status      DocumentStatus @default(UPLOADING)
   summary     String?
   templateStructure Json?
-  report       Json?
   error       String?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
@@ -123,17 +128,19 @@ model Project {
 }
 
 model BrdDocument {
-  id                    String   @id @default(cuid())
-  userId                String
-  sessionId             String
-  title                 String
-  currentVersion        Int      @default(1)
-  contentMarkdown       String
+  id                     String            @id @default(cuid())
+  userId                 String
+  sessionId              String
+  title                  String
+  currentVersion         Int               @default(1)
+  contentMarkdown        String
   pendingContentMarkdown String?
-  pendingChangeSummary  String?
-  status                String   @default("DRAFT")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  pendingChangeSummary   String?
+  status                 BrdDocumentStatus @default(DRAFT)
+  approvedAt             DateTime?
+  approvedBy             String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
 
   versions BrdVersion[]
 

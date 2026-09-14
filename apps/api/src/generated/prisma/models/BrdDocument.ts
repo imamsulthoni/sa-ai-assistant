@@ -43,7 +43,9 @@ export type BrdDocumentMinAggregateOutputType = {
   contentMarkdown: string | null
   pendingContentMarkdown: string | null
   pendingChangeSummary: string | null
-  status: string | null
+  status: $Enums.BrdDocumentStatus | null
+  approvedAt: Date | null
+  approvedBy: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -57,7 +59,9 @@ export type BrdDocumentMaxAggregateOutputType = {
   contentMarkdown: string | null
   pendingContentMarkdown: string | null
   pendingChangeSummary: string | null
-  status: string | null
+  status: $Enums.BrdDocumentStatus | null
+  approvedAt: Date | null
+  approvedBy: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -72,6 +76,8 @@ export type BrdDocumentCountAggregateOutputType = {
   pendingContentMarkdown: number
   pendingChangeSummary: number
   status: number
+  approvedAt: number
+  approvedBy: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -96,6 +102,8 @@ export type BrdDocumentMinAggregateInputType = {
   pendingContentMarkdown?: true
   pendingChangeSummary?: true
   status?: true
+  approvedAt?: true
+  approvedBy?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -110,6 +118,8 @@ export type BrdDocumentMaxAggregateInputType = {
   pendingContentMarkdown?: true
   pendingChangeSummary?: true
   status?: true
+  approvedAt?: true
+  approvedBy?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -124,6 +134,8 @@ export type BrdDocumentCountAggregateInputType = {
   pendingContentMarkdown?: true
   pendingChangeSummary?: true
   status?: true
+  approvedAt?: true
+  approvedBy?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -224,7 +236,9 @@ export type BrdDocumentGroupByOutputType = {
   contentMarkdown: string
   pendingContentMarkdown: string | null
   pendingChangeSummary: string | null
-  status: string
+  status: $Enums.BrdDocumentStatus
+  approvedAt: Date | null
+  approvedBy: string | null
   createdAt: Date
   updatedAt: Date
   _count: BrdDocumentCountAggregateOutputType | null
@@ -261,7 +275,9 @@ export type BrdDocumentWhereInput = {
   contentMarkdown?: Prisma.StringFilter<"BrdDocument"> | string
   pendingContentMarkdown?: Prisma.StringNullableFilter<"BrdDocument"> | string | null
   pendingChangeSummary?: Prisma.StringNullableFilter<"BrdDocument"> | string | null
-  status?: Prisma.StringFilter<"BrdDocument"> | string
+  status?: Prisma.EnumBrdDocumentStatusFilter<"BrdDocument"> | $Enums.BrdDocumentStatus
+  approvedAt?: Prisma.DateTimeNullableFilter<"BrdDocument"> | Date | string | null
+  approvedBy?: Prisma.StringNullableFilter<"BrdDocument"> | string | null
   createdAt?: Prisma.DateTimeFilter<"BrdDocument"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"BrdDocument"> | Date | string
   versions?: Prisma.BrdVersionListRelationFilter
@@ -277,6 +293,8 @@ export type BrdDocumentOrderByWithRelationInput = {
   pendingContentMarkdown?: Prisma.SortOrderInput | Prisma.SortOrder
   pendingChangeSummary?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  approvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  approvedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   versions?: Prisma.BrdVersionOrderByRelationAggregateInput
@@ -294,7 +312,9 @@ export type BrdDocumentWhereUniqueInput = Prisma.AtLeast<{
   contentMarkdown?: Prisma.StringFilter<"BrdDocument"> | string
   pendingContentMarkdown?: Prisma.StringNullableFilter<"BrdDocument"> | string | null
   pendingChangeSummary?: Prisma.StringNullableFilter<"BrdDocument"> | string | null
-  status?: Prisma.StringFilter<"BrdDocument"> | string
+  status?: Prisma.EnumBrdDocumentStatusFilter<"BrdDocument"> | $Enums.BrdDocumentStatus
+  approvedAt?: Prisma.DateTimeNullableFilter<"BrdDocument"> | Date | string | null
+  approvedBy?: Prisma.StringNullableFilter<"BrdDocument"> | string | null
   createdAt?: Prisma.DateTimeFilter<"BrdDocument"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"BrdDocument"> | Date | string
   versions?: Prisma.BrdVersionListRelationFilter
@@ -310,6 +330,8 @@ export type BrdDocumentOrderByWithAggregationInput = {
   pendingContentMarkdown?: Prisma.SortOrderInput | Prisma.SortOrder
   pendingChangeSummary?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  approvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  approvedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.BrdDocumentCountOrderByAggregateInput
@@ -331,7 +353,9 @@ export type BrdDocumentScalarWhereWithAggregatesInput = {
   contentMarkdown?: Prisma.StringWithAggregatesFilter<"BrdDocument"> | string
   pendingContentMarkdown?: Prisma.StringNullableWithAggregatesFilter<"BrdDocument"> | string | null
   pendingChangeSummary?: Prisma.StringNullableWithAggregatesFilter<"BrdDocument"> | string | null
-  status?: Prisma.StringWithAggregatesFilter<"BrdDocument"> | string
+  status?: Prisma.EnumBrdDocumentStatusWithAggregatesFilter<"BrdDocument"> | $Enums.BrdDocumentStatus
+  approvedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"BrdDocument"> | Date | string | null
+  approvedBy?: Prisma.StringNullableWithAggregatesFilter<"BrdDocument"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"BrdDocument"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"BrdDocument"> | Date | string
 }
@@ -345,7 +369,9 @@ export type BrdDocumentCreateInput = {
   contentMarkdown: string
   pendingContentMarkdown?: string | null
   pendingChangeSummary?: string | null
-  status?: string
+  status?: $Enums.BrdDocumentStatus
+  approvedAt?: Date | string | null
+  approvedBy?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   versions?: Prisma.BrdVersionCreateNestedManyWithoutBrdDocumentInput
@@ -360,7 +386,9 @@ export type BrdDocumentUncheckedCreateInput = {
   contentMarkdown: string
   pendingContentMarkdown?: string | null
   pendingChangeSummary?: string | null
-  status?: string
+  status?: $Enums.BrdDocumentStatus
+  approvedAt?: Date | string | null
+  approvedBy?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   versions?: Prisma.BrdVersionUncheckedCreateNestedManyWithoutBrdDocumentInput
@@ -375,7 +403,9 @@ export type BrdDocumentUpdateInput = {
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
   pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumBrdDocumentStatusFieldUpdateOperationsInput | $Enums.BrdDocumentStatus
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   versions?: Prisma.BrdVersionUpdateManyWithoutBrdDocumentNestedInput
@@ -390,7 +420,9 @@ export type BrdDocumentUncheckedUpdateInput = {
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
   pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumBrdDocumentStatusFieldUpdateOperationsInput | $Enums.BrdDocumentStatus
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   versions?: Prisma.BrdVersionUncheckedUpdateManyWithoutBrdDocumentNestedInput
@@ -405,7 +437,9 @@ export type BrdDocumentCreateManyInput = {
   contentMarkdown: string
   pendingContentMarkdown?: string | null
   pendingChangeSummary?: string | null
-  status?: string
+  status?: $Enums.BrdDocumentStatus
+  approvedAt?: Date | string | null
+  approvedBy?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -419,7 +453,9 @@ export type BrdDocumentUpdateManyMutationInput = {
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
   pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumBrdDocumentStatusFieldUpdateOperationsInput | $Enums.BrdDocumentStatus
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -433,7 +469,9 @@ export type BrdDocumentUncheckedUpdateManyInput = {
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
   pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumBrdDocumentStatusFieldUpdateOperationsInput | $Enums.BrdDocumentStatus
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -448,6 +486,8 @@ export type BrdDocumentCountOrderByAggregateInput = {
   pendingContentMarkdown?: Prisma.SortOrder
   pendingChangeSummary?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  approvedAt?: Prisma.SortOrder
+  approvedBy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -466,6 +506,8 @@ export type BrdDocumentMaxOrderByAggregateInput = {
   pendingContentMarkdown?: Prisma.SortOrder
   pendingChangeSummary?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  approvedAt?: Prisma.SortOrder
+  approvedBy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -480,6 +522,8 @@ export type BrdDocumentMinOrderByAggregateInput = {
   pendingContentMarkdown?: Prisma.SortOrder
   pendingChangeSummary?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  approvedAt?: Prisma.SortOrder
+  approvedBy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -491,6 +535,14 @@ export type BrdDocumentSumOrderByAggregateInput = {
 export type BrdDocumentScalarRelationFilter = {
   is?: Prisma.BrdDocumentWhereInput
   isNot?: Prisma.BrdDocumentWhereInput
+}
+
+export type EnumBrdDocumentStatusFieldUpdateOperationsInput = {
+  set?: $Enums.BrdDocumentStatus
+}
+
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
 }
 
 export type BrdDocumentCreateNestedOneWithoutVersionsInput = {
@@ -516,7 +568,9 @@ export type BrdDocumentCreateWithoutVersionsInput = {
   contentMarkdown: string
   pendingContentMarkdown?: string | null
   pendingChangeSummary?: string | null
-  status?: string
+  status?: $Enums.BrdDocumentStatus
+  approvedAt?: Date | string | null
+  approvedBy?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -530,7 +584,9 @@ export type BrdDocumentUncheckedCreateWithoutVersionsInput = {
   contentMarkdown: string
   pendingContentMarkdown?: string | null
   pendingChangeSummary?: string | null
-  status?: string
+  status?: $Enums.BrdDocumentStatus
+  approvedAt?: Date | string | null
+  approvedBy?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -560,7 +616,9 @@ export type BrdDocumentUpdateWithoutVersionsInput = {
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
   pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumBrdDocumentStatusFieldUpdateOperationsInput | $Enums.BrdDocumentStatus
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -574,7 +632,9 @@ export type BrdDocumentUncheckedUpdateWithoutVersionsInput = {
   contentMarkdown?: Prisma.StringFieldUpdateOperationsInput | string
   pendingContentMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pendingChangeSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumBrdDocumentStatusFieldUpdateOperationsInput | $Enums.BrdDocumentStatus
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -620,6 +680,8 @@ export type BrdDocumentSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   pendingContentMarkdown?: boolean
   pendingChangeSummary?: boolean
   status?: boolean
+  approvedAt?: boolean
+  approvedBy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   versions?: boolean | Prisma.BrdDocument$versionsArgs<ExtArgs>
@@ -636,6 +698,8 @@ export type BrdDocumentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   pendingContentMarkdown?: boolean
   pendingChangeSummary?: boolean
   status?: boolean
+  approvedAt?: boolean
+  approvedBy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["brdDocument"]>
@@ -650,6 +714,8 @@ export type BrdDocumentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   pendingContentMarkdown?: boolean
   pendingChangeSummary?: boolean
   status?: boolean
+  approvedAt?: boolean
+  approvedBy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["brdDocument"]>
@@ -664,11 +730,13 @@ export type BrdDocumentSelectScalar = {
   pendingContentMarkdown?: boolean
   pendingChangeSummary?: boolean
   status?: boolean
+  approvedAt?: boolean
+  approvedBy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type BrdDocumentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "sessionId" | "title" | "currentVersion" | "contentMarkdown" | "pendingContentMarkdown" | "pendingChangeSummary" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["brdDocument"]>
+export type BrdDocumentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "sessionId" | "title" | "currentVersion" | "contentMarkdown" | "pendingContentMarkdown" | "pendingChangeSummary" | "status" | "approvedAt" | "approvedBy" | "createdAt" | "updatedAt", ExtArgs["result"]["brdDocument"]>
 export type BrdDocumentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   versions?: boolean | Prisma.BrdDocument$versionsArgs<ExtArgs>
   _count?: boolean | Prisma.BrdDocumentCountOutputTypeDefaultArgs<ExtArgs>
@@ -690,7 +758,9 @@ export type $BrdDocumentPayload<ExtArgs extends runtime.Types.Extensions.Interna
     contentMarkdown: string
     pendingContentMarkdown: string | null
     pendingChangeSummary: string | null
-    status: string
+    status: $Enums.BrdDocumentStatus
+    approvedAt: Date | null
+    approvedBy: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["brdDocument"]>
@@ -1125,7 +1195,9 @@ export interface BrdDocumentFieldRefs {
   readonly contentMarkdown: Prisma.FieldRef<"BrdDocument", 'String'>
   readonly pendingContentMarkdown: Prisma.FieldRef<"BrdDocument", 'String'>
   readonly pendingChangeSummary: Prisma.FieldRef<"BrdDocument", 'String'>
-  readonly status: Prisma.FieldRef<"BrdDocument", 'String'>
+  readonly status: Prisma.FieldRef<"BrdDocument", 'BrdDocumentStatus'>
+  readonly approvedAt: Prisma.FieldRef<"BrdDocument", 'DateTime'>
+  readonly approvedBy: Prisma.FieldRef<"BrdDocument", 'String'>
   readonly createdAt: Prisma.FieldRef<"BrdDocument", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"BrdDocument", 'DateTime'>
 }

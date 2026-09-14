@@ -25,6 +25,11 @@ export const BrdRestoreSchema = z.object({
   version: z.coerce.number().int().positive(),
 });
 
+export const BrdStatusSchema = z.object({
+  status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED"]),
+});
+export type BrdStatusInput = z.infer<typeof BrdStatusSchema>;
+
 export const BrdDiffQuerySchema = z.object({
   from: z.coerce.number().int().positive(),
   to: z.coerce.number().int().positive(),
@@ -90,7 +95,6 @@ export type BrdImportInput = z.infer<typeof BrdImportSchema>;
 export type BrdVersionCreateInput = z.infer<typeof BrdVersionCreateSchema>;
 export type SettingsPatchInput = z.infer<typeof SettingsPatchSchema>;
 
-
 export const BrdClarifySchema = z.object({
   userStory: z.string().trim().min(1),
   round: z.coerce.number().int().min(1).max(2).default(1),
@@ -110,7 +114,13 @@ export const ClarificationResponseSchema = z.object({
 });
 export const BrdFlowResponseSchema = z.discriminatedUnion("type", [
   ClarificationResponseSchema,
-  z.object({ type: z.literal("brd"), round: z.number().int().min(1).max(2), markdown: z.string().min(1), assumptions: z.array(z.string()), context: z.string() }),
+  z.object({
+    type: z.literal("brd"),
+    round: z.number().int().min(1).max(2),
+    markdown: z.string().min(1),
+    assumptions: z.array(z.string()),
+    context: z.string(),
+  }),
 ]);
 export type BrdClarifyInput = z.infer<typeof BrdClarifySchema>;
 export type BrdSubmitClarificationInput = z.infer<typeof BrdSubmitClarificationSchema>;

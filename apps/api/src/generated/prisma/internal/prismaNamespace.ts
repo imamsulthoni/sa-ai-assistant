@@ -1185,7 +1185,6 @@ export const DocumentScalarFieldEnum = {
   status: 'status',
   summary: 'summary',
   templateStructure: 'templateStructure',
-  report: 'report',
   error: 'error',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -1228,6 +1227,8 @@ export const BrdDocumentScalarFieldEnum = {
   pendingContentMarkdown: 'pendingContentMarkdown',
   pendingChangeSummary: 'pendingChangeSummary',
   status: 'status',
+  approvedAt: 'approvedAt',
+  approvedBy: 'approvedBy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -1407,6 +1408,20 @@ export type EnumDocumentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$P
  * Reference to a field of type 'DocumentStatus[]'
  */
 export type ListEnumDocumentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DocumentStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'BrdDocumentStatus'
+ */
+export type EnumBrdDocumentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BrdDocumentStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'BrdDocumentStatus[]'
+ */
+export type ListEnumBrdDocumentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BrdDocumentStatus[]'>
     
 
 
