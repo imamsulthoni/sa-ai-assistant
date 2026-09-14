@@ -2,74 +2,59 @@ export async function bodyOf(c: { req: { json(): Promise<unknown> } }): Promise<
   return (await c.req.json().catch(() => null)) as unknown;
 }
 
-export function simpleDiff(before: string, after: string): string {
-  const oldLines = before.split("\n");
-  const newLines = after.split("\n");
-  const output = ["--- before", "+++ after"];
-  for (let index = 0; index < Math.max(oldLines.length, newLines.length); index++) {
-    if (oldLines[index] !== newLines[index]) {
-      if (oldLines[index] !== undefined) output.push(`-${oldLines[index]}`);
-      if (newLines[index] !== undefined) output.push(`+${newLines[index]}`);
+type DiffPart = { type: "context" | "added" | "removed"; text: string };
+
+/** Line-based LCS diff so insertions do not mark the whole rest of the file as changed. */
+function lcsDiffParts(before: string[], after: string[]): DiffPart[] {
+  const rows = before.length;
+  const columns = after.length;
+  const lcs: number[][] = Array.from({ length: rows + 1 }, () =>
+    Array.from({ length: columns + 1 }, () => 0),
+  );
+  for (let i = rows - 1; i >= 0; i -= 1) {
+    for (let j = columns - 1; j >= 0; j -= 1) {
+      lcs[i][j] =
+        before[i] === after[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
     }
+  }
+
+  const parts: DiffPart[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < rows && j < columns) {
+    if (before[i] === after[j]) {
+      parts.push({ type: "context", text: before[i] });
+      i += 1;
+      j += 1;
+    } else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
+      parts.push({ type: "removed", text: before[i] });
+      i += 1;
+    } else {
+      parts.push({ type: "added", text: after[j] });
+      j += 1;
+    }
+  }
+  while (i < rows) {
+    parts.push({ type: "removed", text: before[i] });
+    i += 1;
+  }
+  while (j < columns) {
+    parts.push({ type: "added", text: after[j] });
+    j += 1;
+  }
+  return parts;
+}
+
+export function simpleDiff(before: string, after: string): string {
+  const parts = lcsDiffParts(before.split("\n"), after.split("\n"));
+  const output = ["--- before", "+++ after"];
+  for (const part of parts) {
+    if (part.type === "context") output.push(part.text);
+    else output.push(`${part.type === "removed" ? "-" : "+"}${part.text}`);
   }
   return output.join("\n");
 }
 
 export function filename(title: string, extension: string): string {
   return `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "brd"}.${extension}`;
-}
-
-export function buildPdf(contentMarkdown: string): string {
-  const lines = contentMarkdown
-    .replace(/\r/g, "")
-    .split("\n")
-    .flatMap((line) => {
-      const clean = line.replace(/^#{1,6}\s*/, "").replace(/[*_`]/g, "");
-      if (clean.length <= 92) return [clean];
-      return clean.match(/.{1,92}(?:\s|$)/g)?.map((part) => part.trimEnd()) ?? [clean];
-    });
-  const pageSize = 48;
-  const pages = Array.from(
-    { length: Math.max(1, Math.ceil(lines.length / pageSize)) },
-    (_, index) => lines.slice(index * pageSize, (index + 1) * pageSize),
-  );
-  const escapePdf = (value: string) => value.replace(/[()\\]/g, "\\$&");
-  const objects: string[] = [];
-  const pageIds: number[] = [];
-  objects.push("<< /Type /Catalog /Pages 2 0 R >>");
-  objects.push("<< /Type /Pages /Kids [] /Count 0 >>");
-  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
-  for (const page of pages) {
-    const content = [
-      "BT",
-      "/F1 10 Tf",
-      "40 750 Td",
-      ...page.flatMap((line, index) => [
-        index === 0 ? `(${escapePdf(line)}) Tj` : `0 -15 Td (${escapePdf(line)}) Tj`,
-      ]),
-      "ET",
-    ].join("\n");
-    const contentId = objects.length + 1;
-    objects.push(
-      `<< /Length ${Buffer.byteLength(content, "utf8")} >>\nstream\n${content}\nendstream`,
-    );
-    const pageId = objects.length + 1;
-    objects.push(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${contentId} 0 R /Resources << /Font << /F1 3 0 R >> >> >>`,
-    );
-    pageIds.push(pageId);
-  }
-  objects[1] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
-  let pdf = "%PDF-1.4\n";
-  const offsets: number[] = [0];
-  objects.forEach((object, index) => {
-    offsets.push(Buffer.byteLength(pdf, "utf8"));
-    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  });
-  const xref = Buffer.byteLength(pdf, "utf8");
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets
-    .slice(1)
-    .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
-    .join("")}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-  return pdf;
 }

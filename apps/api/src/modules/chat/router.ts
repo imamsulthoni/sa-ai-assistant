@@ -15,7 +15,9 @@ function messageText(content: unknown): string {
   return content
     .filter(
       (part): part is { text: string } =>
-        Boolean(part) && typeof part === "object" && typeof (part as { text?: unknown }).text === "string",
+        Boolean(part) &&
+        typeof part === "object" &&
+        typeof (part as { text?: unknown }).text === "string",
     )
     .map((part) => part.text)
     .join(" ")
@@ -76,11 +78,58 @@ chatModule.post("/", async (c) => {
   const events = agentToClientStream({
     events: (async function* () {
       for await (const event of agentStream) {
-        if (event.type === "tool_result" && event.toolName === "modify_brd" && event.output?.type === "json") {
-          const output = event.output.value as { updatedMarkdown?: string; changeSummary?: string; userNotice?: string };
+        if (
+          event.type === "tool_result" &&
+          event.toolName === "modify_brd" &&
+          event.output?.type === "json"
+        ) {
+          const output = event.output.value as {
+            updatedMarkdown?: string | null;
+            changeSummary?: string;
+            userNotice?: string;
+            affectedIds?: string[];
+            gaps?: string[];
+          };
           if (output.updatedMarkdown) {
-            await stageBrdModification(userId, metadata?.brdDocumentId ?? "", output.updatedMarkdown, output.changeSummary ?? "Pending BRD modification");
-            yield { ...event, output: { ...event.output, value: { ...output, persisted: false, userNotice: output.userNotice ?? "BRD berhasil dimodifikasi sebagai preview. Silakan approve di panel BRD." } } };
+            const staged = await stageBrdModification(
+              userId,
+              metadata?.brdDocumentId ?? "",
+              output.updatedMarkdown,
+              output.changeSummary ?? "Pending BRD modification",
+            );
+            if (staged.ok) {
+              yield {
+                ...event,
+                output: {
+                  ...event.output,
+                  value: {
+                    ...output,
+                    applied: true,
+                    persisted: false,
+                    userNotice:
+                      output.userNotice ??
+                      "BRD berhasil dimodifikasi sebagai preview. Silakan approve di panel BRD.",
+                  },
+                },
+              };
+            } else {
+              yield {
+                ...event,
+                output: {
+                  ...event.output,
+                  value: {
+                    ...output,
+                    applied: false,
+                    persisted: false,
+                    updatedMarkdown: null,
+                    userNotice:
+                      staged.reason === "pending_exists"
+                        ? "Masih ada pratinjau perubahan yang belum disetujui. Minta user untuk Approve atau Reject dulu, lalu ulangi permintaan ini."
+                        : "Tidak ada BRD aktif untuk dimodifikasi.",
+                  },
+                },
+              };
+            }
             continue;
           }
         }
@@ -93,4 +142,3 @@ chatModule.post("/", async (c) => {
 
   return createClientStreamResponse({ events });
 });
-

@@ -1,17 +1,68 @@
 import { prisma } from "../../lib/prisma.js";
-import type { BrdCreateInput, BrdImportInput, BrdVersionCreateInput } from "../../lib/api-contract.js";
+import type {
+  BrdCreateInput,
+  BrdImportInput,
+  BrdVersionCreateInput,
+} from "../../lib/api-contract.js";
 import { simpleDiff } from "./utils.js";
 import { z } from "zod";
-import { ClarificationOutputSchema, JudgeOutputSchema, templateInstructionBlock, type BrdTemplateStructure, type JudgeOutput } from "@sa-ai-assistant/agent";
+import {
+  ClarificationOutputSchema,
+  JudgeOutputSchema,
+  extractBrdDocument,
+  templateInstructionBlock,
+} from "@sa-ai-assistant/agent";
 import { activeTemplateFor, agentFor, distillSessionContext } from "../chat/services.js";
+import {
+  FALLBACK_FOLLOW_UPS,
+  canStageModification,
+  canTransitionBrdStatus,
+  followUpQuestions,
+  missingRequiredSections,
+  statusAfterModification,
+  type BrdStatus,
+} from "./flow-utils.js";
 
-export type BrdStatus = "DRAFT" | "IN_REVIEW" | "APPROVED";
+export type { BrdStatus } from "./flow-utils.js";
 export type BrdCreatedBy = "AI_AGENT" | "USER_MANUAL";
 
 export type BrdUpdateInput = BrdVersionCreateInput & {
   title?: string;
   status?: BrdStatus;
 };
+
+class VersionConflictError extends Error {
+  constructor() {
+    super("BRD version conflict");
+    this.name = "VersionConflictError";
+  }
+}
+
+const RETRYABLE_VERSION_CODES = new Set(["P2002", "P2034"]);
+
+function isRetryableVersionError(error: unknown): boolean {
+  if (error instanceof VersionConflictError) return true;
+  const code = (error as { code?: string } | null)?.code;
+  return Boolean(code && RETRYABLE_VERSION_CODES.has(code));
+}
+
+/**
+ * Runs a version mutation under optimistic concurrency: the caller claims the
+ * current version with a conditional update, and a conflict is retried.
+ */
+export async function withVersionRetry<T>(run: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableVersionError(error) || attempt === attempts - 1) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
 
 export async function createBrd(userId: string, input: BrdCreateInput) {
   return prisma.brdDocument.create({
@@ -51,7 +102,10 @@ export async function importBrdFromDocument(userId: string, input: BrdImportInpu
     .filter(Boolean)
     .join("\n\n");
   if (!contentMarkdown) return null;
-  const fallbackTitle = document.title.replace(/\.[^.]+$/, "").trim().slice(0, 200);
+  const fallbackTitle = document.title
+    .replace(/\.[^.]+$/, "")
+    .trim()
+    .slice(0, 200);
   return createBrd(userId, {
     sessionId: input.sessionId,
     title: input.title ?? (fallbackTitle || "Imported BRD"),
@@ -75,36 +129,39 @@ export async function getBrd(userId: string, id: string) {
 }
 
 export async function updateBrd(userId: string, id: string, input: BrdUpdateInput) {
-  const current = await prisma.brdDocument.findFirst({ where: { id, userId } });
-  if (!current) return null;
   const nextContent = input.contentMarkdown;
-  const updated = await prisma.$transaction(async (tx) => {
-    let currentVersion = current.currentVersion;
-    if (nextContent !== current.contentMarkdown) {
-      currentVersion += 1;
-      await tx.brdVersion.create({
+  return withVersionRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const current = await tx.brdDocument.findFirst({ where: { id, userId } });
+      if (!current) return null;
+      const contentChanged = nextContent !== current.contentMarkdown;
+      const nextVersion = contentChanged ? current.currentVersion + 1 : current.currentVersion;
+      if (contentChanged) {
+        await tx.brdVersion.create({
+          data: {
+            brdDocumentId: current.id,
+            versionNumber: nextVersion,
+            contentMarkdown: nextContent,
+            changeSummary: input.changeSummary ?? "Updated BRD",
+            createdBy: input.createdBy,
+          },
+        });
+      }
+      const claimed = await tx.brdDocument.updateMany({
+        where: { id: current.id, currentVersion: current.currentVersion },
         data: {
-          brdDocumentId: current.id,
-          versionNumber: currentVersion,
-          contentMarkdown: nextContent,
-          changeSummary: input.changeSummary ?? "Updated BRD",
-          createdBy: input.createdBy,
+          ...(input.title ? { title: input.title } : {}),
+          ...(input.status ? { status: input.status } : {}),
+          ...(contentChanged ? { contentMarkdown: nextContent, currentVersion: nextVersion } : {}),
         },
       });
-    }
-    return tx.brdDocument.update({
-      where: { id: current.id },
-      data: {
-        ...(input.title ? { title: input.title } : {}),
-        ...(input.status ? { status: input.status } : {}),
-        ...(nextContent !== current.contentMarkdown
-          ? { contentMarkdown: nextContent, currentVersion }
-          : {}),
-      },
-      include: { versions: { orderBy: { versionNumber: "asc" } } },
-    });
-  });
-  return updated;
+      if (claimed.count === 0) throw new VersionConflictError();
+      return tx.brdDocument.findFirst({
+        where: { id: current.id },
+        include: { versions: { orderBy: { versionNumber: "asc" } } },
+      });
+    }),
+  );
 }
 
 export async function deleteBrd(userId: string, id: string): Promise<boolean> {
@@ -113,25 +170,28 @@ export async function deleteBrd(userId: string, id: string): Promise<boolean> {
 }
 
 export async function addBrdVersion(userId: string, id: string, input: BrdVersionCreateInput) {
-  const current = await prisma.brdDocument.findFirst({ where: { id, userId } });
-  if (!current) return null;
-  return prisma.$transaction(async (tx) => {
-    const number = current.currentVersion + 1;
-    const created = await tx.brdVersion.create({
-      data: {
-        brdDocumentId: current.id,
-        versionNumber: number,
-        contentMarkdown: input.contentMarkdown,
-        changeSummary: input.changeSummary ?? null,
-        createdBy: input.createdBy,
-      },
-    });
-    await tx.brdDocument.update({
-      where: { id: current.id },
-      data: { currentVersion: number, contentMarkdown: input.contentMarkdown },
-    });
-    return created;
-  });
+  return withVersionRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const current = await tx.brdDocument.findFirst({ where: { id, userId } });
+      if (!current) return null;
+      const number = current.currentVersion + 1;
+      const created = await tx.brdVersion.create({
+        data: {
+          brdDocumentId: current.id,
+          versionNumber: number,
+          contentMarkdown: input.contentMarkdown,
+          changeSummary: input.changeSummary ?? null,
+          createdBy: input.createdBy,
+        },
+      });
+      const claimed = await tx.brdDocument.updateMany({
+        where: { id: current.id, currentVersion: current.currentVersion },
+        data: { currentVersion: number, contentMarkdown: input.contentMarkdown },
+      });
+      if (claimed.count === 0) throw new VersionConflictError();
+      return created;
+    }),
+  );
 }
 
 export async function diffBrdVersions(userId: string, id: string, from: number, to: number) {
@@ -149,103 +209,196 @@ export async function diffBrdVersions(userId: string, id: string, from: number, 
 }
 
 export async function restoreBrdVersion(userId: string, id: string, versionNumber: number) {
-  const current = await prisma.brdDocument.findFirst({
-    where: { id, userId },
-    include: { versions: true },
-  });
-  const version = current?.versions.find((item) => item.versionNumber === versionNumber);
-  if (!current || !version) return null;
-  const number = current.currentVersion + 1;
-  await prisma.$transaction([
-    prisma.brdVersion.create({
-      data: {
-        brdDocumentId: current.id,
-        versionNumber: number,
-        contentMarkdown: version.contentMarkdown,
-        changeSummary: `Restored version ${versionNumber}`,
-        createdBy: "USER_MANUAL",
-      },
+  return withVersionRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const current = await tx.brdDocument.findFirst({
+        where: { id, userId },
+        include: { versions: true },
+      });
+      const version = current?.versions.find((item) => item.versionNumber === versionNumber);
+      if (!current || !version) return null;
+      const number = current.currentVersion + 1;
+      await tx.brdVersion.create({
+        data: {
+          brdDocumentId: current.id,
+          versionNumber: number,
+          contentMarkdown: version.contentMarkdown,
+          changeSummary: `Restored version ${versionNumber}`,
+          createdBy: "USER_MANUAL",
+        },
+      });
+      const claimed = await tx.brdDocument.updateMany({
+        where: { id: current.id, currentVersion: current.currentVersion },
+        data: { currentVersion: number, contentMarkdown: version.contentMarkdown },
+      });
+      if (claimed.count === 0) throw new VersionConflictError();
+      return { currentVersion: number, contentMarkdown: version.contentMarkdown };
     }),
-    prisma.brdDocument.update({
-      where: { id: current.id },
-      data: { currentVersion: number, contentMarkdown: version.contentMarkdown },
-    }),
-  ]);
-  return { currentVersion: number, contentMarkdown: version.contentMarkdown };
+  );
 }
 
 export async function getBrdForExport(userId: string, id: string) {
-  return prisma.brdDocument.findFirst({ where: { id, userId }, select: { title: true, contentMarkdown: true } });
+  return prisma.brdDocument.findFirst({
+    where: { id, userId },
+    select: {
+      title: true,
+      contentMarkdown: true,
+      currentVersion: true,
+      status: true,
+      updatedAt: true,
+      approvedAt: true,
+      approvedBy: true,
+    },
+  });
 }
 
-export async function stageBrdModification(userId: string, id: string, contentMarkdown: string, changeSummary: string) {
+export type StageModificationResult =
+  | { ok: true; status: "staged" }
+  | {
+      ok: false;
+      reason: "pending_exists";
+      pendingChangeSummary: string | null;
+      pendingContentMarkdown: string;
+    }
+  | { ok: false; reason: "not_found" };
+
+export async function stageBrdModification(
+  userId: string,
+  id: string,
+  contentMarkdown: string,
+  changeSummary: string,
+): Promise<StageModificationResult> {
   const brd = await prisma.brdDocument.findFirst({ where: { id, userId } });
-  if (!brd) return null;
-  return prisma.brdDocument.update({ where: { id }, data: { pendingContentMarkdown: contentMarkdown, pendingChangeSummary: changeSummary } });
+  if (!brd) return { ok: false, reason: "not_found" };
+  const decision = canStageModification(brd.pendingContentMarkdown, contentMarkdown);
+  if (decision === "conflict") {
+    return {
+      ok: false,
+      reason: "pending_exists",
+      pendingChangeSummary: brd.pendingChangeSummary,
+      pendingContentMarkdown: brd.pendingContentMarkdown ?? "",
+    };
+  }
+  if (decision === "noop") return { ok: true, status: "staged" };
+  await prisma.brdDocument.update({
+    where: { id },
+    data: { pendingContentMarkdown: contentMarkdown, pendingChangeSummary: changeSummary },
+  });
+  return { ok: true, status: "staged" };
 }
 
 export async function approveBrdModification(userId: string, id: string) {
-  const brd = await prisma.brdDocument.findFirst({ where: { id, userId } });
-  const pendingContent = brd?.pendingContentMarkdown;
-  if (!brd || !pendingContent) return null;
-  const nextVersion = brd.currentVersion + 1;
-  return prisma.$transaction(async (tx) => {
-    const version = await tx.brdVersion.create({ data: { brdDocumentId: id, versionNumber: nextVersion, contentMarkdown: pendingContent, changeSummary: brd.pendingChangeSummary ?? "Approved BRD modification", createdBy: "AI_AGENT" } });
-    const updated = await tx.brdDocument.update({ where: { id }, data: { contentMarkdown: pendingContent, currentVersion: nextVersion, pendingContentMarkdown: null, pendingChangeSummary: null }, include: { versions: { orderBy: { versionNumber: "asc" } } } });
-    return { brd: updated, version };
-  });
+  return withVersionRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const brd = await tx.brdDocument.findFirst({ where: { id, userId } });
+      const pendingContent = brd?.pendingContentMarkdown;
+      if (!brd || !pendingContent) return null;
+      const nextVersion = brd.currentVersion + 1;
+      const currentStatus = brd.status as BrdStatus;
+      const nextStatus = statusAfterModification(currentStatus);
+      const claimed = await tx.brdDocument.updateMany({
+        where: {
+          id,
+          userId,
+          currentVersion: brd.currentVersion,
+          pendingContentMarkdown: { not: null },
+        },
+        data: {
+          contentMarkdown: pendingContent,
+          currentVersion: nextVersion,
+          pendingContentMarkdown: null,
+          pendingChangeSummary: null,
+          status: nextStatus,
+          ...(currentStatus === "APPROVED" ? { approvedAt: null, approvedBy: null } : {}),
+        },
+      });
+      if (claimed.count === 0) throw new VersionConflictError();
+      const version = await tx.brdVersion.create({
+        data: {
+          brdDocumentId: id,
+          versionNumber: nextVersion,
+          contentMarkdown: pendingContent,
+          changeSummary: brd.pendingChangeSummary ?? "Approved BRD modification",
+          createdBy: "AI_AGENT",
+        },
+      });
+      const updated = await tx.brdDocument.findFirst({
+        where: { id },
+        include: { versions: { orderBy: { versionNumber: "asc" } } },
+      });
+      return { brd: updated, version };
+    }),
+  );
 }
 
 export async function rejectBrdModification(userId: string, id: string) {
   const brd = await prisma.brdDocument.findFirst({ where: { id, userId } });
   if (!brd?.pendingContentMarkdown) return null;
-  return prisma.brdDocument.update({ where: { id }, data: { pendingContentMarkdown: null, pendingChangeSummary: null } });
+  return prisma.brdDocument.update({
+    where: { id },
+    data: { pendingContentMarkdown: null, pendingChangeSummary: null },
+  });
 }
 
+export type ChangeBrdStatusResult =
+  | { ok: true; brd: NonNullable<Awaited<ReturnType<typeof getBrd>>> }
+  | { ok: false; reason: "not_found" }
+  | { ok: false; reason: "invalid_transition"; current: BrdStatus };
 
-type FlowInput = { userStory: string; answers?: Record<string, string>; round?: number; skip?: boolean };
+export async function changeBrdStatus(
+  userId: string,
+  id: string,
+  nextStatus: BrdStatus,
+): Promise<ChangeBrdStatusResult> {
+  const brd = await prisma.brdDocument.findFirst({ where: { id, userId } });
+  if (!brd) return { ok: false, reason: "not_found" };
+  const current = brd.status as BrdStatus;
+  if (!canTransitionBrdStatus(current, nextStatus)) {
+    return { ok: false, reason: "invalid_transition", current };
+  }
+  const updated = await prisma.brdDocument.update({
+    where: { id },
+    data: {
+      status: nextStatus,
+      ...(nextStatus === "APPROVED"
+        ? { approvedAt: new Date(), approvedBy: userId }
+        : { approvedAt: null, approvedBy: null }),
+    },
+    include: { versions: { orderBy: { versionNumber: "asc" } } },
+  });
+  return { ok: true, brd: updated };
+}
+
+type FlowInput = {
+  userStory: string;
+  answers?: Record<string, string>;
+  round?: number;
+  skip?: boolean;
+};
 type FlowContext = { userId: string; sessionId: string };
-
-const FALLBACK_FOLLOW_UPS: JudgeOutput["clarification_questions"] = [
-  { id: "q2_1", question: "Apa alur utama yang harus dilakukan pengguna dari pengajuan sampai selesai?", purpose: "Melengkapi alur pengguna dan perubahan status.", options: [], required: true },
-  { id: "q2_2", question: "Apa validasi dan kondisi gagal yang harus ditangani sistem?", purpose: "Melengkapi validasi dan exception flow.", options: [], required: true },
-  { id: "q2_3", question: "Apa kriteria yang menentukan bahwa proses berhasil?", purpose: "Melengkapi acceptance criteria yang dapat diuji.", options: [], required: true },
-];
-
-/** Ensure round-2 questions are fresh: drop answered ids, renumber to q2_{n}, cap at 3. */
-function followUpQuestions(questions: JudgeOutput["clarification_questions"], answers: Record<string, string>) {
-  const answered = new Set(Object.keys(answers));
-  const fresh = questions
-    .filter((question) => !answered.has(question.id))
-    .map((question, index) => ({ ...question, id: `q2_${index + 1}` }))
-    .slice(0, 3);
-  return fresh.length ? fresh : FALLBACK_FOLLOW_UPS;
-}
 
 async function flowTemplateBlock(userId: string): Promise<string | null> {
   const active = await activeTemplateFor(userId);
   return active ? templateInstructionBlock(active.structure) : null;
 }
 
-function missingRequiredSections(markdown: string, structure: BrdTemplateStructure | null): string[] {
-  if (!structure) return [];
-  const haystack = markdown.toLowerCase();
-  return structure.sections
-    .filter((section) => section.required)
-    .filter((section) => {
-      const title = section.title.toLowerCase();
-      const id = section.id.toLowerCase();
-      return !haystack.includes(title) && !haystack.includes(id);
-    })
-    .map((section) => section.title);
-}
-
-async function collectAgent(agent: Awaited<ReturnType<typeof agentFor>>, prompt: string, context: FlowContext) {
+async function collectAgent(
+  agent: Awaited<ReturnType<typeof agentFor>>,
+  prompt: string,
+  context: FlowContext,
+) {
   let text = "";
   const toolResults: Array<{ toolName?: string; output?: { type?: string; value?: unknown } }> = [];
-  const run: { prompt: { role: "user"; content: string }; session?: { sessionId: string; userId: string; metadata: { userId: string } } } = { prompt: { role: "user", content: prompt } };
+  const run: {
+    prompt: { role: "user"; content: string };
+    session?: { sessionId: string; userId: string; metadata: { userId: string } };
+  } = { prompt: { role: "user", content: prompt } };
   if (agent.memory !== undefined) {
-    run.session = { sessionId: context.sessionId, userId: context.userId, metadata: { userId: context.userId } };
+    run.session = {
+      sessionId: context.sessionId,
+      userId: context.userId,
+      metadata: { userId: context.userId },
+    };
   }
   for await (const event of agent.stream(run)) {
     if (event.type === "text_delta") text += event.delta ?? "";
@@ -283,8 +436,12 @@ export async function clarifyFlow(context: FlowContext, input: FlowInput) {
     `Round: ${round}`,
     `User story (data):\n${input.userStory}`,
     `Prior answers (data):\n${JSON.stringify(input.answers ?? {})}`,
-    templateBlock ? `TEMPLATE AKTIF (gunakan untuk memilih pertanyaan yang mengisi section wajib):\n${templateBlock}` : "",
-  ].filter(Boolean).join("\n\n");
+    templateBlock
+      ? `TEMPLATE AKTIF (gunakan untuk memilih pertanyaan yang mengisi section wajib):\n${templateBlock}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   const result = await collectAgent(agent, prompt, context);
   const tool = result.toolResults.find((item) => item.toolName === "elicit_clarifications");
   const parsed = safeParse(
@@ -292,7 +449,12 @@ export async function clarifyFlow(context: FlowContext, input: FlowInput) {
     tool?.output?.value ?? parseLooseJson(result.text) ?? {},
   );
   if (!parsed) throw new Error("Clarification agent returned invalid output");
-  return { type: "clarification" as const, round: parsed.round, clarification_questions: parsed.clarification_questions, capped: parsed.capped };
+  return {
+    type: "clarification" as const,
+    round: parsed.round,
+    clarification_questions: parsed.clarification_questions,
+    capped: parsed.capped,
+  };
 }
 
 export async function submitClarificationFlow(context: FlowContext, input: FlowInput) {
@@ -304,38 +466,60 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
   let sufficient = Boolean(input.skip) || round === 2;
   if (!sufficient) {
     const judge = await agentFor(context.userId, context.sessionId, "JUDGE");
-    const judged = await collectAgent(judge, `Return JSON only with sufficient, missing, and clarification_questions. You are judging round ${round}; do not generate a BRD. If round 1 has any material gap in actors, scope, workflow, validation, permissions, failure handling, integrations, or acceptance criteria, set sufficient=false and return follow-up questions in Indonesian. User story (data): ${input.userStory}\nAnswers (data): ${JSON.stringify(answers)}\nContext (data): ${contextText}${templateBlock ? `\n\nTEMPLATE AKTIF (nilai kecukupan terhadap section wajib template):\n${templateBlock}` : ""}`, context);
+    const judged = await collectAgent(
+      judge,
+      `Return JSON only with sufficient, missing, and clarification_questions. You are judging round ${round}; do not generate a BRD. If round 1 has any material gap in actors, scope, workflow, validation, permissions, failure handling, integrations, or acceptance criteria, set sufficient=false and return follow-up questions in Indonesian. User story (data): ${input.userStory}\nAnswers (data): ${JSON.stringify(answers)}\nContext (data): ${contextText}${templateBlock ? `\n\nTEMPLATE AKTIF (nilai kecukupan terhadap section wajib template):\n${templateBlock}` : ""}`,
+      context,
+    );
     const judgedOutput = safeParse(JudgeOutputSchema, parseLooseJson(judged.text) ?? {});
     sufficient = judgedOutput?.sufficient ?? false;
-    if (!sufficient && round < 2) return {
-      type: "clarification" as const,
-      round: 2,
-      clarification_questions: judgedOutput
-        ? followUpQuestions(judgedOutput.clarification_questions, answers)
-        : FALLBACK_FOLLOW_UPS,
-      capped: true,
-    };
+    if (!sufficient && round < 2)
+      return {
+        type: "clarification" as const,
+        round: 2,
+        clarification_questions: judgedOutput
+          ? followUpQuestions(judgedOutput.clarification_questions, answers)
+          : FALLBACK_FOLLOW_UPS,
+        capped: true,
+      };
   }
   const agent = await agentFor(context.userId, context.sessionId, "GENERATE");
   const generatePrompt = [
     `User story (data): ${input.userStory}`,
     `Answers (data): ${JSON.stringify(answers)}`,
     `Reference context (data): ${contextText}`,
-    templateBlock ? `TEMPLATE AKTIF (WAJIB DIIKUTI - BRD final harus memuat semua section ini dengan urutan dan judul yang sama, isi setiap section secara lengkap):\n${templateBlock}` : "",
+    templateBlock
+      ? `TEMPLATE AKTIF (WAJIB DIIKUTI - BRD final harus memuat semua section ini dengan urutan dan judul yang sama, isi setiap section secara lengkap):\n${templateBlock}`
+      : "",
     `Generate BRD lengkap berbahasa Indonesia dengan flowchart mermaid; gunakan draft_brd sebagai basis validasi, lalu tulis BRD final sebagai jawaban. force: ${input.skip || round === 2}`,
-  ].filter(Boolean).join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   const generated = await collectAgent(agent, generatePrompt, context);
   const tool = generated.toolResults.find((item) => item.toolName === "draft_brd");
   const value = tool?.output?.value as { markdown?: string; assumptions?: string[] } | undefined;
-  let markdown = generated.text.trim() || value?.markdown || "";
+  let markdown = extractBrdDocument(generated.text.trim() || value?.markdown || "");
   if (!markdown) throw new Error("BRD generator returned no markdown");
   const missing = missingRequiredSections(markdown, activeTemplate?.structure ?? null);
   if (missing.length) {
-    const retry = await collectAgent(agent, `${generatePrompt}\n\nKOREKSI: BRD yang baru saja ditulis belum memuat section wajib template berikut: ${missing.join(", ")}. Tulis ulang seluruh BRD sekali lagi, lengkap dengan semua section tersebut.`, context);
-    const retryText = retry.text.trim();
-    const retryMissing = retryText ? missingRequiredSections(retryText, activeTemplate?.structure ?? null) : missing;
+    const retry = await collectAgent(
+      agent,
+      `${generatePrompt}\n\nKOREKSI: BRD yang baru saja ditulis belum memuat section wajib template berikut: ${missing.join(", ")}. Tulis ulang seluruh BRD sekali lagi, lengkap dengan semua section tersebut.`,
+      context,
+    );
+    const retryText = extractBrdDocument(retry.text);
+    const retryMissing = retryText
+      ? missingRequiredSections(retryText, activeTemplate?.structure ?? null)
+      : missing;
     if (retryMissing.length < missing.length && retryText) markdown = retryText;
-    if (retryMissing.length) console.warn(`BRD missing template sections after retry: ${retryMissing.join(", ")}`);
+    if (retryMissing.length)
+      console.warn(`BRD missing template sections after retry: ${retryMissing.join(", ")}`);
   }
-  return { type: "brd" as const, round, markdown, assumptions: value?.assumptions ?? [], context: contextText };
+  return {
+    type: "brd" as const,
+    round,
+    markdown,
+    assumptions: value?.assumptions ?? [],
+    context: contextText,
+  };
 }
