@@ -31,7 +31,7 @@ export function useBrds(sessionId: string | null) {
     const preferred =
       selectedRef.current && brds.some((brd) => brd.id === selectedRef.current)
         ? selectedRef.current
-        : brds[0]?.id ?? null;
+        : (brds[0]?.id ?? null);
     setActiveId(preferred);
   }, [sessionId, brds]);
 

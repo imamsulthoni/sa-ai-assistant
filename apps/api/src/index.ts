@@ -16,8 +16,7 @@ const allowedOrigins = (process.env.CORS_ORIGINS ?? "http://localhost:3000")
 const app = new Hono()
   .use(
     cors({
-      origin: (origin) =>
-        origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0],
+      origin: (origin) => (origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0]),
       allowHeaders: ["Content-Type", "x-user-id", "x-conversation-id"],
       allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
       exposeHeaders: ["x-anvia-stream-protocol"],

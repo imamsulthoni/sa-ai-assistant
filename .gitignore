@@ -20,6 +20,9 @@ coverage/
 .vscode/
 .idea/
 
+# agent runner artifacts
+packages/agent/runners/.artifacts/
+
 # generated and local state
 .turbo/
 .cache/

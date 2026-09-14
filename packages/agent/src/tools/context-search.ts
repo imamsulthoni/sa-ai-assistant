@@ -16,7 +16,10 @@ export function createSearchContextTool(adapters: AgentContextAdapters = {}) {
     execute: async ({ query, filters, topK }) => ({
       query,
       filters: filters ?? {},
-      results: (await resolved.searchContext({ query, filters: filters ?? {}, topK })).slice(0, topK),
+      results: (await resolved.searchContext({ query, filters: filters ?? {}, topK })).slice(
+        0,
+        topK,
+      ),
     }),
   });
 }

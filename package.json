@@ -7,13 +7,16 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "dev": "pnpm run --parallel dev"
+    "dev": "pnpm run --parallel dev",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck"
   },
   "dependencies": {
     "dotenv-cli": "^11.0.0"
   },
   "devDependencies": {
     "oxfmt": "^0.66.0",
-    "oxlint": "^1.81.0"
+    "oxlint": "^1.81.0",
+    "vitest": "^5.0.0"
   }
 }

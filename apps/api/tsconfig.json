@@ -11,5 +11,13 @@
     "rootDir": "./src",
     "outDir": "./dist"
   },
-  "exclude": ["node_modules", "prisma.config.ts", "scripts"]
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "prisma.config.ts",
+    "scripts",
+    "src/**/*.test.ts",
+    "src/runners/**"
+  ]
 }
