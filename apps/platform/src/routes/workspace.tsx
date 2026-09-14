@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Check,
-  CheckCircle2,
-  LoaderCircle,
-  PanelRightClose,
-  PanelRightOpen,
-  X,
-} from "lucide-react";
-import { cn } from "cn";
+import { Check, CheckCircle2, LoaderCircle, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { cn } from "#/lib/utils";
 import type { UseChatStatus } from "@anvia/react";
 import { AnviaChat } from "#/modules/chat/anvia-chat";
 import { ChatShell } from "#/modules/chat/chat-shell";
@@ -22,15 +15,19 @@ import { useVersionHistory } from "#/modules/brd/hooks/use-version-history";
 import { NewBrdPanel } from "#/modules/brd/new-brd-panel";
 import { FeedbackForm, type ClarificationQuestion } from "#/modules/brd/feedback-form";
 import { DocumentPane } from "#/modules/brd/document-pane";
+import { Alert } from "#/components/ui/alert";
 import {
   clarifyBrd,
   createBrd,
-  getDocument,
   importBrd,
   submitClarification,
   uploadDocument,
   type BrdDocument,
 } from "#/lib/api";
+import { COPY } from "#/lib/copy";
+import { waitForDocumentReady } from "#/lib/documents";
+import { describeError } from "#/lib/errors";
+import { notify } from "#/lib/notify";
 
 type ChatSearch = { session?: string };
 type Phase = "EMPTY_SESSION" | "CLARIFYING" | "GENERATING" | "BRD_ACTIVE";
@@ -40,7 +37,7 @@ function parseSession(value: unknown): string | undefined {
 }
 
 function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return describeError(error);
 }
 
 export const Route = createFileRoute("/workspace")({
@@ -54,30 +51,24 @@ function isStreaming(status: UseChatStatus): boolean {
   return status === "submitted" || status === "streaming" || status === "waiting";
 }
 
-async function waitForDocumentReady(sessionId: string, documentId: string) {
-  for (let attempt = 0; attempt < 90; attempt += 1) {
-    const { document } = await getDocument(sessionId, documentId);
-    if (document.status === "READY" || document.status === "PENDING_CONFIRMATION") return document;
-    if (document.status === "FAILED") {
-      throw new Error(document.error ?? "Document processing failed");
-    }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
-  throw new Error("Document processing timed out");
+/** Derive a readable BRD title from the user story instead of a generic label. */
+function titleFromStory(story: string): string {
+  const line = story.replace(/\s+/g, " ").trim();
+  if (!line) return "BRD baru";
+  return line.length > 60 ? `${line.slice(0, 59).trimEnd()}…` : line;
 }
 
 type StepKey = "story" | "clarify" | "generate";
 
-const FLOW_STEPS: Array<{ key: StepKey; label: string }> = [
-  { key: "story", label: "User story" },
-  { key: "clarify", label: "Clarification" },
-  { key: "generate", label: "Generate BRD" },
-];
+const FLOW_STEPS: Array<{ key: StepKey; label: string }> = COPY.flow.steps.map((step) => ({
+  key: step.key as StepKey,
+  label: step.label,
+}));
 
 function FlowSteps({ current }: { current: StepKey }) {
   const index = FLOW_STEPS.findIndex((step) => step.key === current);
   return (
-    <ol className="flex shrink-0 items-center gap-2 border-b bg-white px-4 py-2.5 md:px-6">
+    <ol className="flex shrink-0 items-center gap-2 border-b border-border/70 bg-card/70 px-4 py-2.5 md:px-6">
       {FLOW_STEPS.map((step, stepIndex) => {
         const done = stepIndex < index;
         const active = stepIndex === index;
@@ -85,10 +76,7 @@ function FlowSteps({ current }: { current: StepKey }) {
           <li key={step.key} className="flex items-center gap-2">
             {stepIndex > 0 && (
               <span
-                className={cn(
-                  "h-px w-6 bg-border sm:w-12",
-                  stepIndex <= index && "bg-primary/40",
-                )}
+                className={cn("h-px w-6 bg-border sm:w-12", stepIndex <= index && "bg-primary/40")}
               />
             )}
             <span
@@ -165,11 +153,11 @@ function SplitResizer({
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize chat agent and BRD document panes"
+      aria-label={COPY.workspace.resizePanes}
       aria-valuemin={Math.round(BRD_SHARE_MIN * 100)}
       aria-valuemax={Math.round(BRD_SHARE_MAX * 100)}
       aria-valuenow={Math.round(share * 100)}
-      aria-valuetext={`BRD pane ${Math.round(share * 100)}%`}
+      aria-valuetext={COPY.workspace.brdPaneValue(Math.round(share * 100))}
       tabIndex={0}
       onPointerDown={onPointerDown}
       onKeyDown={(event) => {
@@ -213,8 +201,7 @@ function GeneratingView() {
           <div>
             <p className="text-sm font-semibold">Menulis draft BRD…</p>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              Menyusun requirement, diagram alur, dan kriteria penerimaan dari jawaban
-              klarifikasi.
+              Menyusun requirement, diagram alur, dan kriteria penerimaan dari jawaban klarifikasi.
             </p>
           </div>
         </div>
@@ -278,7 +265,6 @@ function Workspace() {
   const [streaming, setStreaming] = useState(false);
   const [importing, setImporting] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"chat" | "brd">("chat");
   const [brdPaneVisible, setBrdPaneVisible] = useState(() => {
     try {
@@ -336,24 +322,22 @@ function Workspace() {
   }, [pendingModification]);
 
   const persistV1 = useCallback(
-    async (base: string) => {
-      if (!activeId || !base.trim()) throw new Error("Agent returned an empty BRD");
+    async (base: string, story: string) => {
+      if (!activeId || !base.trim()) throw new Error(COPY.errors.emptyBrd);
       setPhase("GENERATING");
       try {
         const created = await createBrd({
           sessionId: activeId,
-          title: "New BRD",
+          title: titleFromStory(story),
           contentMarkdown: base.trim(),
-          changeSummary: "Initial draft",
+          changeSummary: "Draf awal",
         });
         setBrdPaneVisible(true);
         await brdState.select(created.brd.id);
         setDraft(created.brd.contentMarkdown);
         setQuestions([]);
         setPhase("BRD_ACTIVE");
-        setNotice(
-          `BRD v1 ready — draft "${created.brd.title}" has been created. Ask the chat agent to refine it.`,
-        );
+        notify.success(COPY.notice.brdReady(created.brd.title));
       } catch (caught) {
         setFlowError(messageOf(caught));
         setPhase("CLARIFYING");
@@ -381,7 +365,7 @@ function Workspace() {
           return;
         }
         setQuestions([]);
-        await persistV1(result.markdown);
+        await persistV1(result.markdown, story);
       } catch (caught) {
         setFlowError(messageOf(caught));
         setPhase(questionsRef.current.length ? "CLARIFYING" : "EMPTY_SESSION");
@@ -396,8 +380,17 @@ function Workspace() {
       setFlowError(null);
       try {
         if (file) {
-          await uploadDocument(activeId, file);
+          const uploaded = await uploadDocument(activeId, file);
           refreshDocuments();
+          // Give the reference a short window to be indexed before the first
+          // questions are asked; generation still uses it later regardless.
+          try {
+            await waitForDocumentReady(activeId, uploaded.document.id, { timeoutMs: 60_000 });
+          } catch {
+            notify.info(
+              "Referensi masih diproses. Pertanyaan awal mungkin belum memakainya, tetapi dokumen akan otomatis dipakai saat menyusun BRD.",
+            );
+          }
         }
         setUserStory(story);
         setRound(1);
@@ -409,7 +402,8 @@ function Workspace() {
           setPhase("CLARIFYING");
         } else await runGeneration({}, true, story);
       } catch (caught) {
-        setFlowError(`Unable to start BRD generation: ${messageOf(caught)}`);
+        setFlowError(messageOf(caught));
+        notify.error(COPY.errors.generateStart(messageOf(caught)));
         setPhase("EMPTY_SESSION");
       }
     },
@@ -448,11 +442,11 @@ function Workspace() {
         await brdState.select(imported.brd.id);
         setDraft(imported.brd.contentMarkdown);
         setPhase("BRD_ACTIVE");
-        setNotice(
-          `BRD existing "${imported.brd.title}" berhasil diimpor. Tanyakan isinya atau minta modifikasi — panel BRD muncul saat ada preview perubahan untuk di-approve.`,
-        );
+        notify.success(COPY.notice.brdImported(imported.brd.title));
       } catch (caught) {
-        setFlowError(`Import failed: ${messageOf(caught)}`);
+        const message = COPY.errors.importFailed(messageOf(caught));
+        setFlowError(message);
+        notify.error(message);
       } finally {
         setImporting(false);
       }
@@ -486,14 +480,14 @@ function Workspace() {
       headerAction={
         <div className="flex items-center gap-2">
           {brdState.active && (
-            <span className="hidden items-center gap-1.5 rounded-full border bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 sm:inline-flex">
+            <span className="hidden items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-xs font-medium text-success sm:inline-flex">
               <CheckCircle2 size={13} />
-              BRD ready
+              {COPY.workspace.brdReady}
             </span>
           )}
           {(phase === "CLARIFYING" || phase === "GENERATING") && (
             <span className="hidden items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground sm:inline-flex">
-              {phase === "CLARIFYING" ? "Clarifying" : "Generating"}
+              {phase === "CLARIFYING" ? COPY.workspace.clarifying : COPY.workspace.generating}
             </span>
           )}
           <SettingsDialog />
@@ -501,25 +495,19 @@ function Workspace() {
       }
     >
       {(error || brdState.error || flowError || history.error) && (
-        <div className="mx-auto mt-4 w-full max-w-3xl rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {[error, brdState.error, flowError, history.error].filter(Boolean).join(" ")}
-        </div>
-      )}
-      {notice && (
-        <div className="mx-auto mt-4 flex w-full max-w-3xl items-center justify-between gap-2 rounded-md border bg-muted px-4 py-3 text-sm">
-          <span>{notice}</span>
-          <button type="button" aria-label="Dismiss" onClick={() => setNotice(null)}>
-            <X size={14} />
-          </button>
+        <div className="mx-auto mt-4 w-full max-w-3xl px-4">
+          <Alert variant="destructive">
+            {[error, brdState.error, flowError, history.error].filter(Boolean).join(" ")}
+          </Alert>
         </div>
       )}
       {!activeId ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          {loading ? "Loading…" : "No conversation selected"}
+          {loading ? COPY.workspace.loading : COPY.workspace.noSession}
         </div>
       ) : brdState.active ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="hidden shrink-0 items-center justify-between gap-2 border-b bg-muted/40 px-3 py-1 lg:flex">
+          <div className="hidden shrink-0 items-center justify-between gap-2 border-b border-border/70 bg-muted/40 px-3 py-1 lg:flex">
             <span className="truncate text-xs font-medium text-muted-foreground">
               {brdState.active.title}
             </span>
@@ -527,26 +515,26 @@ function Workspace() {
               type="button"
               onClick={() => setBrdPaneVisible((visible) => !visible)}
               aria-pressed={brdPaneVisible}
-              aria-label={brdPaneVisible ? "Hide BRD document pane" : "Show BRD document pane"}
+              aria-label={brdPaneVisible ? COPY.workspace.hideBrd : COPY.workspace.showBrd}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               {brdPaneVisible ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-              {brdPaneVisible ? "Hide BRD" : "Show BRD"}
+              {brdPaneVisible ? COPY.workspace.hideBrd : COPY.workspace.showBrd}
             </button>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1 border-b bg-muted/40 px-3 py-1.5 lg:hidden">
+          <div className="flex shrink-0 items-center gap-1 border-b border-border/70 bg-muted/40 px-3 py-1.5 lg:hidden">
             <button
               type="button"
               onClick={() => setMobileView("chat")}
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-medium transition-colors",
                 mobileView === "chat"
-                  ? "bg-background text-foreground shadow-sm"
+                  ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              Chat agent
+              {COPY.workspace.chatView}
             </button>
             <button
               type="button"
@@ -554,11 +542,11 @@ function Workspace() {
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-medium transition-colors",
                 mobileView === "brd"
-                  ? "bg-background text-foreground shadow-sm"
+                  ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              BRD document
+              {COPY.workspace.brdView}
             </button>
           </div>
 
@@ -583,11 +571,7 @@ function Workspace() {
             </div>
 
             {brdPaneVisible && (
-              <SplitResizer
-                containerRef={splitRef}
-                share={brdShare}
-                onResize={setBrdShare}
-              />
+              <SplitResizer containerRef={splitRef} share={brdShare} onResize={setBrdShare} />
             )}
 
             <div

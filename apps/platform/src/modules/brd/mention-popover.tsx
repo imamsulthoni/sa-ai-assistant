@@ -10,7 +10,12 @@ type MentionPopoverProps = {
   onClose: () => void;
 };
 
-export function MentionPopover({ sessionId, query: initialQuery = "", onPick, onClose }: MentionPopoverProps) {
+export function MentionPopover({
+  sessionId,
+  query: initialQuery = "",
+  onPick,
+  onClose,
+}: MentionPopoverProps) {
   const [query, setQuery] = useState(initialQuery);
 
   useEffect(() => {
@@ -37,7 +42,7 @@ export function MentionPopover({ sessionId, query: initialQuery = "", onPick, on
           placeholder="Cari file di sesi ini…"
           className="min-w-0 flex-1 bg-transparent text-sm outline-none"
         />
-        <button type="button" onClick={onClose} aria-label="Close mentions">
+        <button type="button" onClick={onClose} aria-label="Tutup daftar file">
           <X size={14} />
         </button>
       </div>

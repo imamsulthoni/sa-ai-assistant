@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { cn } from "cn";
+import { cn } from "#/lib/utils";
 import {
-  Bot,
   CheckCircle2,
   EllipsisVertical,
-  FileText,
   LoaderCircle,
   Pencil,
   Plus,
@@ -32,6 +30,7 @@ import {
 } from "#/components/ui/dropdown-menu";
 import { ScrollArea } from "#/components/ui/scroll-area";
 import { Skeleton } from "#/components/ui/skeleton";
+import { COPY, formatBytes, statusLabel } from "#/lib/copy";
 
 type SessionSidebarProps = {
   sessions: SessionSummary[];
@@ -71,20 +70,15 @@ export function SessionSidebar({
 
   return (
     <div className="flex h-full flex-col p-3">
-      <div className="mb-4 flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-semibold">
-        <span className="grid size-7 place-items-center rounded-md bg-primary text-primary-foreground">
-          <Bot size={16} />
-        </span>
-        Agent workspace
-      </div>
-
-      <Button className="w-full justify-start" onClick={onNew} disabled={disabled}>
-        <Plus size={16} /> New chat
+      <Button className="mb-4 w-full justify-start" onClick={onNew} disabled={disabled}>
+        <Plus size={16} /> {COPY.sidebar.newChat}
       </Button>
 
-      <ScrollArea className="mt-4 min-h-0 flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 pr-1">
-          <p className="mb-1 px-2 text-xs font-medium text-muted-foreground">Conversations</p>
+          <p className="mb-1 px-2 text-xs font-medium text-muted-foreground">
+            {COPY.sidebar.conversations}
+          </p>
 
           {loading &&
             Array.from({ length: 4 }).map((_, index) => (
@@ -93,7 +87,7 @@ export function SessionSidebar({
 
           {!loading && sessions.length === 0 && (
             <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-              No conversations yet.
+              {COPY.sidebar.noConversations}
             </p>
           )}
 
@@ -105,7 +99,7 @@ export function SessionSidebar({
                 data-active={active ? "" : undefined}
                 className={cn(
                   "group flex items-center rounded-lg",
-                  active && "bg-accent ring-1 ring-accent-foreground/15",
+                  active && "bg-sidebar-accent ring-1 ring-primary/15",
                 )}
               >
                 <button
@@ -114,8 +108,8 @@ export function SessionSidebar({
                   disabled={disabled}
                   data-active={active ? "" : undefined}
                   className={cn(
-                    "flex h-9 min-w-0 flex-1 items-center rounded-lg px-3 text-left text-sm text-foreground hover:bg-accent data-[active]:bg-accent disabled:pointer-events-none disabled:opacity-50",
-                    active && "font-medium",
+                    "flex h-9 min-w-0 flex-1 items-center rounded-lg px-3 text-left text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent disabled:pointer-events-none disabled:opacity-50",
+                    active && "font-medium text-foreground",
                   )}
                 >
                   {active && <span className="mr-2 size-1.5 shrink-0 rounded-full bg-primary" />}
@@ -129,23 +123,23 @@ export function SessionSidebar({
                       variant="ghost"
                       size="icon"
                       disabled={disabled}
-                      aria-label={`Actions for ${session.title}`}
-                      className="mr-1 size-7 shrink-0 text-muted-foreground transition-colors opacity-100 hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
+                      aria-label={`Aksi untuk ${session.title}`}
+                      className="mr-1 size-7 shrink-0 text-muted-foreground opacity-100 transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground"
                     >
                       <EllipsisVertical size={14} />
-                      <span className="sr-only">Rename or delete session</span>
+                      <span className="sr-only">Ganti nama atau hapus percakapan</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
                     <DropdownMenuItem onSelect={() => setRenameTarget(session)}>
-                      <Pencil /> Rename
+                      <Pencil /> {COPY.sidebar.rename}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       variant="destructive"
                       onSelect={() => setDeleteTarget(session)}
                     >
-                      <Trash /> Delete
+                      <Trash /> {COPY.sidebar.delete}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -167,6 +161,7 @@ export function SessionSidebar({
       </ScrollArea>
 
       <RenameDialog
+        key={renameTarget?.id ?? "no-rename-target"}
         target={renameTarget}
         onClose={() => setRenameTarget(null)}
         onRename={(title) => {
@@ -202,11 +197,32 @@ function SessionDocuments({
   onUpload: (files: FileList) => void;
   onDelete: (id: string) => void;
 }) {
+  const [dragging, setDragging] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
+
   return (
-    <section className="mt-6 border-t px-2 pt-4">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground">Session documents</p>
-        <label className="grid size-7 cursor-pointer place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+    <section
+      className={cn(
+        "mt-6 rounded-xl border border-transparent px-2 pt-4 transition-colors",
+        dragging && "border-primary/40 bg-primary/5",
+      )}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragging(false);
+        if (event.dataTransfer.files?.length) onUpload(event.dataTransfer.files);
+      }}
+    >
+      <div className="mb-2 flex items-center justify-between border-t border-border/60 pt-4">
+        <p className="text-xs font-medium text-muted-foreground">{COPY.sidebar.sessionDocuments}</p>
+        <label
+          className="grid size-7 cursor-pointer place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+          title={COPY.sidebar.uploadDocuments}
+        >
           {uploading ? <LoaderCircle size={14} className="animate-spin" /> : <Upload size={14} />}
           <input
             type="file"
@@ -222,43 +238,80 @@ function SessionDocuments({
         </label>
       </div>
 
-      {loading && <p className="text-xs text-muted-foreground">Loading files…</p>}
+      {loading && <p className="text-xs text-muted-foreground">{COPY.sidebar.loadingFiles}</p>}
       {!loading && documents.length === 0 && (
-        <p className="text-xs leading-5 text-muted-foreground">
-          Upload a BRD, PDF, or flowchart for this session.
+        <p className="rounded-lg border border-dashed px-3 py-3 text-xs leading-5 text-muted-foreground">
+          {COPY.sidebar.uploadDocuments}
         </p>
       )}
       <div className="flex flex-col gap-1">
-        {documents.map((document) => (
-          <div
-            key={document.id}
-            className="group flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent"
-          >
-            <FileText size={14} className="shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate" title={document.title}>
-              {document.title}
-            </span>
-            <DocumentStatus status={document.status} />
-            <button
-              type="button"
-              className="shrink-0 text-muted-foreground opacity-70 transition-opacity hover:text-destructive hover:opacity-100"
-              onClick={() => onDelete(document.id)}
-              aria-label={`Delete ${document.title}`}
+        {documents.map((document) => {
+          const transient = document.status === "UPLOADING" || document.status === "PROCESSING";
+          return (
+            <div
+              key={document.id}
+              className="group flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-sidebar-accent"
             >
-              <XCircle size={13} />
-            </button>
-          </div>
-        ))}
+              <DocumentStatusIcon status={document.status} />
+              <span className="min-w-0 flex-1 truncate" title={document.title}>
+                {document.title}
+              </span>
+              <span
+                className={cn(
+                  "shrink-0 text-[10px] tracking-wide uppercase",
+                  document.status === "FAILED" ? "text-destructive" : "text-muted-foreground",
+                )}
+                title={`${statusLabel(document.status)} · ${formatBytes(document.fileSize)}`}
+              >
+                {transient ? statusLabel(document.status) : formatBytes(document.fileSize)}
+              </span>
+              <button
+                type="button"
+                className="shrink-0 text-muted-foreground opacity-70 transition-opacity hover:text-destructive hover:opacity-100"
+                onClick={() => setDeleteTarget(document)}
+                aria-label={`Hapus ${document.title}`}
+              >
+                <XCircle size={13} />
+              </button>
+            </div>
+          );
+        })}
       </div>
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{COPY.sidebar.deleteDocumentTitle}</DialogTitle>
+            <DialogDescription>
+              {COPY.sidebar.deleteDocumentDescription(deleteTarget?.title ?? "")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>
+              {COPY.sidebar.cancel}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (deleteTarget) onDelete(deleteTarget.id);
+                setDeleteTarget(null);
+              }}
+            >
+              {COPY.sidebar.deleteDocumentConfirm}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
 
-function DocumentStatus({ status }: { status: DocumentSummary["status"] }) {
-  if (status === "READY") return <CheckCircle2 size={13} className="shrink-0 text-emerald-600" />;
+function DocumentStatusIcon({ status }: { status: DocumentSummary["status"] }) {
+  if (status === "READY") return <CheckCircle2 size={13} className="shrink-0 text-success" />;
   if (status === "FAILED") return <XCircle size={13} className="shrink-0 text-destructive" />;
-  return <LoaderCircle size={13} className="shrink-0 animate-spin text-muted-foreground" />;
+  return <LoaderCircle size={13} className="shrink-0 animate-spin text-primary" />;
 }
 
 function RenameDialog({
@@ -281,8 +334,8 @@ function RenameDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Rename conversation</DialogTitle>
-          <DialogDescription>Give this conversation a more descriptive name.</DialogDescription>
+          <DialogTitle>{COPY.sidebar.renameTitle}</DialogTitle>
+          <DialogDescription>{COPY.sidebar.renameDescription}</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-4"
@@ -294,15 +347,15 @@ function RenameDialog({
           <Input
             value={value}
             onChange={(event) => setValue(event.target.value)}
-            placeholder="Conversation title"
+            placeholder={COPY.sidebar.renamePlaceholder}
             autoFocus
           />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {COPY.sidebar.cancel}
             </Button>
             <Button type="submit" disabled={!value.trim()}>
-              Save
+              {COPY.sidebar.save}
             </Button>
           </DialogFooter>
         </form>
@@ -329,18 +382,17 @@ function DeleteDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete conversation?</DialogTitle>
+          <DialogTitle>{COPY.sidebar.deleteTitle}</DialogTitle>
           <DialogDescription>
-            This permanently deletes “{target?.title}” and its messages. This action cannot be
-            undone.
+            {COPY.sidebar.deleteDescription(target?.title ?? "")}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            {COPY.sidebar.cancel}
           </Button>
           <Button type="button" variant="destructive" onClick={onDelete}>
-            Delete
+            {COPY.sidebar.deleteConfirm}
           </Button>
         </DialogFooter>
       </DialogContent>

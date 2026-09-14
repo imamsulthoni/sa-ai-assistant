@@ -1,16 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
-import { deleteDocument, listDocuments, uploadDocument } from "#/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { deleteDocument, listDocuments, uploadDocument, type DocumentSummary } from "#/lib/api";
+import { describeError } from "#/lib/errors";
+import { notify } from "#/lib/notify";
 
 const TRANSIENT_STATUSES = new Set(["UPLOADING", "PROCESSING"]);
 
 function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return describeError(error);
 }
 
 export function useDocuments(sessionId: string | null) {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+  const previousStatuses = useRef(new Map<string, DocumentSummary["status"]>());
 
   const documentsQuery = useQuery({
     queryKey: ["session", sessionId, "documents"],
@@ -22,6 +25,19 @@ export function useDocuments(sessionId: string | null) {
   const documents = documentsQuery.data ?? [];
   const loading = documentsQuery.isPending;
   const error = actionError ?? (documentsQuery.isError ? messageOf(documentsQuery.error) : null);
+
+  useEffect(() => {
+    const data = documentsQuery.data;
+    if (!data) return;
+    for (const document of data) {
+      const previous = previousStatuses.current.get(document.id);
+      if (previous && previous !== document.status) {
+        if (document.status === "READY") notify.success(`${document.title} siap digunakan.`);
+        if (document.status === "FAILED") notify.error(`${document.title} gagal diproses.`);
+      }
+      previousStatuses.current.set(document.id, document.status);
+    }
+  }, [documentsQuery.data]);
 
   const uploadMutation = useMutation({
     mutationFn: ({ files }: { files: FileList | File[] }) => {

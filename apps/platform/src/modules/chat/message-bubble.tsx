@@ -1,5 +1,6 @@
 import { MessagePrimitive, useAttachment, useMessage, useMessagePart } from "@anvia/react-ui";
 import { Brain, Copy, FileText, LoaderCircle, RefreshCw, Wrench, X } from "lucide-react";
+import { toolLabel } from "#/lib/copy";
 
 export function MessageBubble() {
   const { message } = useMessage();
@@ -28,11 +29,11 @@ export function MessageBubble() {
         <MessagePrimitive.Actions className="flex items-center gap-1 pl-1 opacity-100 focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
           <MessagePrimitive.Copy className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <Copy size={13} />
-            Copy
+            Salin
           </MessagePrimitive.Copy>
           <MessagePrimitive.Regenerate className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <RefreshCw size={13} />
-            Regenerate
+            Ulangi
           </MessagePrimitive.Regenerate>
         </MessagePrimitive.Actions>
       </div>
@@ -65,7 +66,7 @@ function AssistantPart() {
         <MessagePrimitive.Reasoning className="my-2 rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
           <summary className="flex cursor-pointer select-none items-center gap-1.5 font-medium">
             <Brain size={14} />
-            Thinking
+            Proses berpikir
           </summary>
           <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap font-sans">
             {part.text}
@@ -100,11 +101,13 @@ function ToolCall() {
   return (
     <MessagePrimitive.Tool className="my-2 inline-flex max-w-full items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
       <Wrench size={14} className="shrink-0" />
-      <MessagePrimitive.ToolName className="truncate font-medium text-foreground" />
+      <MessagePrimitive.ToolName className="truncate font-medium text-foreground">
+        {toolLabel(part.toolName)}
+      </MessagePrimitive.ToolName>
       {running ? (
         <span className="inline-flex shrink-0 items-center gap-1.5">
           <LoaderCircle size={12} className="animate-spin" />
-          Running
+          Berjalan
         </span>
       ) : (
         <MessagePrimitive.ToolStatus className="shrink-0" />
@@ -129,7 +132,7 @@ function AttachmentView({
       ) : (
         <FileText size={14} className="shrink-0" />
       )}
-      <span className="truncate">{attachment.name ?? "Attachment"}</span>
+      <span className="truncate">{attachment.name ?? "Lampiran"}</span>
     </div>
   );
 }
@@ -139,7 +142,7 @@ export function ComposerAttachment() {
   return (
     <div className="flex items-center gap-2 rounded-md border bg-muted px-2 py-1 text-xs text-foreground">
       <FileText size={14} className="shrink-0 text-muted-foreground" />
-      <span className="max-w-36 truncate sm:max-w-48">{attachment.name ?? "Attachment"}</span>
+      <span className="max-w-36 truncate sm:max-w-48">{attachment.name ?? "Lampiran"}</span>
       {remove && (
         <button
           type="button"

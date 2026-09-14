@@ -7,14 +7,14 @@ import {
   getSessionMessages,
   listSessions,
   renameSession as apiRenameSession,
-  updateSessionTemplate as apiUpdateSessionTemplate,
   type SessionSummary,
 } from "#/lib/api";
+import { describeError } from "#/lib/errors";
 
 const STORAGE_KEY = "sa.activeSession";
 
 function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return describeError(error);
 }
 
 type UseSessionsOptions = {
@@ -141,23 +141,6 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
     [renameMutation],
   );
 
-  const templateMutation = useMutation({
-    mutationFn: ({ id, templateId }: { id: string; templateId: string | null }) =>
-      apiUpdateSessionTemplate(id, { templateId }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["sessions"] });
-    },
-    onError: (caught) => setActionError(messageOf(caught)),
-  });
-
-  const updateSessionTemplate = useCallback(
-    async (id: string, templateId: string | null) => {
-      setActionError(null);
-      await templateMutation.mutateAsync({ id, templateId });
-    },
-    [templateMutation],
-  );
-
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiDeleteSession(id),
     onSuccess: () => {
@@ -191,7 +174,6 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
     newSession,
     openSession,
     renameSession,
-    updateSessionTemplate,
     deleteSession,
     refreshAfterRun,
   };

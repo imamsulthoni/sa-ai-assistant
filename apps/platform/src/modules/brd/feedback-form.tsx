@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { AlertCircle, LoaderCircle } from "lucide-react";
-import { cn } from "cn";
+import { cn } from "#/lib/utils";
 import { Button } from "#/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
+import { COPY } from "#/lib/copy";
 
 export type ClarificationQuestion = {
   id: string;
@@ -59,18 +61,18 @@ export function FeedbackForm({
     <section className="mx-auto w-full max-w-2xl px-5 py-8 md:py-12">
       <div className="mb-6">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Clarification round {round} / 2
+          <p className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
+            {COPY.clarify.roundLabel(round)}
           </p>
           <span
             className={cn(
               "rounded-full px-2.5 py-0.5 text-xs font-medium",
               answered === questions.length
-                ? "bg-emerald-50 text-emerald-700"
+                ? "bg-success/15 text-success"
                 : "bg-muted text-muted-foreground",
             )}
           >
-            {answered}/{questions.length} answered
+            {COPY.clarify.answered(answered, questions.length)}
           </span>
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
@@ -79,15 +81,13 @@ export function FeedbackForm({
             style={{ width: `${(round / 2) * 100}%` }}
           />
         </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight">
-          {round === 1 ? "A few decisions before drafting." : "Almost there — final round."}
+        <h2 className="mt-4 font-display text-2xl font-semibold tracking-tight">
+          {round === 1 ? COPY.clarify.titleRound1 : COPY.clarify.titleRound2}
         </h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Choose an option or write a custom answer. These answers become part of the BRD context.
-        </p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{COPY.clarify.subtitle}</p>
       </div>
 
-      <div className="space-y-6 rounded-2xl border bg-card p-5 shadow-sm md:p-6">
+      <div className="space-y-6 rounded-2xl border bg-card p-5 shadow-soft md:p-6">
         {questions.map((question) => (
           <fieldset key={question.id} className="space-y-3">
             <legend className="text-sm font-medium">
@@ -106,10 +106,7 @@ export function FeedbackForm({
                   <input
                     type="radio"
                     name={question.id}
-                    checked={
-                      answers[question.id] === option &&
-                      !answers[`${question.id}:custom`]
-                    }
+                    checked={answers[question.id] === option && !answers[`${question.id}:custom`]}
                     onChange={() =>
                       setAnswers((prev) => {
                         const next = { ...prev, [question.id]: option };
@@ -131,8 +128,8 @@ export function FeedbackForm({
                     [question.id]: event.target.value,
                   }))
                 }
-                placeholder="Isi sendiri…"
-                aria-label={`Custom answer for: ${question.question}`}
+                placeholder={COPY.clarify.customPlaceholder}
+                aria-label={`Jawaban sendiri untuk: ${question.question}`}
                 className="min-h-16 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
@@ -142,23 +139,30 @@ export function FeedbackForm({
         {showMissing && missing && (
           <p className="flex items-center gap-1.5 text-xs text-destructive">
             <AlertCircle size={14} />
-            Please answer all required questions before continuing.
+            {COPY.clarify.requiredError}
           </p>
         )}
 
         <div className="flex flex-wrap items-center gap-2 border-t pt-4">
           <Button disabled={submitting} onClick={() => void submit()}>
             {submitting && <LoaderCircle size={15} className="animate-spin" />}
-            {submitting ? "Preparing BRD…" : round === 2 ? "Generate BRD" : "Continue"}
+            {submitting
+              ? COPY.clarify.preparing
+              : round === 2
+                ? COPY.clarify.submitRound2
+                : COPY.clarify.submitRound1}
           </Button>
-          <Button disabled={submitting} variant="outline" onClick={() => void onSkip()}>
-            Generate with assumptions
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button disabled={submitting} variant="outline" onClick={() => void onSkip()}>
+                {COPY.clarify.skip}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{COPY.clarify.skipTooltip}</TooltipContent>
+          </Tooltip>
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          {round === 2
-            ? "Final round — remaining gaps will be recorded as explicit assumptions in the BRD."
-            : "You'll get one more round of follow-up questions if anything is still unclear."}
+          {round === 2 ? COPY.clarify.skipHint : COPY.clarify.nextRoundHint}
         </p>
       </div>
     </section>

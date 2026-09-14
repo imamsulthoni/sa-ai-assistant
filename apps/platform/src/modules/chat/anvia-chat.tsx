@@ -6,6 +6,9 @@ import { ChatProvider, ComposerPrimitive, ThreadPrimitive, useComposer } from "@
 import { AtSign, FileText, LoaderCircle, Paperclip, Send, Square, X } from "lucide-react";
 import type { UIMessage } from "@anvia/client";
 import { DEMO_USER_ID, deleteDocument, uploadDocument } from "#/lib/api";
+import { COPY } from "#/lib/copy";
+import { describeError } from "#/lib/errors";
+import { notify } from "#/lib/notify";
 import { ComposerAttachment, MessageBubble } from "#/modules/chat/message-bubble";
 import { MentionPopover } from "#/modules/brd/mention-popover";
 
@@ -74,7 +77,9 @@ export function AnviaChat({
       setUploadError(null);
       for (const file of Array.from(files)) {
         if (file.size > MAX_ATTACHMENT_BYTES) {
-          setUploadError(`${file.name} melebihi batas 10MB.`);
+          const message = COPY.errors.attachmentTooLarge(file.name);
+          setUploadError(message);
+          notify.error(message);
           continue;
         }
         const key = crypto.randomUUID();
@@ -94,12 +99,13 @@ export function AnviaChat({
             ),
           );
           refreshSessionDocuments();
+          notify.success(`${file.name} siap dijadikan konteks.`);
         } catch (caught) {
           setUploads((prev) => prev.filter((item) => item.key !== key));
           if (previewUrl) URL.revokeObjectURL(previewUrl);
-          setUploadError(
-            caught instanceof Error ? caught.message : "Gagal mengunggah file.",
-          );
+          const message = describeError(caught);
+          setUploadError(message);
+          notify.error(message);
         }
       }
     },
@@ -116,10 +122,11 @@ export function AnviaChat({
       try {
         await deleteDocument(sessionId, item.documentId);
         refreshSessionDocuments();
+        notify.info(`${item.name} dihapus dari sesi.`);
       } catch (caught) {
-        setUploadError(
-          caught instanceof Error ? caught.message : "Gagal menghapus file.",
-        );
+        const message = describeError(caught);
+        setUploadError(message);
+        notify.error(message);
       }
     },
     [refreshSessionDocuments, sessionId],
@@ -218,26 +225,25 @@ export function AnviaChat({
                 <div className="py-16 text-center">
                   {brdActive ? (
                     <>
-                      <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+                      <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-success/15 text-success">
                         <FileText size={22} />
                       </div>
-                      <h1 className="text-2xl font-semibold tracking-tight">
-                        BRD ready — how can I help?
+                      <h1 className="font-display text-2xl font-semibold tracking-tight">
+                        {COPY.chat.brdReadyTitle}
                       </h1>
                       <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                        Ask about any section, request a modification, or verify the flowchart
-                        against the document. Edits are staged as a preview until you approve them.
+                        {COPY.chat.brdReadyBody}
                       </p>
                     </>
                   ) : (
                     <>
-                      <h1 className="text-2xl font-semibold tracking-tight">
-                        System Analyst AI Assistant
+                      <h1 className="font-display text-2xl font-semibold tracking-tight">
+                        {COPY.chat.emptyTitle}
                       </h1>
                       <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                        Describe a user story, ask about an existing BRD, or request a web search to
-                        research companies and requirements.
+                        {COPY.chat.emptyBody}
                       </p>
+                      <QuickPrompts />
                     </>
                   )}
                 </div>
@@ -251,7 +257,7 @@ export function AnviaChat({
 
           <ComposerPrimitive.Root
             data-chat-composer={sessionId}
-            className="shrink-0 border-t bg-white px-3 py-3 md:px-4"
+            className="shrink-0 border-t border-border/70 bg-card px-3 py-3 md:px-4"
           >
             <ComposerPrimitive.Attachments className="mb-2 flex flex-wrap items-center gap-2">
               {(attachment) => <ComposerAttachment key={attachment.id} />}
@@ -302,10 +308,10 @@ export function AnviaChat({
             )}
 
             <div className="relative mx-auto w-full max-w-3xl">
-              <div className="flex items-end gap-2 rounded-2xl border bg-white p-2 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
+              <div className="flex items-end gap-2 rounded-2xl border border-border/80 bg-card p-2 shadow-soft">
                 <label
                   className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  title="Lampirkan dokumen atau gambar (maks 10MB)"
+                  title={COPY.chat.attachTitle}
                 >
                   <Paperclip size={18} />
                   <input
@@ -324,8 +330,8 @@ export function AnviaChat({
 
                 <button
                   type="button"
-                  aria-label="Mention a file from this session"
-                  title="Mention a file from this session (@)"
+                  aria-label={COPY.chat.mentionTitle}
+                  title={COPY.chat.mentionTitle}
                   onClick={() => setMentionOpen((open) => !open)}
                   className="grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
@@ -335,9 +341,7 @@ export function AnviaChat({
                 <ComposerPrimitive.TextareaInput
                   className="max-h-48 min-h-10 w-full resize-none border-0 bg-transparent px-1 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground"
                   placeholder={
-                    brdActive
-                      ? "Ask about the BRD… (tip: @ mentions session files)"
-                      : "Describe your user story… (tip: @ mentions session files)"
+                    brdActive ? COPY.chat.composerPlaceholderBrd : COPY.chat.composerPlaceholder
                   }
                 />
 
@@ -383,11 +387,7 @@ function MentionChips({
             aria-label={`Hapus mention ${item.name}`}
             onClick={() => {
               composer.setInput(
-                composer.input
-                  .split(`@${item.name}`)
-                  .join("")
-                  .replace(/ {2,}/g, " ")
-                  .trimStart(),
+                composer.input.split(`@${item.name}`).join("").replace(/ {2,}/g, " ").trimStart(),
               );
               onRemove(item.id);
             }}
@@ -456,11 +456,33 @@ function ComposerSubmitArea() {
   );
 }
 
+function QuickPrompts() {
+  const composer = useComposer();
+  return (
+    <div className="mx-auto mt-6 flex max-w-xl flex-wrap justify-center gap-2">
+      {COPY.quickPrompts.map((prompt) => (
+        <button
+          key={prompt}
+          type="button"
+          onClick={() => composer.setInput(prompt)}
+          className="rounded-full border border-border/80 bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+        >
+          {prompt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function StreamingIndicator() {
   return (
-    <ThreadPrimitive.Loading className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+    <ThreadPrimitive.Loading
+      role="status"
+      aria-live="polite"
+      className="flex items-center gap-2 px-1 text-xs text-muted-foreground"
+    >
       <LoaderCircle size={14} className="animate-spin" />
-      Agent is working…
+      {COPY.chat.agentWorking}
     </ThreadPrimitive.Loading>
   );
 }
