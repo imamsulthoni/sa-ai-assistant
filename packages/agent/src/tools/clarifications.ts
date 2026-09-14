@@ -19,7 +19,8 @@ export type ClarificationOutput = z.infer<typeof ClarificationOutputSchema>;
 
 export const elicitClarificationsTool = createTool({
   name: "elicit_clarifications",
-  description: "Validate and return a bounded batch of clarification questions selected by the analyst agent.",
+  description:
+    "Validate and return a bounded batch of clarification questions selected by the analyst agent.",
   inputSchema: z.object({
     userStory: z.string().trim().min(1),
     answersSoFar: z.array(z.object({ id: z.string(), answer: z.string() })).default([]),
@@ -28,7 +29,8 @@ export const elicitClarificationsTool = createTool({
   }),
   execute: async ({ answersSoFar, round, questions }) => ({
     clarification_questions: questions.filter(
-      (question) => !answersSoFar.some((answer) => answer.id === question.id && answer.answer.trim()),
+      (question) =>
+        !answersSoFar.some((answer) => answer.id === question.id && answer.answer.trim()),
     ),
     round,
     capped: round === 2,

@@ -36,16 +36,19 @@ export const TemplateStructureSchema = BrdTemplateStructureSchema;
 // OpenAI Structured Outputs requires every object property to be required.
 // Nullable fields preserve the distinction between "not found" and invalid data.
 export const TemplateExtractionSchema = z.object({
-  sections: z.array(
-    z.object({
-      id: z.string().min(1),
-      title: z.string().min(1),
-      required: z.boolean(),
-      purpose: z.string().min(1).max(500).nullable(),
-      expectedFormat: z.string().min(1).max(500).nullable(),
-      order: z.number().int().nonnegative().nullable(),
-    }),
-  ).min(1).max(30),
+  sections: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        title: z.string().min(1),
+        required: z.boolean(),
+        purpose: z.string().min(1).max(500).nullable(),
+        expectedFormat: z.string().min(1).max(500).nullable(),
+        order: z.number().int().nonnegative().nullable(),
+      }),
+    )
+    .min(1)
+    .max(30),
   idConventions: z.array(z.string().min(1).max(200)).max(20),
   language: z.string().min(1).max(60).nullable(),
   acceptanceStyle: z.string().min(1).max(200).nullable(),
@@ -115,7 +118,10 @@ function sectionBody(
   );
   const body = hint?.body ?? section.expectedFormat ?? section.purpose ?? "";
   return body
-    .replaceAll("{{templateName}}", template.metadata?.templateName ?? "template custom yang disetujui")
+    .replaceAll(
+      "{{templateName}}",
+      template.metadata?.templateName ?? "template custom yang disetujui",
+    )
     .replaceAll("{{userStory}}", fallback.userStory)
     .replaceAll("{{clarifications}}", fallback.clarificationText)
     .replaceAll("{{assumptions}}", fallback.assumptionsText)
@@ -215,7 +221,8 @@ export function createBrdDraft(
       ? assumptions.map((item) => `- ASUMSI: ${item}`).join("\n")
       : "- Tidak ada asumsi yang teridentifikasi dari konteks yang diberikan.",
     referenceText: referenceContext.trim() || "- Tidak ada konteks referensi yang diberikan.",
-    flowchart: flowchart.trim() || "- Alur proses utama belum tersedia; deskripsikan alur pada bagian ini.",
+    flowchart:
+      flowchart.trim() || "- Alur proses utama belum tersedia; deskripsikan alur pada bagian ini.",
   };
   const markdown = normalized
     ? `# BRD\n\n${renderTemplateScaffold(normalized, {
@@ -255,12 +262,13 @@ ${parts.referenceText}
 ## 8. Asumsi dan pertanyaan terbuka
 ${parts.assumptionsText}
 `;
-  return { markdown, assumptions, templateSource: normalized ? "custom" : "builtin" as const };
+  return { markdown, assumptions, templateSource: normalized ? "custom" : ("builtin" as const) };
 }
 
 export const draftBrdTool = createTool({
   name: "draft_brd",
-  description: "Create a grounded BRD draft after the analyst agent has resolved or explicitly accepted remaining gaps.",
+  description:
+    "Create a grounded BRD draft after the analyst agent has resolved or explicitly accepted remaining gaps.",
   inputSchema: z.object({
     userStory: z.string().min(1),
     clarifications: z.array(clarificationSchema).default([]),
@@ -269,7 +277,14 @@ export const draftBrdTool = createTool({
     flowchart: z.string().default(""),
     force: z.boolean().default(false),
   }),
-  execute: async ({ userStory, clarifications, templateStructure, referenceContext, flowchart, force }) => {
+  execute: async ({
+    userStory,
+    clarifications,
+    templateStructure,
+    referenceContext,
+    flowchart,
+    force,
+  }) => {
     const sufficient = clarifications.length > 0 || referenceContext.trim().length > 0 || force;
     if (!sufficient) {
       return {
@@ -277,15 +292,25 @@ export const draftBrdTool = createTool({
         markdown: null,
         assumptions: [],
         traceability: [],
-        gaps: ["Clarification is required before drafting, or pass force=true after the round cap or an explicit skip."],
+        gaps: [
+          "Clarification is required before drafting, or pass force=true after the round cap or an explicit skip.",
+        ],
       };
     }
-    const draft = createBrdDraft(userStory, clarifications, templateStructure, referenceContext, flowchart);
+    const draft = createBrdDraft(
+      userStory,
+      clarifications,
+      templateStructure,
+      referenceContext,
+      flowchart,
+    );
     const normalized = normalizeTemplateStructure(templateStructure);
     const validation = normalized ? validateBrdAgainstTemplate(draft.markdown, normalized) : null;
     const gaps = [
       ...(validation?.missingRequired.map((id) => `Template section missing: ${id}`) ?? []),
-      ...(validation?.missingIdConventions.map((convention) => `ID convention not satisfied: ${convention}`) ?? []),
+      ...(validation?.missingIdConventions.map(
+        (convention) => `ID convention not satisfied: ${convention}`,
+      ) ?? []),
     ];
     return {
       ready: true as const,
@@ -293,10 +318,15 @@ export const draftBrdTool = createTool({
       gaps,
       traceability: [
         { source: "userStory" as const, target: "BR-001" },
-        ...clarifications.map((item) => ({ source: "clarification" as const, id: item.id, target: "FR-001" })),
-        ...(referenceContext.trim() ? [{ source: "document" as const, target: "BR-001" as const }] : []),
+        ...clarifications.map((item) => ({
+          source: "clarification" as const,
+          id: item.id,
+          target: "FR-001",
+        })),
+        ...(referenceContext.trim()
+          ? [{ source: "document" as const, target: "BR-001" as const }]
+          : []),
       ],
     };
   },
 });
-
