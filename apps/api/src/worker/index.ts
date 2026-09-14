@@ -1,8 +1,7 @@
 import { documentWorker } from "./worker-doc.js";
-import { flowchartWorker } from "./worker-flowchart.js";
 import { templateWorker } from "./worker-template.js";
 
-const workers = [documentWorker, templateWorker, flowchartWorker];
+const workers = [documentWorker, templateWorker];
 
 for (const worker of workers) {
   worker.on("completed", (job) => console.log(`${worker.name} job ${job.id} completed`));

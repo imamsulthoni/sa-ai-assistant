@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { prisma } from "../../lib/prisma.js";
 import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
-import { documentQueue, flowchartQueue, retryPolicies } from "../../lib/queue.js";
+import { documentQueue, retryPolicies } from "../../lib/queue.js";
 import { DOCUMENT_MIME_TYPES, MAX_DOCUMENT_SIZE, UploadDocumentSchema } from "./schema.js";
 import { deleteDocument, deleteDocumentVectors, documentUrl, uploadDocument } from "./services.js";
 import { documentFileType } from "./types.js";
@@ -57,20 +57,11 @@ export const documentModule = new Hono()
     });
 
     try {
-      const brdDocumentId = form.get("brdDocumentId")?.toString().trim() || undefined;
-      if (document.fileType === "IMAGE_FLOWCHART") {
-        await flowchartQueue.add(
-          "verify-flowchart",
-          { documentId: document.id, objectKey, brdDocumentId },
-          { ...retryPolicies.flowchart, removeOnComplete: 100, removeOnFail: 100 },
-        );
-      } else {
-        await documentQueue.add(
-          "process-document",
-          { documentId: document.id, objectKey },
-          { ...retryPolicies.ingestion, removeOnComplete: 100, removeOnFail: 100 },
-        );
-      }
+      await documentQueue.add(
+        "process-document",
+        { documentId: document.id, objectKey },
+        { ...retryPolicies.ingestion, removeOnComplete: 100, removeOnFail: 100 },
+      );
     } catch (error) {
       await prisma.document.update({
         where: { id: document.id },
@@ -100,7 +91,6 @@ export const documentModule = new Hono()
         status: true,
         summary: true,
         templateStructure: true,
-        report: true,
         error: true,
         createdAt: true,
         updatedAt: true,
@@ -115,9 +105,8 @@ export const documentModule = new Hono()
     const document = await prisma.document.findFirst({ where: { id, userId } });
     if (!document) return c.json({ error: "Document not found" }, 404);
 
-    const pageCount = await prisma.documentPage.count({ where: { documentId: document.id } });
     try {
-      await deleteDocumentVectors(document.id, pageCount);
+      await deleteDocumentVectors(document.id);
     } catch (error) {
       console.warn("Failed to delete document vectors", {
         documentId: document.id,

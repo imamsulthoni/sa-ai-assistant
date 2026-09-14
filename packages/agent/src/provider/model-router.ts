@@ -35,7 +35,7 @@ Decide how difficult the task is before routing it to the right model.
 
 - easy: short factual answers, quick clarification, simple extraction, low reasoning.
 - medium: drafting or modifying a BRD section, answering questions about an existing BRD, moderate reasoning.
-- hard: creating a full BRD from scratch, complex multi-step analysis, verifying flowcharts, deep reasoning.
+- hard: creating a full BRD from scratch, complex multi-step analysis, deep reasoning.
 
 Return the difficulty and a one-sentence reason.
 `;
@@ -117,7 +117,6 @@ const HARD_PATTERNS = [
   /\bfrom scratch\b/,
   /\b(full|complete|entire|whole) brd\b/,
   /\b(create|draft|write|build|generate) (a |the |an )?brd\b/,
-  /\bverify( the)? flowchart\b/,
   /\b(complex|multi-?step|deep|comprehensive|thorough|extensive)\b/,
 ];
 
@@ -141,7 +140,7 @@ export function heuristicDifficulty(task: string): TaskDifficulty | undefined {
   if (MEDIUM_PATTERNS.some((re) => re.test(t))) return "medium";
   if (EASY_PATTERNS.some((re) => re.test(t))) return "easy";
 
-  if (t.length <= 60 && !/brd|flowchart|draft|create|modify|verify/.test(t)) {
+  if (t.length <= 60 && !/brd|draft|create|modify|verify/.test(t)) {
     return "easy";
   }
 
