@@ -2,11 +2,9 @@ import { generateCompletion } from "@anvia/core";
 import { OpenAIClient } from "@anvia/openai";
 import type { Job } from "bullmq";
 import { prisma } from "../lib/prisma.js";
+import { isRecordNotFound } from "../lib/prisma-errors.js";
 import type { TemplateExtractionJob } from "../lib/queue.js";
-import {
-  normalizeTemplateStructure,
-  TemplateExtractionSchema,
-} from "@sa-ai-assistant/agent";
+import { normalizeTemplateStructure, TemplateExtractionSchema } from "@sa-ai-assistant/agent";
 
 const openai = new OpenAIClient({
   baseUrl: process.env.OPENAI_BASE_URL ?? "",
@@ -45,10 +43,15 @@ export async function extractTemplate(job: Job<TemplateExtractionJob>) {
 
   if (!document) return;
 
-  await prisma.document.update({
-    where: { id: document.id },
-    data: { status: "PROCESSING", error: null },
-  });
+  try {
+    await prisma.document.update({
+      where: { id: document.id },
+      data: { status: "PROCESSING", error: null },
+    });
+  } catch (error) {
+    if (isRecordNotFound(error)) return;
+    throw error;
+  }
 
   try {
     const content = document.pages
@@ -80,16 +83,18 @@ export async function extractTemplate(job: Job<TemplateExtractionJob>) {
     console.log("Extract Template Success: ", normalized);
   } catch (error) {
     console.log("Extract Template Error: ", error);
-    await prisma.document.update({
-      where: { id: document.id },
-      data: {
-        status: "FAILED",
-        error:
-          error instanceof Error
-            ? error.message.slice(0, 1000)
-            : "Template extraction failed",
-      },
-    });
+    try {
+      await prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: "FAILED",
+          error:
+            error instanceof Error ? error.message.slice(0, 1000) : "Template extraction failed",
+        },
+      });
+    } catch (updateError) {
+      if (!isRecordNotFound(updateError)) throw updateError;
+    }
 
     throw error;
   }

@@ -5,6 +5,8 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { vectorFilter } from "@anvia/core/vector-store";
+import { QdrantVectorClient, filterToQdrantFilter } from "@anvia/qdrant";
 
 export const r2 = new S3Client({
   region: "auto",
@@ -78,12 +80,26 @@ export function documentUrl(objectKey: string) {
   return `${baseUrl}/${encodedKey}`;
 }
 
-import { QdrantVectorClient } from "@anvia/qdrant";
+export const DOCUMENTS_COLLECTION = "documents";
 
-const qdrant = new QdrantVectorClient({ url: process.env.QDRANT_URL ?? "http://127.0.0.1:6333" });
-const documentVectorStore = qdrant.vectorStore({ collectionName: "documents", dimensions: 384, metric: "cosine" });
+const qdrant = new QdrantVectorClient({
+  url: process.env.QDRANT_URL ?? "http://127.0.0.1:6333",
+});
 
-export async function deleteDocumentVectors(documentId: string, pageCount: number) {
-  if (pageCount <= 0) return;
-  await documentVectorStore.delete({ documentIds: Array.from({ length: pageCount }, (_, index) => `${documentId}-page-${index}`) });
+/** Payload filter that matches every indexed page of one document. */
+export function documentVectorFilter(documentId: string) {
+  return vectorFilter.eq("documentId", documentId);
+}
+
+/**
+ * Delete every vector point for a document by payload filter, so a mismatch
+ * between stored page rows and points can never leave ghost vectors behind.
+ */
+export async function deleteDocumentVectors(documentId: string) {
+  const client = await qdrant.nativeClient();
+  if (!client.delete) throw new Error("Qdrant client does not support delete");
+  await client.delete(DOCUMENTS_COLLECTION, {
+    filter: filterToQdrantFilter(documentVectorFilter(documentId)),
+    wait: true,
+  });
 }

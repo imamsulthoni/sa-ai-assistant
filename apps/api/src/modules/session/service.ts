@@ -4,9 +4,8 @@ import type { Message } from "@anvia/core/completion";
 import { messagesToUIMessages } from "@anvia/client";
 import type { UIMessage } from "@anvia/client";
 import { prisma } from "../../lib/prisma.js";
-
-const DEFAULT_TITLE = "New chat";
-const TITLE_MAX_LENGTH = 60;
+import { deleteDocument, deleteDocumentVectors } from "../document/services.js";
+import { DEFAULT_TITLE, TITLE_MAX_LENGTH, titleFromContent } from "./utils.js";
 
 export type SessionSummary = {
   id: string;
@@ -23,28 +22,7 @@ export function scopeKey(sessionId: string, userId: string): string {
   });
 }
 
-export function titleFromContent(content: unknown): string | null {
-  const text = extractText(content);
-  if (!text) return null;
-  const singleLine = text.replace(/\s+/g, " ").trim();
-  if (!singleLine) return null;
-  return singleLine.length > TITLE_MAX_LENGTH
-    ? `${singleLine.slice(0, TITLE_MAX_LENGTH - 1).trimEnd()}…`
-    : singleLine;
-}
-
-function extractText(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  return content
-    .map((part) =>
-      part && typeof part === "object" && "text" in part
-        ? String((part as { text: unknown }).text ?? "")
-        : "",
-    )
-    .join(" ")
-    .trim();
-}
+export { titleFromContent } from "./utils.js";
 
 export async function listSessions(userId: string): Promise<SessionSummary[]> {
   const rows = await prisma.agentMemorySession.findMany({
@@ -65,16 +43,12 @@ export async function listSessions(userId: string): Promise<SessionSummary[]> {
 export async function createSession(
   userId: string,
   initialTitle?: string,
-  options: { projectId?: string; templateId?: string } = {},
+  options: { projectId?: string } = {},
 ): Promise<SessionSummary> {
   const sessionId = randomUUID();
   const title = initialTitle?.trim() || DEFAULT_TITLE;
   const key = scopeKey(sessionId, userId);
 
-  const metadata = {
-    userId,
-    ...(options.templateId ? { templateId: options.templateId } : {}),
-  };
   const row = await prisma.agentMemorySession.upsert({
     where: { scopeKey: key },
     update: { title },
@@ -83,8 +57,8 @@ export async function createSession(
       sessionId,
       userId,
       title,
-       projectId: options.projectId,
-       metadata,
+      projectId: options.projectId,
+      metadata: { userId },
     },
   });
 
@@ -100,30 +74,20 @@ export async function createSession(
 export async function updateSession(
   userId: string,
   sessionId: string,
-  input: { title?: string; projectId?: string | null; templateId?: string | null },
+  input: { title?: string; projectId?: string | null },
 ): Promise<SessionSummary | null> {
   const session = await prisma.agentMemorySession.findFirst({ where: { sessionId, userId } });
   if (!session) return null;
-  if (input.templateId) {
-    const template = await prisma.document.findFirst({
-      where: { id: input.templateId, userId, isTemplate: true, status: "READY" },
-      select: { id: true },
-    });
-    if (!template) throw new Error("Template not found or not approved");
-  }
-  const currentMetadata = (session.metadata as Record<string, unknown> | null) ?? { userId };
-  const metadata: Record<string, unknown> = { ...currentMetadata, userId };
-  if (input.templateId === null) delete metadata.templateId;
-  if (input.templateId) metadata.templateId = input.templateId;
   const updated = await prisma.agentMemorySession.update({
     where: { id: session.id },
     data: {
       ...(input.title?.trim() ? { title: input.title.trim().slice(0, TITLE_MAX_LENGTH) } : {}),
       ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
-      metadata: metadata as unknown as { userId: string; templateId?: string },
     },
   });
-  const messageCount = await prisma.agentMemoryMessage.count({ where: { memorySessionId: updated.id } });
+  const messageCount = await prisma.agentMemoryMessage.count({
+    where: { memorySessionId: updated.id },
+  });
   return {
     id: updated.sessionId,
     title: updated.title ?? DEFAULT_TITLE,
@@ -170,13 +134,34 @@ export async function deleteSession(userId: string, sessionId: string): Promise<
   });
   if (!session) return false;
 
+  const documents = await prisma.document.findMany({
+    where: { sessionId, userId },
+    select: { id: true, objectKey: true },
+  });
+
+  // Best-effort storage cleanup first: DB rows are removed afterwards, so a
+  // failed cleanup never loses the object keys needed to retry it.
+  await Promise.all(
+    documents.flatMap((document) => [
+      deleteDocumentVectors(document.id).catch((error: unknown) =>
+        console.warn("Failed to delete session document vectors", {
+          documentId: document.id,
+          error: error instanceof Error ? error.message : error,
+        }),
+      ),
+      deleteDocument(document.objectKey).catch((error: unknown) =>
+        console.warn("Failed to delete session document object", {
+          documentId: document.id,
+          error: error instanceof Error ? error.message : error,
+        }),
+      ),
+    ]),
+  );
+
   await prisma.$transaction([
-    prisma.document.deleteMany({
-      where: { sessionId, userId },
-    }),
-    prisma.agentMemoryMessage.deleteMany({
-      where: { memorySessionId: session.id },
-    }),
+    prisma.document.deleteMany({ where: { sessionId, userId } }),
+    prisma.brdDocument.deleteMany({ where: { sessionId, userId } }),
+    prisma.agentMemoryMessage.deleteMany({ where: { memorySessionId: session.id } }),
     prisma.agentMemorySession.delete({ where: { id: session.id } }),
   ]);
   return true;

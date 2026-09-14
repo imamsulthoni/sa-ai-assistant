@@ -9,12 +9,9 @@ import { OpenAIClient } from "@anvia/openai";
 import { QdrantVectorClient } from "@anvia/qdrant";
 import type { Job } from "bullmq";
 import { prisma } from "../lib/prisma.js";
+import { isRecordNotFound } from "../lib/prisma-errors.js";
 import { documentUrl, downloadDocument } from "../modules/document/services.js";
-import {
-  templateQueue,
-  retryPolicies,
-  type DocumentIngestionJob,
-} from "../lib/queue.js";
+import { templateQueue, retryPolicies, type DocumentIngestionJob } from "../lib/queue.js";
 import mammoth from "mammoth";
 
 type Page = {
@@ -61,8 +58,7 @@ function ensureVectorStore() {
   return vectorStoreReady;
 }
 
-let embeddingModelPromise:
-  ReturnType<typeof loadTransformersEmbeddingModel> | undefined;
+let embeddingModelPromise: ReturnType<typeof loadTransformersEmbeddingModel> | undefined;
 
 function embeddingModel() {
   embeddingModelPromise ??= loadTransformersEmbeddingModel({
@@ -79,8 +75,7 @@ async function summarizeDocument(pages: Page[]) {
 
   const result = await generateCompletion({
     model: summaryModel,
-    instructions:
-      "Summarize what this document is about. Keep the summary concise.",
+    instructions: "Summarize what this document is about. Keep the summary concise.",
     prompt: input,
   });
 
@@ -99,11 +94,7 @@ async function pagesFromDocx(objectKey: string): Promise<Page[]> {
   ];
 }
 
-async function persistPages(
-  documentId: string,
-  pages: Page[],
-  summary: string | null,
-) {
+async function persistPages(documentId: string, pages: Page[], summary: string | null) {
   await prisma.$transaction([
     prisma.documentPage.deleteMany({ where: { documentId } }),
     prisma.documentPage.createMany({
@@ -121,6 +112,14 @@ async function persistPages(
   ]);
 }
 
+async function documentExists(documentId: string): Promise<boolean> {
+  const found = await prisma.document.findUnique({
+    where: { id: documentId },
+    select: { id: true },
+  });
+  return Boolean(found);
+}
+
 export async function processDocument(job: Job<DocumentIngestionJob>) {
   const document = await prisma.document.findUnique({
     where: { id: job.data.documentId },
@@ -128,10 +127,15 @@ export async function processDocument(job: Job<DocumentIngestionJob>) {
 
   if (!document) return;
 
-  await prisma.document.update({
-    where: { id: document.id },
-    data: { status: "PROCESSING", error: null },
-  });
+  try {
+    await prisma.document.update({
+      where: { id: document.id },
+      data: { status: "PROCESSING", error: null },
+    });
+  } catch (error) {
+    if (isRecordNotFound(error)) return;
+    throw error;
+  }
 
   try {
     let pages: Page[];
@@ -139,9 +143,7 @@ export async function processDocument(job: Job<DocumentIngestionJob>) {
       pages = [
         {
           pageNumber: 1,
-          content: (await downloadDocument(document.objectKey)).toString(
-            "utf8",
-          ),
+          content: (await downloadDocument(document.objectKey)).toString("utf8"),
           metadata: { source: "markdown" },
         },
       ];
@@ -170,9 +172,9 @@ export async function processDocument(job: Job<DocumentIngestionJob>) {
       }));
     }
 
-    const summary =
-      document.fileType === "MARKDOWN" ? null : await summarizeDocument(pages);
+    const summary = document.fileType === "MARKDOWN" ? null : await summarizeDocument(pages);
 
+    if (!(await documentExists(document.id))) return;
     await persistPages(document.id, pages, summary);
 
     const embedded = await embedDocuments({
@@ -190,13 +192,19 @@ export async function processDocument(job: Job<DocumentIngestionJob>) {
       }),
     });
 
+    if (!(await documentExists(document.id))) return;
     await ensureVectorStore();
     await vectorStore.upsert({ documents: embedded.documents });
 
-    await prisma.document.update({
-      where: { id: document.id },
-      data: { status: "READY", error: null },
-    });
+    try {
+      await prisma.document.update({
+        where: { id: document.id },
+        data: { status: "READY", error: null },
+      });
+    } catch (error) {
+      if (!isRecordNotFound(error)) throw error;
+      return;
+    }
 
     if (document.isTemplate) {
       await templateQueue.add(
@@ -212,16 +220,17 @@ export async function processDocument(job: Job<DocumentIngestionJob>) {
     });
   } catch (error) {
     console.log("Process Document Error: ", error);
-    await prisma.document.update({
-      where: { id: document.id },
-      data: {
-        status: "FAILED",
-        error:
-          error instanceof Error
-            ? error.message.slice(0, 1000)
-            : "Processing failed",
-      },
-    });
+    try {
+      await prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: "FAILED",
+          error: error instanceof Error ? error.message.slice(0, 1000) : "Processing failed",
+        },
+      });
+    } catch (updateError) {
+      if (!isRecordNotFound(updateError)) throw updateError;
+    }
     throw error;
   }
 }
