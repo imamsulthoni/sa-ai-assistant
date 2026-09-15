@@ -58,6 +58,11 @@ export type BrdDocument = Prisma.BrdDocumentModel
  */
 export type BrdVersion = Prisma.BrdVersionModel
 /**
+ * Model BrdFlowState
+ * 
+ */
+export type BrdFlowState = Prisma.BrdFlowStateModel
+/**
  * Model UserSetting
  * 
  */

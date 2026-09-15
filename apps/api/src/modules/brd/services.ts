@@ -1,9 +1,21 @@
 import { prisma } from "../../lib/prisma.js";
+import type { BrdDocument } from "../../generated/prisma/client.js";
 import type {
   BrdCreateInput,
   BrdImportInput,
   BrdVersionCreateInput,
 } from "../../lib/api-contract.js";
+import {
+  claimGeneration,
+  claimPendingImport,
+  clearPendingImport,
+  deleteBrdFlow,
+  ensureBrdFlow,
+  getBrdFlow,
+  releaseGeneration,
+  restorePendingImport,
+  saveClarifyCheckpoint,
+} from "./flow-state.js";
 import { simpleDiff } from "./utils.js";
 import { z } from "zod";
 import {
@@ -20,6 +32,7 @@ import {
   followUpQuestions,
   missingRequiredSections,
   statusAfterModification,
+  titleFromStory,
   type BrdStatus,
 } from "./flow-utils.js";
 
@@ -112,6 +125,61 @@ export async function importBrdFromDocument(userId: string, input: BrdImportInpu
     contentMarkdown,
     changeSummary: "Imported from existing BRD",
   });
+}
+
+export type PendingImportResult =
+  | { ok: true; brd: BrdDocument }
+  | { ok: false; reason: "not_found" }
+  | { ok: false; reason: "not_ready"; status: string }
+  | { ok: false; reason: "in_progress" };
+
+/**
+ * Lanjutkan import yang tertunda (di-set saat upload lewat flag `brdImport`).
+ * Klaim atomik memastikan dua tab tidak mengimpor dokumen yang sama dua kali.
+ */
+export async function importPendingBrd(
+  userId: string,
+  sessionId: string,
+): Promise<PendingImportResult> {
+  const context = { userId, sessionId };
+  const existing = await prisma.brdDocument.findFirst({
+    where: context,
+    orderBy: { updatedAt: "desc" },
+  });
+  const flow = await getBrdFlow(context);
+  const documentId = flow?.pendingImportDocumentId ?? null;
+
+  if (existing) {
+    if (documentId) await clearPendingImport(context);
+    return { ok: true, brd: existing };
+  }
+  if (!documentId) return { ok: false, reason: "not_found" };
+
+  const document = await prisma.document.findFirst({
+    where: { id: documentId, userId, sessionId },
+    select: { id: true, status: true },
+  });
+  if (!document) {
+    await clearPendingImport(context);
+    return { ok: false, reason: "not_found" };
+  }
+  if (document.status !== "READY" && document.status !== "PENDING_CONFIRMATION") {
+    return { ok: false, reason: "not_ready", status: document.status };
+  }
+  if (!(await claimPendingImport(context, documentId))) {
+    return { ok: false, reason: "in_progress" };
+  }
+  try {
+    const brd = await importBrdFromDocument(userId, { sessionId, documentId });
+    if (!brd) {
+      await restorePendingImport(context, documentId);
+      return { ok: false, reason: "not_ready", status: document.status };
+    }
+    return { ok: true, brd };
+  } catch (error) {
+    await restorePendingImport(context, documentId).catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function listBrds(userId: string, sessionId?: string) {
@@ -449,6 +517,12 @@ export async function clarifyFlow(context: FlowContext, input: FlowInput) {
     tool?.output?.value ?? parseLooseJson(result.text) ?? {},
   );
   if (!parsed) throw new Error("Clarification agent returned invalid output");
+  await saveClarifyCheckpoint(context, {
+    userStory: input.userStory,
+    round: parsed.round,
+    questions: parsed.clarification_questions,
+    answers: input.answers ?? {},
+  });
   return {
     type: "clarification" as const,
     round: parsed.round,
@@ -460,6 +534,24 @@ export async function clarifyFlow(context: FlowContext, input: FlowInput) {
 export async function submitClarificationFlow(context: FlowContext, input: FlowInput) {
   const round = Math.min(Math.max(input.round ?? 1, 1), 2);
   const answers = input.answers ?? {};
+
+  // Idempotent: a BRD produced earlier (even if the response was lost) always wins.
+  const existing = await prisma.brdDocument.findFirst({
+    where: { userId: context.userId, sessionId: context.sessionId },
+    orderBy: { updatedAt: "desc" },
+  });
+  if (existing) {
+    await deleteBrdFlow(context);
+    return {
+      type: "brd" as const,
+      round,
+      brd: existing,
+      markdown: existing.contentMarkdown,
+      assumptions: [],
+      context: "",
+    };
+  }
+
   const contextText = await distillSessionContext(context.userId, context.sessionId);
   const activeTemplate = await activeTemplateFor(context.userId);
   const templateBlock = activeTemplate ? templateInstructionBlock(activeTemplate.structure) : null;
@@ -473,53 +565,83 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
     );
     const judgedOutput = safeParse(JudgeOutputSchema, parseLooseJson(judged.text) ?? {});
     sufficient = judgedOutput?.sufficient ?? false;
-    if (!sufficient && round < 2)
+    if (!sufficient && round < 2) {
+      const followUps = judgedOutput
+        ? followUpQuestions(judgedOutput.clarification_questions, answers)
+        : FALLBACK_FOLLOW_UPS;
+      await saveClarifyCheckpoint(context, {
+        userStory: input.userStory,
+        round: 2,
+        questions: followUps,
+        answers,
+      });
       return {
         type: "clarification" as const,
         round: 2,
-        clarification_questions: judgedOutput
-          ? followUpQuestions(judgedOutput.clarification_questions, answers)
-          : FALLBACK_FOLLOW_UPS,
+        clarification_questions: followUps,
         capped: true,
       };
+    }
   }
-  const agent = await agentFor(context.userId, context.sessionId, "GENERATE");
-  const generatePrompt = [
-    `User story (data): ${input.userStory}`,
-    `Answers (data): ${JSON.stringify(answers)}`,
-    `Reference context (data): ${contextText}`,
-    templateBlock
-      ? `TEMPLATE AKTIF (WAJIB DIIKUTI - BRD final harus memuat semua section ini dengan urutan dan judul yang sama, isi setiap section secara lengkap):\n${templateBlock}`
-      : "",
-    `Generate BRD lengkap berbahasa Indonesia dengan flowchart mermaid; gunakan draft_brd sebagai basis validasi, lalu tulis BRD final sebagai jawaban. force: ${input.skip || round === 2}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-  const generated = await collectAgent(agent, generatePrompt, context);
-  const tool = generated.toolResults.find((item) => item.toolName === "draft_brd");
-  const value = tool?.output?.value as { markdown?: string; assumptions?: string[] } | undefined;
-  let markdown = extractBrdDocument(generated.text.trim() || value?.markdown || "");
-  if (!markdown) throw new Error("BRD generator returned no markdown");
-  const missing = missingRequiredSections(markdown, activeTemplate?.structure ?? null);
-  if (missing.length) {
-    const retry = await collectAgent(
-      agent,
-      `${generatePrompt}\n\nKOREKSI: BRD yang baru saja ditulis belum memuat section wajib template berikut: ${missing.join(", ")}. Tulis ulang seluruh BRD sekali lagi, lengkap dengan semua section tersebut.`,
-      context,
-    );
-    const retryText = extractBrdDocument(retry.text);
-    const retryMissing = retryText
-      ? missingRequiredSections(retryText, activeTemplate?.structure ?? null)
-      : missing;
-    if (retryMissing.length < missing.length && retryText) markdown = retryText;
-    if (retryMissing.length)
-      console.warn(`BRD missing template sections after retry: ${retryMissing.join(", ")}`);
+
+  await ensureBrdFlow(context, { userStory: input.userStory, round, answers });
+  if (!(await claimGeneration(context))) {
+    // Another tab/request is still writing this BRD; the client polls the flow.
+    return { type: "generating" as const };
   }
-  return {
-    type: "brd" as const,
-    round,
-    markdown,
-    assumptions: value?.assumptions ?? [],
-    context: contextText,
-  };
+
+  try {
+    const agent = await agentFor(context.userId, context.sessionId, "GENERATE");
+    const generatePrompt = [
+      `User story (data): ${input.userStory}`,
+      `Answers (data): ${JSON.stringify(answers)}`,
+      `Reference context (data): ${contextText}`,
+      templateBlock
+        ? `TEMPLATE AKTIF (WAJIB DIIKUTI - BRD final harus memuat semua section ini dengan urutan dan judul yang sama, isi setiap section secara lengkap):\n${templateBlock}`
+        : "",
+      `Generate BRD lengkap berbahasa Indonesia dengan flowchart mermaid; gunakan draft_brd sebagai basis validasi, lalu tulis BRD final sebagai jawaban. force: ${input.skip || round === 2}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    const generated = await collectAgent(agent, generatePrompt, context);
+    const tool = generated.toolResults.find((item) => item.toolName === "draft_brd");
+    const value = tool?.output?.value as { markdown?: string; assumptions?: string[] } | undefined;
+    let markdown = extractBrdDocument(generated.text.trim() || value?.markdown || "");
+    if (!markdown) throw new Error("BRD generator returned no markdown");
+    const missing = missingRequiredSections(markdown, activeTemplate?.structure ?? null);
+    if (missing.length) {
+      const retry = await collectAgent(
+        agent,
+        `${generatePrompt}\n\nKOREKSI: BRD yang baru saja ditulis belum memuat section wajib template berikut: ${missing.join(", ")}. Tulis ulang seluruh BRD sekali lagi, lengkap dengan semua section tersebut.`,
+        context,
+      );
+      const retryText = extractBrdDocument(retry.text);
+      const retryMissing = retryText
+        ? missingRequiredSections(retryText, activeTemplate?.structure ?? null)
+        : missing;
+      if (retryMissing.length < missing.length && retryText) markdown = retryText;
+      if (retryMissing.length)
+        console.warn(`BRD missing template sections after retry: ${retryMissing.join(", ")}`);
+    }
+
+    const brd = await createBrd(context.userId, {
+      sessionId: context.sessionId,
+      title: titleFromStory(input.userStory),
+      contentMarkdown: markdown,
+      changeSummary: "Draf awal",
+    });
+    await deleteBrdFlow(context);
+    return {
+      type: "brd" as const,
+      round,
+      brd,
+      markdown,
+      assumptions: value?.assumptions ?? [],
+      context: contextText,
+    };
+  } catch (error) {
+    // Keep phase GENERATING so the UI offers "lanjutkan", but free the lock.
+    await releaseGeneration(context).catch(() => undefined);
+    throw error;
+  }
 }

@@ -38,3 +38,11 @@ export const BrdDocumentStatus = {
 } as const
 
 export type BrdDocumentStatus = (typeof BrdDocumentStatus)[keyof typeof BrdDocumentStatus]
+
+
+export const BrdFlowPhase = {
+  CLARIFYING: 'CLARIFYING',
+  GENERATING: 'GENERATING'
+} as const
+
+export type BrdFlowPhase = (typeof BrdFlowPhase)[keyof typeof BrdFlowPhase]

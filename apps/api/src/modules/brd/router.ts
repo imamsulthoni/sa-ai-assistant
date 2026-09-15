@@ -24,12 +24,14 @@ import {
   getBrd,
   getBrdForExport,
   importBrdFromDocument,
+  importPendingBrd,
   listBrds,
   rejectBrdModification,
   restoreBrdVersion,
   submitClarificationFlow,
   updateBrd,
 } from "./services.js";
+import { clearPendingImport, getBrdFlow } from "./flow-state.js";
 
 const owner = (c: { req: { header(name: string): string | undefined } }) =>
   resolveUserId(c.req.header(USER_ID_HEADER));
@@ -64,6 +66,28 @@ export const brdModule = new Hono()
         503,
       );
     }
+  })
+  // Registered before the "/:id" routes so the literal path wins.
+  .get("/flow", async (c) => {
+    const sessionId = c.req.query("sessionId")?.trim() || session(c);
+    if (!sessionId) return c.json({ error: "A conversation id is required" }, 400);
+    return c.json({ flow: await getBrdFlow({ userId: owner(c), sessionId }) });
+  })
+  .post("/flow/pending-import", async (c) => {
+    const sessionId = session(c);
+    if (!sessionId) return c.json({ error: "A conversation id is required" }, 400);
+    const result = await importPendingBrd(owner(c), sessionId);
+    if (result.ok) return c.json({ brd: result.brd });
+    if (result.reason === "not_found") return c.json({ error: "No pending import" }, 404);
+    if (result.reason === "in_progress")
+      return c.json({ error: "Import already in progress" }, 409);
+    return c.json({ error: `Dokumen belum siap (${result.status})`, status: result.status }, 409);
+  })
+  .delete("/flow/pending-import", async (c) => {
+    const sessionId = session(c);
+    if (!sessionId) return c.json({ error: "A conversation id is required" }, 400);
+    await clearPendingImport({ userId: owner(c), sessionId });
+    return c.json({ ok: true });
   })
   .post("/:id/approve-modification", async (c) => {
     const result = await approveBrdModification(owner(c), c.req.param("id"));

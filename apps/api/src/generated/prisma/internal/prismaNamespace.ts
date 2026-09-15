@@ -405,6 +405,7 @@ export const ModelName = {
   Project: 'Project',
   BrdDocument: 'BrdDocument',
   BrdVersion: 'BrdVersion',
+  BrdFlowState: 'BrdFlowState',
   UserSetting: 'UserSetting'
 } as const
 
@@ -421,7 +422,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentMemorySession" | "agentMemoryMessage" | "agentMemoryError" | "document" | "documentPage" | "project" | "brdDocument" | "brdVersion" | "userSetting"
+    modelProps: "agentMemorySession" | "agentMemoryMessage" | "agentMemoryError" | "document" | "documentPage" | "project" | "brdDocument" | "brdVersion" | "brdFlowState" | "userSetting"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1017,6 +1018,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    BrdFlowState: {
+      payload: Prisma.$BrdFlowStatePayload<ExtArgs>
+      fields: Prisma.BrdFlowStateFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BrdFlowStateFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BrdFlowStateFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload>
+        }
+        findFirst: {
+          args: Prisma.BrdFlowStateFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BrdFlowStateFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload>
+        }
+        findMany: {
+          args: Prisma.BrdFlowStateFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload>[]
+        }
+        create: {
+          args: Prisma.BrdFlowStateCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload>
+        }
+        createMany: {
+          args: Prisma.BrdFlowStateCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BrdFlowStateCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload>[]
+        }
+        delete: {
+          args: Prisma.BrdFlowStateDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload>
+        }
+        update: {
+          args: Prisma.BrdFlowStateUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload>
+        }
+        deleteMany: {
+          args: Prisma.BrdFlowStateDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BrdFlowStateUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BrdFlowStateUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload>[]
+        }
+        upsert: {
+          args: Prisma.BrdFlowStateUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BrdFlowStatePayload>
+        }
+        aggregate: {
+          args: Prisma.BrdFlowStateAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBrdFlowState>
+        }
+        groupBy: {
+          args: Prisma.BrdFlowStateGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BrdFlowStateGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BrdFlowStateCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BrdFlowStateCountAggregateOutputType> | number
+        }
+      }
+    }
     UserSetting: {
       payload: Prisma.$UserSettingPayload<ExtArgs>
       fields: Prisma.UserSettingFieldRefs
@@ -1249,6 +1324,24 @@ export const BrdVersionScalarFieldEnum = {
 export type BrdVersionScalarFieldEnum = (typeof BrdVersionScalarFieldEnum)[keyof typeof BrdVersionScalarFieldEnum]
 
 
+export const BrdFlowStateScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  sessionId: 'sessionId',
+  phase: 'phase',
+  userStory: 'userStory',
+  round: 'round',
+  questions: 'questions',
+  answers: 'answers',
+  pendingImportDocumentId: 'pendingImportDocumentId',
+  generatingSince: 'generatingSince',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BrdFlowStateScalarFieldEnum = (typeof BrdFlowStateScalarFieldEnum)[keyof typeof BrdFlowStateScalarFieldEnum]
+
+
 export const UserSettingScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -1426,6 +1519,20 @@ export type ListEnumBrdDocumentStatusFieldRefInput<$PrismaModel> = FieldRefInput
 
 
 /**
+ * Reference to a field of type 'BrdFlowPhase'
+ */
+export type EnumBrdFlowPhaseFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BrdFlowPhase'>
+    
+
+
+/**
+ * Reference to a field of type 'BrdFlowPhase[]'
+ */
+export type ListEnumBrdFlowPhaseFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BrdFlowPhase[]'>
+    
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -1597,6 +1704,7 @@ export type GlobalOmitConfig = {
   project?: Prisma.ProjectOmit
   brdDocument?: Prisma.BrdDocumentOmit
   brdVersion?: Prisma.BrdVersionOmit
+  brdFlowState?: Prisma.BrdFlowStateOmit
   userSetting?: Prisma.UserSettingOmit
 }
 

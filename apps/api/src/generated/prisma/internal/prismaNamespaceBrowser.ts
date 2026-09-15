@@ -59,6 +59,7 @@ export const ModelName = {
   Project: 'Project',
   BrdDocument: 'BrdDocument',
   BrdVersion: 'BrdVersion',
+  BrdFlowState: 'BrdFlowState',
   UserSetting: 'UserSetting'
 } as const
 
@@ -195,6 +196,24 @@ export const BrdVersionScalarFieldEnum = {
 } as const
 
 export type BrdVersionScalarFieldEnum = (typeof BrdVersionScalarFieldEnum)[keyof typeof BrdVersionScalarFieldEnum]
+
+
+export const BrdFlowStateScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  sessionId: 'sessionId',
+  phase: 'phase',
+  userStory: 'userStory',
+  round: 'round',
+  questions: 'questions',
+  answers: 'answers',
+  pendingImportDocumentId: 'pendingImportDocumentId',
+  generatingSince: 'generatingSince',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BrdFlowStateScalarFieldEnum = (typeof BrdFlowStateScalarFieldEnum)[keyof typeof BrdFlowStateScalarFieldEnum]
 
 
 export const UserSettingScalarFieldEnum = {

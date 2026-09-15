@@ -114,9 +114,11 @@ export const ClarificationResponseSchema = z.object({
 });
 export const BrdFlowResponseSchema = z.discriminatedUnion("type", [
   ClarificationResponseSchema,
+  z.object({ type: z.literal("generating") }),
   z.object({
     type: z.literal("brd"),
     round: z.number().int().min(1).max(2),
+    brd: z.object({ id: z.string(), title: z.string() }).passthrough(),
     markdown: z.string().min(1),
     assumptions: z.array(z.string()),
     context: z.string(),

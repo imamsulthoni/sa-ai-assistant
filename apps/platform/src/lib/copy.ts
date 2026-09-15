@@ -116,6 +116,7 @@ export const COPY = {
     brdView: "Dokumen BRD",
     resizePanes: "Ubah lebar panel agen obrolan dan panel dokumen BRD",
     brdPaneValue: (share: number) => `Panel BRD ${share}%`,
+    dismissImport: "Batalkan antrian impor",
   },
   flow: {
     steps: [
@@ -126,6 +127,11 @@ export const COPY = {
     generatingTitle: "Menyusun draf BRD…",
     generatingBody:
       "Agen sedang menyusun requirement, alur, dan kriteria penerimaan dari jawaban klarifikasi Anda. Ini biasanya memakan waktu 1–2 menit.",
+    resumeTitle: "Penyusunan terputus",
+    resumeBody:
+      "Proses sebelumnya berhenti di tengah jalan. Jawaban Anda sudah tersimpan — lanjutkan untuk menyusun draf BRD.",
+    resumeAction: "Lanjutkan penyusunan",
+    resumeWaiting: "Menunggu penyusunan yang sedang berjalan selesai…",
   },
   clarify: {
     roundLabel: (round: number) => `Klarifikasi putaran ${round} / 2`,
@@ -172,12 +178,19 @@ export const COPY = {
       `BRD v1 siap — draf “${title}” telah dibuat. Minta agen mengubahnya lewat obrolan.`,
     brdImported: (title: string) =>
       `BRD “${title}” berhasil diimpor. Tanyakan isinya atau minta perubahan — panel BRD akan muncul saat ada pratinjau yang perlu disetujui.`,
+    importWaiting:
+      "Menunggu dokumen selesai diproses — impor BRD dilanjutkan otomatis setelah siap.",
+    importContinues: "Dokumen masih diproses. Impor akan dilanjutkan otomatis begitu dokumen siap.",
     dismiss: "Tutup",
   },
   errors: {
     emptyBrd: "Agen mengembalikan BRD kosong",
     generateStart: (message: string) => `Gagal memulai pembuatan BRD: ${message}`,
     importFailed: (message: string) => `Impor gagal: ${message}`,
+    importPendingFailed: (title: string) =>
+      `Dokumen “${title}” gagal diproses sehingga tidak bisa diimpor.`,
+    generationTimeout:
+      "Penyusunan memakan waktu lebih lama dari biasanya. Periksa koneksi lalu coba lanjutkan lagi.",
     attachmentTooLarge: (name: string) => `${name} melebihi batas 10MB.`,
     uploadFailed: "Gagal mengunggah berkas.",
     deleteFailed: "Gagal menghapus berkas.",

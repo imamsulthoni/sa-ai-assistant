@@ -328,6 +328,23 @@ export type DateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedDateTimeNullableFilter<$PrismaModel>
 }
 
+export type EnumBrdFlowPhaseNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.BrdFlowPhase | Prisma.EnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  in?: $Enums.BrdFlowPhase[] | Prisma.ListEnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.BrdFlowPhase[] | Prisma.ListEnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumBrdFlowPhaseNullableFilter<$PrismaModel> | $Enums.BrdFlowPhase | null
+}
+
+export type EnumBrdFlowPhaseNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.BrdFlowPhase | Prisma.EnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  in?: $Enums.BrdFlowPhase[] | Prisma.ListEnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.BrdFlowPhase[] | Prisma.ListEnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumBrdFlowPhaseNullableWithAggregatesFilter<$PrismaModel> | $Enums.BrdFlowPhase | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumBrdFlowPhaseNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumBrdFlowPhaseNullableFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -599,6 +616,23 @@ export type NestedDateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedDateTimeNullableFilter<$PrismaModel>
   _max?: Prisma.NestedDateTimeNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumBrdFlowPhaseNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.BrdFlowPhase | Prisma.EnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  in?: $Enums.BrdFlowPhase[] | Prisma.ListEnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.BrdFlowPhase[] | Prisma.ListEnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumBrdFlowPhaseNullableFilter<$PrismaModel> | $Enums.BrdFlowPhase | null
+}
+
+export type NestedEnumBrdFlowPhaseNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.BrdFlowPhase | Prisma.EnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  in?: $Enums.BrdFlowPhase[] | Prisma.ListEnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.BrdFlowPhase[] | Prisma.ListEnumBrdFlowPhaseFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumBrdFlowPhaseNullableWithAggregatesFilter<$PrismaModel> | $Enums.BrdFlowPhase | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumBrdFlowPhaseNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumBrdFlowPhaseNullableFilter<$PrismaModel>
 }
 
 

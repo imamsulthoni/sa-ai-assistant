@@ -88,9 +88,11 @@ export function listDocuments(sessionId: string): Promise<{ documents: DocumentS
 export function uploadDocument(
   sessionId: string,
   file: File,
+  options: { brdImport?: boolean } = {},
 ): Promise<{ document: DocumentSummary }> {
   const body = new FormData();
   body.set("file", file);
+  if (options.brdImport) body.set("brdImport", "true");
   return request("/documents", {
     method: "POST",
     body,
@@ -243,6 +245,12 @@ export function getTemplate(
   return request(`/settings/template/${encodeURIComponent(id)}`);
 }
 
+export function getCurrentTemplate(): Promise<{
+  document: (DocumentSummary & { templateStructure?: unknown; error: string | null }) | null;
+}> {
+  return request("/settings/template");
+}
+
 export function approveTemplate(id: string): Promise<{ ok: boolean; activeTemplateId: string }> {
   return request(`/settings/template/${encodeURIComponent(id)}/approve`, { method: "POST" });
 }
@@ -276,6 +284,33 @@ export function search(
   return request(`/search?${params}`);
 }
 
+export type BrdFlowSnapshot = {
+  phase: "CLARIFYING" | "GENERATING" | null;
+  userStory: string | null;
+  round: number;
+  questions: ClarificationQuestion[];
+  answers: Record<string, string>;
+  pendingImportDocumentId: string | null;
+};
+
+export function getBrdFlow(sessionId: string): Promise<{ flow: BrdFlowSnapshot | null }> {
+  return request(`/brd/flow?sessionId=${encodeURIComponent(sessionId)}`);
+}
+
+export function importPendingBrd(sessionId: string): Promise<{ brd: BrdDocument }> {
+  return request("/brd/flow/pending-import", {
+    method: "POST",
+    headers: { "x-conversation-id": sessionId },
+  });
+}
+
+export function clearPendingImport(sessionId: string): Promise<{ ok: boolean }> {
+  return request("/brd/flow/pending-import", {
+    method: "DELETE",
+    headers: { "x-conversation-id": sessionId },
+  });
+}
+
 export type BrdFlowResponse =
   | {
       type: "clarification";
@@ -283,7 +318,15 @@ export type BrdFlowResponse =
       clarification_questions: ClarificationQuestion[];
       capped: boolean;
     }
-  | { type: "brd"; round: number; markdown: string; assumptions: string[]; context: string };
+  | { type: "generating" }
+  | {
+      type: "brd";
+      round: number;
+      brd: BrdDocument;
+      markdown: string;
+      assumptions: string[];
+      context: string;
+    };
 
 export function clarifyBrd(
   sessionId: string,

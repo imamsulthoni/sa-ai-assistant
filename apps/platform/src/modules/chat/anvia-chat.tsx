@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createHttpClientTransport } from "@anvia/client";
 import { useChat, type UseChatStatus } from "@anvia/react";
 import { ChatProvider, ComposerPrimitive, ThreadPrimitive, useComposer } from "@anvia/react-ui";
 import { AtSign, FileText, LoaderCircle, Paperclip, Send, Square, X } from "lucide-react";
 import type { UIMessage } from "@anvia/client";
-import { DEMO_USER_ID, deleteDocument, uploadDocument } from "#/lib/api";
+import { DEMO_USER_ID, deleteDocument, listDocuments, uploadDocument } from "#/lib/api";
 import { COPY } from "#/lib/copy";
 import { describeError } from "#/lib/errors";
 import { notify } from "#/lib/notify";
@@ -36,6 +36,43 @@ type MentionItem = {
   name: string;
 };
 
+type StoredComposerItem = { documentId: string; name: string };
+
+const COMPOSER_CONTEXT_PREFIX = "sa.composerContext.";
+
+function composerStorageKey(sessionId: string): string {
+  return `${COMPOSER_CONTEXT_PREFIX}${sessionId}`;
+}
+
+function readStoredComposerContext(sessionId: string): SessionUpload[] {
+  try {
+    const raw = sessionStorage.getItem(composerStorageKey(sessionId));
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((item): SessionUpload[] => {
+      if (!item || typeof item !== "object") return [];
+      const { documentId, name } = item as Partial<StoredComposerItem>;
+      if (typeof documentId !== "string" || typeof name !== "string") return [];
+      return [{ key: `stored-${documentId}`, name, isImage: false, status: "ready", documentId }];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredComposerContext(sessionId: string, uploads: SessionUpload[]): void {
+  try {
+    const items: StoredComposerItem[] = uploads
+      .filter((item) => item.status === "ready" && item.documentId)
+      .map((item) => ({ documentId: item.documentId as string, name: item.name }));
+    if (items.length) sessionStorage.setItem(composerStorageKey(sessionId), JSON.stringify(items));
+    else sessionStorage.removeItem(composerStorageKey(sessionId));
+  } catch {
+    // Storage can be unavailable (private mode); chips then live in memory only.
+  }
+}
+
 export function AnviaChat({
   sessionId,
   brdDocumentId,
@@ -44,7 +81,9 @@ export function AnviaChat({
   onStatusChange,
 }: AnviaChatProps) {
   const queryClient = useQueryClient();
-  const [uploads, setUploads] = useState<SessionUpload[]>([]);
+  const [uploads, setUploads] = useState<SessionUpload[]>(() =>
+    readStoredComposerContext(sessionId),
+  );
   const [mentions, setMentions] = useState<MentionItem[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const contextFilesRef = useRef<MentionItem[]>([]);
@@ -57,6 +96,27 @@ export function AnviaChat({
       ...mentions,
     ];
   }, [uploads, mentions]);
+
+  useEffect(() => {
+    writeStoredComposerContext(sessionId, uploads);
+  }, [sessionId, uploads]);
+
+  // Dokumen yang dihapus dari sidebar juga membersihkan chip yang menunjuknya.
+  const sessionDocumentsQuery = useQuery({
+    queryKey: ["session", sessionId, "documents"],
+    queryFn: () => listDocuments(sessionId).then((response) => response.documents),
+  });
+  const sessionDocuments = sessionDocumentsQuery.data;
+  useEffect(() => {
+    if (!sessionDocumentsQuery.isSuccess || !sessionDocuments) return;
+    const ids = new Set(sessionDocuments.map((document) => document.id));
+    setUploads((prev) => {
+      const next = prev.filter(
+        (item) => item.status !== "ready" || (item.documentId && ids.has(item.documentId)),
+      );
+      return next.length === prev.length ? prev : next;
+    });
+  }, [sessionDocuments, sessionDocumentsQuery.isSuccess]);
 
   const clearComposerContext = useCallback(() => {
     setMentions([]);
@@ -151,13 +211,15 @@ export function AnviaChat({
             ...(brdDocumentId ? { phase: "QA", brdDocumentId } : {}),
             ...(attachedFiles.length ? { attachedFiles, attachedDocumentIds } : {}),
           };
+          // The request now carries the context; the composer queue starts fresh.
+          if (files.length) clearComposerContext();
           return JSON.stringify({
             ...context.request,
             metadata: Object.keys(metadata).length ? metadata : undefined,
           });
         },
       }),
-    [brdDocumentId, sessionId],
+    [brdDocumentId, clearComposerContext, sessionId],
   );
 
   const chat = useChat({

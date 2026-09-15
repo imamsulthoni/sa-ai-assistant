@@ -5,6 +5,7 @@ import {
   followUpQuestions,
   missingRequiredSections,
   statusAfterModification,
+  titleFromStory,
 } from "./flow-utils.js";
 import type { BrdTemplateStructure, JudgeOutput } from "@sa-ai-assistant/agent";
 
@@ -62,6 +63,22 @@ describe("canStageModification", () => {
 
   it("reports a conflict instead of overwriting a different pending preview", () => {
     expect(canStageModification("lama", "baru")).toBe("conflict");
+  });
+});
+
+describe("titleFromStory", () => {
+  it("collapses whitespace and keeps short stories intact", () => {
+    expect(titleFromStory("  Cuti   tahunan\nkaryawan ")).toBe("Cuti tahunan karyawan");
+  });
+
+  it("truncates long stories with an ellipsis", () => {
+    const title = titleFromStory("x".repeat(120));
+    expect(title).toHaveLength(60);
+    expect(title.endsWith("…")).toBe(true);
+  });
+
+  it("falls back to a generic title for empty stories", () => {
+    expect(titleFromStory("   ")).toBe("BRD baru");
   });
 });
 

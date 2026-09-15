@@ -10,6 +10,7 @@ import {
 import {
   approveTemplate,
   enqueueTemplateProcess,
+  getCurrentTemplate,
   getSettings,
   getTemplate,
   patchSettings,
@@ -48,6 +49,11 @@ export const settingsModule = new Hono()
       return c.json({ error: "Failed to enqueue template" }, 503);
     }
     return c.json({ document }, 201);
+  })
+  // Registered before "/template/:id" so the literal path is not swallowed.
+  .get("/template", async (c) => {
+    const document = await getCurrentTemplate(user(c));
+    return c.json({ document });
   })
   .get("/template/:id", async (c) => {
     const document = await getTemplate(user(c), c.req.param("id"));

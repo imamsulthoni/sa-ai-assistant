@@ -53,6 +53,13 @@ export function missingRequiredSections(
     .map((section) => section.title);
 }
 
+/** Derive a readable BRD title from the user story instead of a generic label. */
+export function titleFromStory(story: string): string {
+  const line = story.replace(/\s+/g, " ").trim();
+  if (!line) return "BRD baru";
+  return line.length > 60 ? `${line.slice(0, 59).trimEnd()}…` : line;
+}
+
 export type StageDecision = "stage" | "noop" | "conflict";
 
 /**

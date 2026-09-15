@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Save, Settings as SettingsIcon, Upload, X } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import { Alert } from "#/components/ui/alert";
@@ -13,6 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import {
   approveTemplate,
+  getCurrentTemplate,
   getTemplate,
   rejectTemplate,
   resetTemplate,
@@ -85,25 +86,39 @@ export function SettingsContent() {
     applyTheme(form.theme ?? settings?.theme);
   }, [form.theme, settings?.theme]);
 
+  // Bumped by every explicit action so a late poll/hydrate response can never
+  // overwrite a fresher server state (e.g. after approve).
+  const templateEpoch = useRef(0);
+
+  const loadCurrentTemplate = useCallback(async () => {
+    const epoch = ++templateEpoch.current;
+    try {
+      const response = await getCurrentTemplate();
+      if (epoch !== templateEpoch.current) return;
+      setTemplate(response.document as TemplateStatus | null);
+    } catch {
+      // Hydration failures surface through the next explicit action.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCurrentTemplate();
+  }, [loadCurrentTemplate]);
+
   useEffect(() => {
     if (!template || !TRANSIENT_STATUSES.has(template.status)) return;
+    const epoch = templateEpoch.current;
     const timer = window.setInterval(() => {
       void getTemplate(template.id).then(
-        (response) => setTemplate(response.document as TemplateStatus),
+        (response) => {
+          if (epoch !== templateEpoch.current) return;
+          setTemplate(response.document as TemplateStatus);
+        },
         () => undefined,
       );
     }, 2000);
     return () => window.clearInterval(timer);
   }, [template]);
-
-  useEffect(() => {
-    if (!settings?.activeTemplateId || template) return;
-    void getTemplate(settings.activeTemplateId).then(
-      (response) => setTemplate(response.document as TemplateStatus),
-      () => undefined,
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings?.activeTemplateId]);
 
   useEffect(() => {
     if (template?.templateStructure) {
@@ -140,6 +155,7 @@ export function SettingsContent() {
     setTemplateError(null);
     try {
       const response = await uploadTemplate(file);
+      templateEpoch.current += 1;
       setTemplate(response.document as TemplateStatus);
       notify.success("Template diunggah. Struktur sedang diekstrak…");
     } catch (caught) {
@@ -156,8 +172,8 @@ export function SettingsContent() {
     setTemplateError(null);
     try {
       await approveTemplate(template.id);
-      setTemplate({ ...template, status: "READY" });
       await refresh();
+      await loadCurrentTemplate();
       notify.success("Template diaktifkan untuk draft berikutnya.");
     } catch (caught) {
       const message = messageOf(caught);
@@ -171,7 +187,7 @@ export function SettingsContent() {
     setTemplateError(null);
     try {
       await rejectTemplate(template.id);
-      setTemplate({ ...template, status: "FAILED", error: "Template ditolak oleh pengguna" });
+      await loadCurrentTemplate();
       notify.info("Template ditolak.");
     } catch (caught) {
       const message = messageOf(caught);
@@ -185,9 +201,9 @@ export function SettingsContent() {
     setTemplateError(null);
     try {
       await resetTemplate();
-      setTemplate(null);
       setStructureText("");
       await refresh();
+      await loadCurrentTemplate();
       notify.info("Template aktif direset.");
     } catch (caught) {
       const message = messageOf(caught);
@@ -208,6 +224,7 @@ export function SettingsContent() {
     }
     try {
       const response = await updateTemplateStructure(template.id, parsed);
+      templateEpoch.current += 1;
       setTemplate(response.document as TemplateStatus);
       notify.success("Struktur template disimpan.");
     } catch (caught) {

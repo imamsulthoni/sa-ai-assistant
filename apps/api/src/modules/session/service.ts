@@ -161,6 +161,7 @@ export async function deleteSession(userId: string, sessionId: string): Promise<
   await prisma.$transaction([
     prisma.document.deleteMany({ where: { sessionId, userId } }),
     prisma.brdDocument.deleteMany({ where: { sessionId, userId } }),
+    prisma.brdFlowState.deleteMany({ where: { sessionId, userId } }),
     prisma.agentMemoryMessage.deleteMany({ where: { memorySessionId: session.id } }),
     prisma.agentMemorySession.delete({ where: { id: session.id } }),
   ]);

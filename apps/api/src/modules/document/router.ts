@@ -5,6 +5,7 @@ import { documentQueue, retryPolicies } from "../../lib/queue.js";
 import { DOCUMENT_MIME_TYPES, MAX_DOCUMENT_SIZE, UploadDocumentSchema } from "./schema.js";
 import { deleteDocument, deleteDocumentVectors, documentUrl, uploadDocument } from "./services.js";
 import { documentFileType } from "./types.js";
+import { clearPendingImport, markPendingImport } from "../brd/flow-state.js";
 
 export const documentModule = new Hono()
   .get("/", async (c) => {
@@ -56,6 +57,13 @@ export const documentModule = new Hono()
       },
     });
 
+    // Marked in the same request that creates the document, so an unmount
+    // between upload and import can never lose the pending intent.
+    const brdImport = form.get("brdImport") === "true";
+    if (brdImport) {
+      await markPendingImport({ userId, sessionId }, document.id);
+    }
+
     try {
       await documentQueue.add(
         "process-document",
@@ -63,6 +71,9 @@ export const documentModule = new Hono()
         { ...retryPolicies.ingestion, removeOnComplete: 100, removeOnFail: 100 },
       );
     } catch (error) {
+      if (brdImport) {
+        await clearPendingImport({ userId, sessionId }).catch(() => undefined);
+      }
       await prisma.document.update({
         where: { id: document.id },
         data: {

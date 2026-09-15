@@ -68,10 +68,49 @@ export async function enqueueTemplateProcess(documentId: string, objectKey: stri
   }
 }
 
+const TEMPLATE_SELECT = {
+  id: true,
+  title: true,
+  status: true,
+  templateStructure: true,
+  error: true,
+} as const;
+
+const IN_FLIGHT_TEMPLATE_STATUSES = ["UPLOADING", "PROCESSING", "PENDING_CONFIRMATION"] as const;
+
 export async function getTemplate(userId: string, id: string) {
   return prisma.document.findFirst({
     where: { id, userId, isTemplate: true },
-    select: { id: true, title: true, status: true, templateStructure: true, error: true },
+    select: TEMPLATE_SELECT,
+  });
+}
+
+/**
+ * Template yang paling relevan untuk ditampilkan di Settings: template yang
+ * sedang diproses selalu mengalahkan template aktif, supaya progress ekstraksi
+ * tidak hilang saat dialog ditutup dan dibuka kembali.
+ */
+export async function getCurrentTemplate(userId: string) {
+  const inFlight = await prisma.document.findFirst({
+    where: {
+      userId,
+      isTemplate: true,
+      status: { in: [...IN_FLIGHT_TEMPLATE_STATUSES] },
+    },
+    orderBy: { updatedAt: "desc" },
+    select: TEMPLATE_SELECT,
+  });
+  if (inFlight) return inFlight;
+
+  const settings = await prisma.userSetting.findUnique({
+    where: { userId },
+    select: { activeTemplateId: true },
+  });
+  if (!settings?.activeTemplateId) return null;
+
+  return prisma.document.findFirst({
+    where: { id: settings.activeTemplateId, userId, isTemplate: true },
+    select: TEMPLATE_SELECT,
   });
 }
 

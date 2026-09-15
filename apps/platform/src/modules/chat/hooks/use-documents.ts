@@ -24,6 +24,8 @@ export function useDocuments(sessionId: string | null) {
   });
   const documents = documentsQuery.data ?? [];
   const loading = documentsQuery.isPending;
+  const loaded = documentsQuery.isSuccess;
+  const fetching = documentsQuery.isFetching;
   const error = actionError ?? (documentsQuery.isError ? messageOf(documentsQuery.error) : null);
 
   useEffect(() => {
@@ -75,5 +77,14 @@ export function useDocuments(sessionId: string | null) {
     [removeMutation, sessionId],
   );
 
-  return { documents, loading, uploading: uploadMutation.isPending, error, upload, remove };
+  return {
+    documents,
+    loading,
+    loaded,
+    fetching,
+    uploading: uploadMutation.isPending,
+    error,
+    upload,
+    remove,
+  };
 }
