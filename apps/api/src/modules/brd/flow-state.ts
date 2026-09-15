@@ -45,20 +45,23 @@ export async function getBrdFlow(context: BrdFlowContext): Promise<BrdFlowCheckp
 }
 
 /**
- * Simpan checkpoint clarify (round + pertanyaan + jawaban yang sudah masuk).
- * Fresh generation lock tidak boleh dibatalkan oleh checkpoint baru dari tab
- * yang masih menampilkan state lama.
+ * Tulis checkpoint dengan guard: fresh generation lock tidak boleh dibatalkan
+ * oleh checkpoint baru dari tab yang masih menampilkan state lama.
  */
-export async function saveClarifyCheckpoint(
+async function writeClarifyCheckpoint(
   context: BrdFlowContext,
-  input: { userStory: string; round: number; questions: unknown; answers: Record<string, string> },
+  data: {
+    userStory: string;
+    round: number;
+    answers: Record<string, string>;
+    questions?: unknown;
+  },
 ): Promise<void> {
-  const data = {
+  const fields = {
     phase: "CLARIFYING" as const,
-    userStory: input.userStory,
-    round: input.round,
-    questions: input.questions as Prisma.InputJsonValue,
-    answers: input.answers as Prisma.InputJsonValue,
+    userStory: data.userStory,
+    round: data.round,
+    answers: data.answers as Prisma.InputJsonValue,
     generatingSince: null,
   };
   const updated = await prisma.brdFlowState.updateMany({
@@ -69,7 +72,10 @@ export async function saveClarifyCheckpoint(
         generatingSince: { gt: new Date(Date.now() - GENERATION_LOCK_TTL_MS) },
       },
     },
-    data,
+    data:
+      data.questions === undefined
+        ? fields
+        : { ...fields, questions: data.questions as Prisma.InputJsonValue },
   });
   if (updated.count > 0) return;
 
@@ -79,7 +85,34 @@ export async function saveClarifyCheckpoint(
   });
   if (existing) return; // a fresh generation owns this flow; leave it untouched
 
-  await prisma.brdFlowState.create({ data: { ...key(context), ...data } });
+  await prisma.brdFlowState.create({
+    data:
+      data.questions === undefined
+        ? { ...key(context), ...fields }
+        : { ...key(context), ...fields, questions: data.questions as Prisma.InputJsonValue },
+  });
+}
+
+/**
+ * Simpan checkpoint clarify (round + pertanyaan + jawaban yang sudah masuk).
+ */
+export async function saveClarifyCheckpoint(
+  context: BrdFlowContext,
+  input: { userStory: string; round: number; questions: unknown; answers: Record<string, string> },
+): Promise<void> {
+  await writeClarifyCheckpoint(context, input);
+}
+
+/**
+ * Tandai bahwa klarifikasi sedang berjalan (agen belum mengembalikan pertanyaan).
+ * Reload di tengah request harus tetap berada di fase klarifikasi, bukan sesi kosong.
+ * Pertanyaan lama sengaja tidak dihapus agar retry tidak kehilangan konteks.
+ */
+export async function markClarifyStarted(
+  context: BrdFlowContext,
+  input: { userStory: string; round: number; answers: Record<string, string> },
+): Promise<void> {
+  await writeClarifyCheckpoint(context, input);
 }
 
 /** Pastikan row checkpoint ada untuk jalur yang tidak melewati clarifyFlow. */

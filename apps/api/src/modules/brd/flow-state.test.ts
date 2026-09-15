@@ -17,6 +17,7 @@ import {
   claimGeneration,
   claimPendingImport,
   getBrdFlow,
+  markClarifyStarted,
   saveClarifyCheckpoint,
 } from "./flow-state.js";
 
@@ -111,6 +112,58 @@ describe("saveClarifyCheckpoint", () => {
         phase: "CLARIFYING",
       }),
     });
+  });
+});
+
+describe("markClarifyStarted", () => {
+  it("records the in-flight clarify without dropping previous questions", async () => {
+    prismaMock.brdFlowState.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    await markClarifyStarted(context, {
+      userStory: "cerita",
+      round: 1,
+      answers: { q1_1: "x" },
+    });
+
+    expect(prismaMock.brdFlowState.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: "user-1", sessionId: "session-1" }),
+        data: expect.objectContaining({
+          phase: "CLARIFYING",
+          userStory: "cerita",
+          round: 1,
+          generatingSince: null,
+        }),
+      }),
+    );
+    expect(prismaMock.brdFlowState.updateMany.mock.calls[0][0].data).not.toHaveProperty(
+      "questions",
+    );
+  });
+
+  it("creates a checkpoint row when the flow is new", async () => {
+    prismaMock.brdFlowState.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.brdFlowState.findUnique.mockResolvedValueOnce(null);
+
+    await markClarifyStarted(context, { userStory: "cerita", round: 1, answers: {} });
+
+    expect(prismaMock.brdFlowState.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: "user-1",
+        sessionId: "session-1",
+        phase: "CLARIFYING",
+        userStory: "cerita",
+      }),
+    });
+  });
+
+  it("leaves a fresh generation lock untouched", async () => {
+    prismaMock.brdFlowState.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.brdFlowState.findUnique.mockResolvedValueOnce({ id: "flow-1" });
+
+    await markClarifyStarted(context, { userStory: "cerita", round: 1, answers: {} });
+
+    expect(prismaMock.brdFlowState.create).not.toHaveBeenCalled();
   });
 });
 

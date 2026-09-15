@@ -14,15 +14,19 @@ export {
 } from "./provider/model-router.js";
 export * from "./tools/index.js";
 export {
+  copiedFromTemplateSource,
   createBrdDraft,
+  looksLikeTemplateContent,
   normalizeTemplateStructure,
   renderTemplateScaffold,
+  sanitizeTemplateExtraction,
   validateBrdAgainstTemplate,
   templateInstructionBlock,
   TemplateStructureSchema,
   TemplateExtractionSchema,
   type BrdTemplateSection,
   type BrdTemplateStructure,
+  type TemplateExtraction,
 } from "./tools/brd-drafting.js";
 export { applyChange } from "./tools/brd-modification.js";
 export { applyOperations, extractBrdDocument, BrdOperationSchema } from "./tools/brd-operations.js";

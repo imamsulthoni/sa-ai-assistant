@@ -86,7 +86,10 @@ export function canTransitionBrdStatus(from: BrdStatus, to: BrdStatus): boolean 
   return BRD_STATUS_TRANSITIONS[from].includes(to);
 }
 
-/** An approved BRD that changes must go back to review before it is trusted again. */
-export function statusAfterModification(from: BrdStatus): BrdStatus {
-  return from === "APPROVED" ? "IN_REVIEW" : from;
+/**
+ * A BRD whose staged modification was approved always returns to review: the
+ * content changed, so a previous approval no longer applies.
+ */
+export function statusAfterModification(): BrdStatus {
+  return "IN_REVIEW";
 }

@@ -213,3 +213,33 @@
     transform: translateY(0);
   }
 }
+
+/* Scrollbar tipis ala mockup untuk seluruh aplikasi workspace. */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+/* Sorotan pencarian klausul (CSS Custom Highlight API). */
+::highlight(brd-search) {
+  background-color: #fde68a;
+  color: #451a03;
+}
+
+.dark ::highlight(brd-search) {
+  background-color: #78350f;
+  color: #fef3c7;
+}

@@ -177,7 +177,7 @@ export function approveBrdModification(id: string): Promise<{ brd: BrdDocument }
   return request(`/brd/${encodeURIComponent(id)}/approve-modification`, { method: "POST" });
 }
 
-export function rejectBrdModification(id: string): Promise<{ ok: boolean }> {
+export function rejectBrdModification(id: string): Promise<{ brd: BrdDocument }> {
   return request(`/brd/${encodeURIComponent(id)}/reject-modification`, { method: "POST" });
 }
 

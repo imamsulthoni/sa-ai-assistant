@@ -92,9 +92,7 @@ describe("BRD status transitions", () => {
     expect(canTransitionBrdStatus("DRAFT", "APPROVED")).toBe(false);
   });
 
-  it("sends an approved BRD back to review after an approved modification", () => {
-    expect(statusAfterModification("APPROVED")).toBe("IN_REVIEW");
-    expect(statusAfterModification("IN_REVIEW")).toBe("IN_REVIEW");
-    expect(statusAfterModification("DRAFT")).toBe("DRAFT");
+  it("sends any BRD back to review after an approved modification", () => {
+    expect(statusAfterModification()).toBe("IN_REVIEW");
   });
 });

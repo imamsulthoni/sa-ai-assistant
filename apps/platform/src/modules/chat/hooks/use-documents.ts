@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteDocument, listDocuments, uploadDocument, type DocumentSummary } from "#/lib/api";
+import { COPY } from "#/lib/copy";
 import { describeError } from "#/lib/errors";
 import { notify } from "#/lib/notify";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "#/lib/upload";
 
 const TRANSIENT_STATUSES = new Set(["UPLOADING", "PROCESSING"]);
 
@@ -44,7 +46,15 @@ export function useDocuments(sessionId: string | null) {
   const uploadMutation = useMutation({
     mutationFn: ({ files }: { files: FileList | File[] }) => {
       if (!sessionId) throw new Error("A conversation is required to upload documents");
-      return Promise.all(Array.from(files).map((file) => uploadDocument(sessionId, file)));
+      const all = Array.from(files);
+      const oversized = all.filter((file) => file.size > MAX_UPLOAD_BYTES);
+      if (oversized.length) {
+        const message = COPY.errors.attachmentTooLarge(oversized[0].name, MAX_UPLOAD_LABEL);
+        setActionError(message);
+        notify.error(message);
+      }
+      const allowed = all.filter((file) => file.size <= MAX_UPLOAD_BYTES);
+      return Promise.all(allowed.map((file) => uploadDocument(sessionId, file)));
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["session", sessionId, "documents"] });

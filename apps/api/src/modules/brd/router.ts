@@ -95,7 +95,7 @@ export const brdModule = new Hono()
   })
   .post("/:id/reject-modification", async (c) => {
     const result = await rejectBrdModification(owner(c), c.req.param("id"));
-    return result ? c.json({ ok: true }) : c.json({ error: "No pending BRD modification" }, 404);
+    return result ? c.json({ brd: result }) : c.json({ error: "No pending BRD modification" }, 404);
   })
   .post("/:id/status", async (c) => {
     const parsed = BrdStatusSchema.safeParse(await bodyOf(c));

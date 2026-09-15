@@ -1,36 +1,35 @@
 import { useState } from "react";
+import { Clock, FileText, Layers, Pencil, Plus, Sliders, Trash, X } from "lucide-react";
 import { cn } from "#/lib/utils";
-import {
-  CheckCircle2,
-  EllipsisVertical,
-  LoaderCircle,
-  Pencil,
-  Plus,
-  Trash,
-  Upload,
-  XCircle,
-} from "lucide-react";
-import type { DocumentSummary, SessionSummary } from "#/lib/api";
-import { Button } from "#/components/ui/button";
-import { Input } from "#/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "#/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "#/components/ui/dropdown-menu";
-import { ScrollArea } from "#/components/ui/scroll-area";
-import { Skeleton } from "#/components/ui/skeleton";
-import { COPY, formatBytes, statusLabel } from "#/lib/copy";
+import type { SessionSummary } from "#/lib/api";
+import { Badge, type BadgeTone } from "#/components/base/badge";
+import { Button } from "#/components/base/button";
+import { Input } from "#/components/base/input";
+import { Modal } from "#/components/base/modal";
+import { Skeleton } from "#/components/base/skeleton";
+import { COPY } from "#/lib/copy";
+import { relativeTime } from "#/lib/time";
+import { useCloseMobileSidebar } from "#/modules/chat/chat-shell";
+import type { SettingsTab } from "#/modules/settings/settings-page";
+
+export type ActiveSessionBadge = { label: string; tone: BadgeTone };
+
+/** Badge status dari data server, dipakai untuk sesi yang tidak sedang dibuka. */
+function sessionBadge(session: SessionSummary): ActiveSessionBadge {
+  if (session.brd?.hasPendingModification) {
+    return { label: COPY.sidebar.badgeDiff, tone: "amber" };
+  }
+  if (session.brd) {
+    return { label: `v${session.brd.currentVersion}.0`, tone: "emerald" };
+  }
+  if (session.flow?.phase === "GENERATING") {
+    return { label: COPY.sidebar.badgeGenerating, tone: "amber" };
+  }
+  if (session.flow) {
+    return { label: `R${session.flow.round}`, tone: "sky" };
+  }
+  return { label: COPY.sidebar.badgeDraft, tone: "neutral" };
+}
 
 type SessionSidebarProps = {
   sessions: SessionSummary[];
@@ -41,12 +40,9 @@ type SessionSidebarProps = {
   onOpen: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
-  documents: DocumentSummary[];
-  documentsLoading: boolean;
-  documentsUploading: boolean;
-  documentsError: string | null;
-  onUploadDocuments: (files: FileList) => void;
-  onDeleteDocument: (id: string) => void;
+  templateName?: string | null;
+  activeBadge?: ActiveSessionBadge | null;
+  onOpenSettings: (tab?: SettingsTab) => void;
 };
 
 export function SessionSidebar({
@@ -58,107 +54,181 @@ export function SessionSidebar({
   onOpen,
   onRename,
   onDelete,
-  documents,
-  documentsLoading,
-  documentsUploading,
-  documentsError,
-  onUploadDocuments,
-  onDeleteDocument,
+  templateName,
+  activeBadge,
+  onOpenSettings,
 }: SessionSidebarProps) {
+  const closeMobile = useCloseMobileSidebar();
   const [renameTarget, setRenameTarget] = useState<SessionSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SessionSummary | null>(null);
 
   return (
-    <div className="flex h-full flex-col p-3">
-      <Button className="mb-4 w-full justify-start" onClick={onNew} disabled={disabled}>
-        <Plus size={16} /> {COPY.sidebar.newChat}
-      </Button>
+    <div className="flex h-full w-64 flex-col border-r border-slate-800 bg-slate-900 text-slate-200 select-none">
+      <div className="flex items-center justify-between border-b border-slate-800 px-3.5 py-2.5">
+        <div className="min-w-0">
+          <span className="block text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+            Workspace
+          </span>
+          <h2 className="max-w-[180px] truncate text-xs font-bold text-white">
+            {COPY.sidebar.workspaceName}
+          </h2>
+        </div>
+        {closeMobile && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-slate-400 hover:bg-slate-800 hover:text-white"
+            onClick={closeMobile}
+            aria-label={COPY.shell.closeMenu}
+          >
+            <X size={15} />
+          </Button>
+        )}
+      </div>
 
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-1 pr-1">
-          <p className="mb-1 px-2 text-xs font-medium text-muted-foreground">
-            {COPY.sidebar.conversations}
+      <div className="border-b border-slate-800 p-2.5">
+        <button
+          type="button"
+          onClick={onNew}
+          disabled={disabled}
+          className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-xs transition-colors hover:bg-white disabled:cursor-default disabled:opacity-50"
+        >
+          <Plus size={14} />
+          <span>{COPY.sidebar.newChat}</span>
+        </button>
+      </div>
+
+      <div className="flex-1 space-y-1 overflow-y-auto p-1.5">
+        <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+          <span>{COPY.sidebar.conversations}</span>
+          <span className="font-mono">{sessions.length}</span>
+        </div>
+
+        {loading &&
+          Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-16 w-full bg-slate-800" />
+          ))}
+
+        {!loading && sessions.length === 0 && (
+          <p className="px-3 py-6 text-center text-xs text-slate-400">
+            {COPY.sidebar.noConversations}
           </p>
+        )}
 
-          {loading &&
-            Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-9 w-full" />
-            ))}
-
-          {!loading && sessions.length === 0 && (
-            <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-              {COPY.sidebar.noConversations}
-            </p>
-          )}
-
-          {sessions.map((session) => {
-            const active = session.id === activeId;
-            return (
-              <div
-                key={session.id}
-                data-active={active ? "" : undefined}
-                className={cn(
-                  "group flex items-center rounded-lg",
-                  active && "bg-sidebar-accent ring-1 ring-primary/15",
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => onOpen(session.id)}
-                  disabled={disabled}
-                  data-active={active ? "" : undefined}
+        {sessions.map((session) => {
+          const active = session.id === activeId;
+          const badge = active && activeBadge ? activeBadge : sessionBadge(session);
+          return (
+            <div
+              key={session.id}
+              className={cn(
+                "group relative cursor-pointer rounded-lg border p-2.5 transition-colors",
+                active
+                  ? "border-slate-700 bg-slate-800 text-white"
+                  : "border-transparent text-slate-300 hover:bg-slate-800/50",
+              )}
+              onClick={() => {
+                if (disabled) return;
+                onOpen(session.id);
+                closeMobile?.();
+              }}
+            >
+              <div className="flex items-start gap-2 overflow-hidden">
+                <span
                   className={cn(
-                    "flex h-9 min-w-0 flex-1 items-center rounded-lg px-3 text-left text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent disabled:pointer-events-none disabled:opacity-50",
-                    active && "font-medium text-foreground",
+                    "mt-0.5 grid size-5 shrink-0 place-items-center rounded",
+                    active ? "bg-slate-700 text-slate-100" : "bg-slate-800 text-slate-400",
                   )}
                 >
-                  {active && <span className="mr-2 size-1.5 shrink-0 rounded-full bg-primary" />}
-                  <span className="truncate">{session.title}</span>
-                </button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      disabled={disabled}
-                      aria-label={`Aksi untuk ${session.title}`}
-                      className="mr-1 size-7 shrink-0 text-muted-foreground opacity-100 transition-colors hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-foreground"
-                    >
-                      <EllipsisVertical size={14} />
-                      <span className="sr-only">Ganti nama atau hapus percakapan</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem onSelect={() => setRenameTarget(session)}>
-                      <Pencil /> {COPY.sidebar.rename}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={() => setDeleteTarget(session)}
-                    >
-                      <Trash /> {COPY.sidebar.delete}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  <FileText size={12} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h4
+                    className={cn(
+                      "truncate text-xs leading-snug font-medium",
+                      active ? "text-white" : "text-slate-300",
+                    )}
+                  >
+                    {session.title}
+                  </h4>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <Badge tone={badge.tone} className="text-[9px]">
+                      {badge.label}
+                    </Badge>
+                    <span className="text-[9px] text-slate-400">
+                      {relativeTime(session.updatedAt)}
+                    </span>
+                  </div>
+                </div>
               </div>
-            );
-          })}
 
-          {activeId && (
-            <SessionDocuments
-              documents={documents}
-              loading={documentsLoading}
-              uploading={documentsUploading}
-              error={documentsError}
-              onUpload={onUploadDocuments}
-              onDelete={onDeleteDocument}
-            />
-          )}
-        </div>
-      </ScrollArea>
+              <div className="mt-1.5 flex items-center justify-between border-t border-slate-800/80 pt-1 text-[10px] text-slate-400">
+                <span className="flex items-center gap-1">
+                  <Clock size={10} />
+                  {relativeTime(session.createdAt)}
+                </span>
+                <span>{COPY.sidebar.messageCount(session.messageCount)}</span>
+              </div>
+
+              <div className="absolute top-2 right-2 hidden items-center gap-0.5 group-hover:flex">
+                <button
+                  type="button"
+                  title={COPY.sidebar.rename}
+                  aria-label={`${COPY.sidebar.rename} ${session.title}`}
+                  className="grid size-6 cursor-pointer place-items-center rounded text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setRenameTarget(session);
+                  }}
+                >
+                  <Pencil size={12} />
+                </button>
+                <button
+                  type="button"
+                  title={COPY.sidebar.delete}
+                  aria-label={`${COPY.sidebar.delete} ${session.title}`}
+                  className="grid size-6 cursor-pointer place-items-center rounded text-slate-400 transition-colors hover:bg-slate-700 hover:text-rose-300"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setDeleteTarget(session);
+                  }}
+                >
+                  <Trash size={12} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="space-y-1 border-t border-slate-800 bg-slate-950/40 p-2">
+        <button
+          type="button"
+          onClick={() => onOpenSettings("template")}
+          className="w-full cursor-pointer rounded-md border border-slate-700/50 bg-slate-800/60 p-2 text-left transition-colors hover:bg-slate-800"
+        >
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-300">
+              <Layers size={12} className="text-slate-400" /> {COPY.sidebar.templateSection}
+            </span>
+            <span className="text-[10px] text-slate-400">{COPY.sidebar.manage}</span>
+          </div>
+          <p className="mt-0.5 truncate text-[11px] font-medium text-slate-200">
+            {templateName || COPY.sidebar.noTemplate}
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpenSettings()}
+          className="flex w-full cursor-pointer items-center justify-between rounded-md bg-slate-800/40 px-2 py-1.5 text-left text-xs text-slate-300 transition-colors hover:bg-slate-800"
+        >
+          <span className="flex items-center gap-1.5 text-[11px]">
+            <Sliders size={12} className="text-slate-400" />
+            <span>{COPY.sidebar.allSettings}</span>
+          </span>
+        </button>
+      </div>
 
       <RenameDialog
         key={renameTarget?.id ?? "no-rename-target"}
@@ -170,148 +240,34 @@ export function SessionSidebar({
         }}
       />
 
-      <DeleteDialog
-        target={deleteTarget}
+      <Modal
+        open={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        onDelete={() => {
-          if (deleteTarget) onDelete(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-      />
-    </div>
-  );
-}
-
-function SessionDocuments({
-  documents,
-  loading,
-  uploading,
-  error,
-  onUpload,
-  onDelete,
-}: {
-  documents: DocumentSummary[];
-  loading: boolean;
-  uploading: boolean;
-  error: string | null;
-  onUpload: (files: FileList) => void;
-  onDelete: (id: string) => void;
-}) {
-  const [dragging, setDragging] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
-
-  return (
-    <section
-      className={cn(
-        "mt-6 rounded-xl border border-transparent px-2 pt-4 transition-colors",
-        dragging && "border-primary/40 bg-primary/5",
-      )}
-      onDragOver={(event) => {
-        event.preventDefault();
-        setDragging(true);
-      }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={(event) => {
-        event.preventDefault();
-        setDragging(false);
-        if (event.dataTransfer.files?.length) onUpload(event.dataTransfer.files);
-      }}
-    >
-      <div className="mb-2 flex items-center justify-between border-t border-border/60 pt-4">
-        <p className="text-xs font-medium text-muted-foreground">{COPY.sidebar.sessionDocuments}</p>
-        <label
-          className="grid size-7 cursor-pointer place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-          title={COPY.sidebar.uploadDocuments}
-        >
-          {uploading ? <LoaderCircle size={14} className="animate-spin" /> : <Upload size={14} />}
-          <input
-            type="file"
-            multiple
-            className="sr-only"
-            accept=".pdf,.md,.markdown,.docx,.png,.jpg,.jpeg,.webp,.tiff"
-            disabled={uploading}
-            onChange={(event) => {
-              if (event.currentTarget.files?.length) onUpload(event.currentTarget.files);
-              event.currentTarget.value = "";
-            }}
-          />
-        </label>
-      </div>
-
-      {loading && <p className="text-xs text-muted-foreground">{COPY.sidebar.loadingFiles}</p>}
-      {!loading && documents.length === 0 && (
-        <p className="rounded-lg border border-dashed px-3 py-3 text-xs leading-5 text-muted-foreground">
-          {COPY.sidebar.uploadDocuments}
-        </p>
-      )}
-      <div className="flex flex-col gap-1">
-        {documents.map((document) => {
-          const transient = document.status === "UPLOADING" || document.status === "PROCESSING";
-          return (
-            <div
-              key={document.id}
-              className="group flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-sidebar-accent"
-            >
-              <DocumentStatusIcon status={document.status} />
-              <span className="min-w-0 flex-1 truncate" title={document.title}>
-                {document.title}
-              </span>
-              <span
-                className={cn(
-                  "shrink-0 text-[10px] tracking-wide uppercase",
-                  document.status === "FAILED" ? "text-destructive" : "text-muted-foreground",
-                )}
-                title={`${statusLabel(document.status)} · ${formatBytes(document.fileSize)}`}
-              >
-                {transient ? statusLabel(document.status) : formatBytes(document.fileSize)}
-              </span>
-              <button
-                type="button"
-                className="shrink-0 text-muted-foreground opacity-70 transition-opacity hover:text-destructive hover:opacity-100"
-                onClick={() => setDeleteTarget(document)}
-                aria-label={`Hapus ${document.title}`}
-              >
-                <XCircle size={13} />
-              </button>
-            </div>
-          );
-        })}
-      </div>
-      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
-
-      <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{COPY.sidebar.deleteDocumentTitle}</DialogTitle>
-            <DialogDescription>
-              {COPY.sidebar.deleteDocumentDescription(deleteTarget?.title ?? "")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>
+        title={COPY.sidebar.deleteTitle}
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               {COPY.sidebar.cancel}
             </Button>
             <Button
-              type="button"
-              variant="destructive"
+              variant="danger"
               onClick={() => {
                 if (deleteTarget) onDelete(deleteTarget.id);
                 setDeleteTarget(null);
               }}
             >
-              {COPY.sidebar.deleteDocumentConfirm}
+              {COPY.sidebar.deleteConfirm}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </section>
+          </>
+        }
+      >
+        <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">
+          {COPY.sidebar.deleteDescription(deleteTarget?.title ?? "")}
+        </p>
+      </Modal>
+    </div>
   );
-}
-
-function DocumentStatusIcon({ status }: { status: DocumentSummary["status"] }) {
-  if (status === "READY") return <CheckCircle2 size={13} className="shrink-0 text-success" />;
-  if (status === "FAILED") return <XCircle size={13} className="shrink-0 text-destructive" />;
-  return <LoaderCircle size={13} className="shrink-0 animate-spin text-primary" />;
 }
 
 function RenameDialog({
@@ -326,76 +282,29 @@ function RenameDialog({
   const [value, setValue] = useState(target?.title ?? "");
 
   return (
-    <Dialog
+    <Modal
       open={target !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{COPY.sidebar.renameTitle}</DialogTitle>
-          <DialogDescription>{COPY.sidebar.renameDescription}</DialogDescription>
-        </DialogHeader>
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (value.trim()) onRename(value.trim());
-          }}
-        >
-          <Input
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            placeholder={COPY.sidebar.renamePlaceholder}
-            autoFocus
-          />
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              {COPY.sidebar.cancel}
-            </Button>
-            <Button type="submit" disabled={!value.trim()}>
-              {COPY.sidebar.save}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function DeleteDialog({
-  target,
-  onClose,
-  onDelete,
-}: {
-  target: SessionSummary | null;
-  onClose: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <Dialog
-      open={target !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{COPY.sidebar.deleteTitle}</DialogTitle>
-          <DialogDescription>
-            {COPY.sidebar.deleteDescription(target?.title ?? "")}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
+      onClose={onClose}
+      title={COPY.sidebar.renameTitle}
+      description={COPY.sidebar.renameDescription}
+      size="sm"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
             {COPY.sidebar.cancel}
           </Button>
-          <Button type="button" variant="destructive" onClick={onDelete}>
-            {COPY.sidebar.deleteConfirm}
+          <Button disabled={!value.trim()} onClick={() => value.trim() && onRename(value.trim())}>
+            {COPY.sidebar.save}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <Input
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={COPY.sidebar.renamePlaceholder}
+        aria-label={COPY.sidebar.renamePlaceholder}
+      />
+    </Modal>
   );
 }

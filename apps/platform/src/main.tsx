@@ -1,6 +1,5 @@
 import "@fontsource-variable/inter";
 import "@fontsource-variable/plus-jakarta-sans";
-import "@uiw/react-markdown-preview/markdown.css";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";

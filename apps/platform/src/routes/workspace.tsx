@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, CheckCircle2, LoaderCircle, PanelRightClose, PanelRightOpen } from "lucide-react";
-import { cn } from "#/lib/utils";
+import { Layers, Paperclip, Sliders } from "lucide-react";
 import type { UseChatStatus } from "@anvia/react";
-import { AnviaChat } from "#/modules/chat/anvia-chat";
+import { Badge } from "#/components/base/badge";
+import { Alert } from "#/components/base/alert";
+import { Button } from "#/components/base/button";
+import { AnviaChat, type MentionRequest } from "#/modules/chat/anvia-chat";
 import { ChatShell } from "#/modules/chat/chat-shell";
-import { SessionSidebar } from "#/modules/chat/session-sidebar";
-import { SettingsDialog } from "#/modules/settings/settings-page";
+import { SessionSidebar, type ActiveSessionBadge } from "#/modules/chat/session-sidebar";
+import { SettingsModal, type SettingsTab } from "#/modules/settings/settings-page";
+import { useCurrentTemplate } from "#/modules/settings/hooks/use-current-template";
 import { useSessions } from "#/modules/chat/hooks/use-sessions";
 import { useDocuments } from "#/modules/chat/hooks/use-documents";
 import { useBrds } from "#/modules/brd/hooks/use-brds";
@@ -15,15 +18,17 @@ import { useBrdFlow } from "#/modules/brd/hooks/use-brd-flow";
 import { useVersionHistory } from "#/modules/brd/hooks/use-version-history";
 import { NewBrdPanel } from "#/modules/brd/new-brd-panel";
 import { FeedbackForm, type ClarificationQuestion } from "#/modules/brd/feedback-form";
-import { DocumentPane } from "#/modules/brd/document-pane";
-import { Alert } from "#/components/ui/alert";
-import { Button } from "#/components/ui/button";
+import { GeneratingView } from "#/modules/brd/generating-view";
+import { DocumentPane, type DocumentTab } from "#/modules/brd/document-pane";
+import { DocumentsModal } from "#/modules/brd/documents-modal";
 import {
+  DEMO_USER_ID,
   clarifyBrd,
   importPendingBrd,
   submitClarification,
   uploadDocument,
   type BrdDocument,
+  type DocumentSummary,
 } from "#/lib/api";
 import { COPY } from "#/lib/copy";
 import { waitForDocumentReady } from "#/lib/documents";
@@ -45,6 +50,15 @@ function messageOf(error: unknown): string {
   return describeError(error);
 }
 
+function initialsOf(value: string): string {
+  const parts = value
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  const initials = parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+  return initials || "SA";
+}
+
 export const Route = createFileRoute("/workspace")({
   validateSearch: (search: Record<string, unknown>): ChatSearch => ({
     session: parseSession(search.session),
@@ -54,181 +68,6 @@ export const Route = createFileRoute("/workspace")({
 
 function isStreaming(status: UseChatStatus): boolean {
   return status === "submitted" || status === "streaming" || status === "waiting";
-}
-
-type StepKey = "story" | "clarify" | "generate";
-
-const FLOW_STEPS: Array<{ key: StepKey; label: string }> = COPY.flow.steps.map((step) => ({
-  key: step.key as StepKey,
-  label: step.label,
-}));
-
-function FlowSteps({ current }: { current: StepKey }) {
-  const index = FLOW_STEPS.findIndex((step) => step.key === current);
-  return (
-    <ol className="flex shrink-0 items-center gap-2 border-b border-border/70 bg-card/70 px-4 py-2.5 md:px-6">
-      {FLOW_STEPS.map((step, stepIndex) => {
-        const done = stepIndex < index;
-        const active = stepIndex === index;
-        return (
-          <li key={step.key} className="flex items-center gap-2">
-            {stepIndex > 0 && (
-              <span
-                className={cn("h-px w-6 bg-border sm:w-12", stepIndex <= index && "bg-primary/40")}
-              />
-            )}
-            <span
-              className={cn(
-                "flex items-center gap-1.5 text-xs font-medium",
-                active ? "text-foreground" : "text-muted-foreground",
-              )}
-            >
-              <span
-                className={cn(
-                  "grid size-5 place-items-center rounded-full text-[10px] font-bold",
-                  done && "bg-primary text-primary-foreground",
-                  active && "bg-primary text-primary-foreground ring-2 ring-primary/30",
-                  !done && !active && "bg-muted text-muted-foreground",
-                )}
-              >
-                {done ? <Check size={11} /> : stepIndex + 1}
-              </span>
-              <span className="hidden sm:inline">{step.label}</span>
-            </span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-const BRD_SHARE_MIN = 0.3;
-const BRD_SHARE_MAX = 0.7;
-
-function clampBrdShare(share: number): number {
-  return Math.min(BRD_SHARE_MAX, Math.max(BRD_SHARE_MIN, share));
-}
-
-/**
- * Keyboard- and pointer-accessible vertical splitter between the chat agent
- * and the BRD document pane. Controlled by the parent so ARIA value stays in sync.
- */
-function SplitResizer({
-  containerRef,
-  share,
-  onResize,
-}: {
-  containerRef: RefObject<HTMLDivElement | null>;
-  share: number;
-  onResize: (share: number) => void;
-}) {
-  const [dragging, setDragging] = useState(false);
-
-  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const container = containerRef.current;
-    if (!container) return;
-    const bounds = container.getBoundingClientRect();
-    setDragging(true);
-    const move = (clientX: number) => {
-      const next = (bounds.right - clientX) / bounds.width;
-      onResize(clampBrdShare(next));
-    };
-    move(event.clientX);
-    const onPointerMove = (pointerEvent: PointerEvent) => move(pointerEvent.clientX);
-    const onPointerUp = () => {
-      setDragging(false);
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-    };
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-  };
-
-  const step = (direction: 1 | -1) => onResize(clampBrdShare(share + direction * 0.05));
-
-  return (
-    <div
-      role="separator"
-      aria-orientation="vertical"
-      aria-label={COPY.workspace.resizePanes}
-      aria-valuemin={Math.round(BRD_SHARE_MIN * 100)}
-      aria-valuemax={Math.round(BRD_SHARE_MAX * 100)}
-      aria-valuenow={Math.round(share * 100)}
-      aria-valuetext={COPY.workspace.brdPaneValue(Math.round(share * 100))}
-      tabIndex={0}
-      onPointerDown={onPointerDown}
-      onKeyDown={(event) => {
-        if (event.key === "ArrowLeft") {
-          event.preventDefault();
-          step(-1);
-        } else if (event.key === "ArrowRight") {
-          event.preventDefault();
-          step(1);
-        } else if (event.key === "Home") {
-          event.preventDefault();
-          onResize(BRD_SHARE_MIN);
-        } else if (event.key === "End") {
-          event.preventDefault();
-          onResize(BRD_SHARE_MAX);
-        }
-      }}
-      className={cn(
-        "hidden w-1.5 shrink-0 cursor-col-resize touch-none items-stretch justify-center bg-border/70 transition-colors hover:bg-primary/50 focus-visible:bg-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 lg:flex",
-        dragging && "bg-primary/50",
-      )}
-    >
-      <span
-        aria-hidden="true"
-        className="my-auto flex h-10 w-1 flex-col items-center justify-center gap-1 rounded-full bg-current opacity-30"
-      >
-        <span className="h-4 w-0.5 rounded-full bg-current" />
-      </span>
-    </div>
-  );
-}
-
-function GeneratingView({ resumable, onResume }: { resumable?: boolean; onResume?: () => void }) {
-  return (
-    <div className="flex flex-1 items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10">
-            <LoaderCircle size={22} className={cn("text-primary", !resumable && "animate-spin")} />
-          </span>
-          <div>
-            <p className="text-sm font-semibold">
-              {resumable ? COPY.flow.resumeTitle : COPY.flow.generatingTitle}
-            </p>
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              {resumable ? COPY.flow.resumeBody : COPY.flow.generatingBody}
-            </p>
-          </div>
-        </div>
-        {resumable ? (
-          <Button className="mt-5 w-full" onClick={() => onResume?.()}>
-            <Check size={15} /> {COPY.flow.resumeAction}
-          </Button>
-        ) : (
-          <div className="mt-5 space-y-2">
-            {[
-              "Memvalidasi jawaban klarifikasi",
-              "Memeriksa struktur dan section wajib template",
-              "Menulis BRD lengkap dengan traceability",
-            ].map((step) => (
-              <div
-                key={step}
-                className="flex items-center gap-2.5 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
-              >
-                <LoaderCircle size={13} className="animate-spin text-primary" />
-                {step}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function Workspace() {
@@ -266,10 +105,13 @@ function Workspace() {
   } = useBrdFlow(activeId);
   const brdSelect = brdState.select;
   const brdRefresh = brdState.refresh;
+  const { template } = useCurrentTemplate();
+
   const refreshDocuments = useCallback(() => {
     if (!activeId) return;
     void queryClient.invalidateQueries({ queryKey: ["session", activeId, "documents"] });
   }, [activeId, queryClient]);
+
   const [phase, setPhase] = useState<Phase>("EMPTY_SESSION");
   const [questions, setQuestions] = useState<ClarificationQuestion[]>([]);
   const [round, setRound] = useState(1);
@@ -280,25 +122,17 @@ function Workspace() {
   const [importing, setImporting] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [generationMode, setGenerationMode] = useState<GenerationMode>(null);
-  const [mobileView, setMobileView] = useState<"chat" | "brd">("chat");
-  const [brdPaneVisible, setBrdPaneVisible] = useState(() => {
-    try {
-      return localStorage.getItem("sa.brdPaneVisible") !== "0";
-    } catch {
-      return true;
-    }
-  });
-  const [brdShare, setBrdShare] = useState(() => {
-    try {
-      const saved = Number(localStorage.getItem("sa.brdShare"));
-      return Number.isFinite(saved) ? clampBrdShare(saved) : 0.5;
-    } catch {
-      return 0.5;
-    }
-  });
-  const splitRef = useRef<HTMLDivElement>(null);
+  const [pendingClarifyStory, setPendingClarifyStory] = useState<string | null>(null);
+  const [brdTab, setBrdTab] = useState<DocumentTab>("preview");
+  const [documentsOpen, setDocumentsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("theme");
+  const [mentionRequest, setMentionRequest] = useState<MentionRequest | null>(null);
+
   const activeIdRef = useRef(activeId);
   const pendingImportRef = useRef<string | null>(null);
+  const clarifyResumeRef = useRef<string | null>(null);
+
   const history = useVersionHistory(brdState.active, (brd: BrdDocument) => {
     brdState.setActive(brd);
   });
@@ -317,24 +151,11 @@ function Workspace() {
     setFlowError(null);
     setGenerationMode(null);
     setImporting(false);
+    setPendingClarifyStory(null);
+    setBrdTab("preview");
     pendingImportRef.current = null;
+    clarifyResumeRef.current = null;
   }, [activeId]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("sa.brdPaneVisible", brdPaneVisible ? "1" : "0");
-    } catch {
-      // ignore persistence errors
-    }
-  }, [brdPaneVisible]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("sa.brdShare", String(brdShare));
-    } catch {
-      // ignore persistence errors
-    }
-  }, [brdShare]);
 
   // Prioritas: BRD aktif > checkpoint flow (clarify/generate) > sesi kosong.
   useEffect(() => {
@@ -346,17 +167,26 @@ function Workspace() {
       return;
     }
     if (brdState.loading || flowLoading) return;
-    if (flow?.phase === "CLARIFYING" && flow.questions.length) {
-      setPhase("CLARIFYING");
-      setQuestions(flow.questions);
-      setRound(flow.round);
-      setRoundAnswers(flow.answers);
+    if (flow?.phase === "CLARIFYING") {
       setUserStory((prev) => prev || (flow.userStory ?? ""));
-      setGenerationMode(null);
+      setRoundAnswers(flow.answers);
+      if (flow.questions.length) {
+        setPhase("CLARIFYING");
+        setQuestions(flow.questions);
+        setRound(flow.round);
+        setGenerationMode(null);
+        clarifyResumeRef.current = null;
+        return;
+      }
+      // Klarifikasi terputus sebelum pertanyaan tersimpan: lanjutkan otomatis
+      // melihat status tersimpan di database.
+      if (flow.userStory && clarifyResumeRef.current !== flow.userStory) {
+        setPendingClarifyStory(flow.userStory);
+      }
       return;
     }
     if (flow?.phase) {
-      // GENERATING, atau CLARIFYING tanpa pertanyaan (crash sebelum generate).
+      // GENERATING: ikuti hasilnya lewat poll/lanjutkan.
       setPhase("GENERATING");
       setUserStory((prev) => prev || (flow.userStory ?? ""));
       setRoundAnswers(flow.answers);
@@ -385,11 +215,6 @@ function Workspace() {
     return () => window.clearInterval(timer);
   }, [activeId, brdRefresh, generationMode, phase, refreshFlow]);
 
-  const pendingModification = brdState.active?.pendingContentMarkdown ?? null;
-  useEffect(() => {
-    if (pendingModification) setBrdPaneVisible(true);
-  }, [pendingModification]);
-
   const pendingImport = flow?.pendingImportDocumentId
     ? (documentState.documents.find((item) => item.id === flow.pendingImportDocumentId) ?? null)
     : null;
@@ -400,7 +225,6 @@ function Workspace() {
       setRoundAnswers({});
       setGenerationMode(null);
       setPhase("BRD_ACTIVE");
-      setBrdPaneVisible(options.showPane ?? true);
       setDraft(brd.contentMarkdown);
       await brdSelect(brd.id);
       notify.success(
@@ -468,9 +292,7 @@ function Workspace() {
           try {
             await waitForDocumentReady(activeId, uploaded.document.id, { timeoutMs: 60_000 });
           } catch {
-            notify.info(
-              "Referensi masih diproses. Pertanyaan awal mungkin belum memakainya, tetapi dokumen akan otomatis dipakai saat menyusun BRD.",
-            );
+            notify.info(COPY.notice.referenceStillIndexing);
           }
           if (sessionAtStart !== activeIdRef.current) return;
         }
@@ -498,6 +320,14 @@ function Workspace() {
     },
     [activeId, runGeneration, refreshDocuments, refreshFlow],
   );
+
+  // Lanjutkan klarifikasi yang terputus begitu flow-nya selesai dimuat.
+  useEffect(() => {
+    if (!pendingClarifyStory) return;
+    clarifyResumeRef.current = pendingClarifyStory;
+    setPendingClarifyStory(null);
+    void generate(pendingClarifyStory);
+  }, [generate, pendingClarifyStory]);
 
   const submitAnswers = useCallback(
     async (answers: Record<string, string>) => {
@@ -603,11 +433,79 @@ function Workspace() {
     refreshFlow,
   ]);
 
-  const stepKey: StepKey =
-    phase === "CLARIFYING" ? "clarify" : phase === "GENERATING" ? "generate" : "story";
+  const activeSession = sessions.find((item) => item.id === activeId) ?? null;
+  const activeBadge: ActiveSessionBadge | null = brdState.active
+    ? { label: `v${brdState.active.currentVersion}.0`, tone: "emerald" }
+    : phase === "CLARIFYING"
+      ? { label: `R${round}`, tone: "sky" }
+      : phase === "GENERATING"
+        ? { label: "Menyusun", tone: "amber" }
+        : { label: "Draft", tone: "neutral" };
+
+  const openSettings = useCallback((tab: SettingsTab = "theme") => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+  }, []);
+
+  const mentionDocument = useCallback((document: DocumentSummary) => {
+    setMentionRequest({ id: Date.now(), name: document.title });
+    setDocumentsOpen(false);
+  }, []);
+
+  const templateLabel = template?.title ?? null;
 
   return (
     <ChatShell
+      title={
+        activeSession && (
+          <>
+            <span className="max-w-[200px] truncate text-xs font-medium text-slate-700 dark:text-slate-300">
+              {activeSession.title}
+            </span>
+            <Badge tone={activeBadge?.tone ?? "neutral"}>{activeBadge?.label}</Badge>
+          </>
+        )
+      }
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={() => openSettings("template")}
+            title="Pengaturan template struktur BRD"
+            className="hidden cursor-pointer items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-200 md:inline-flex dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            <Layers size={12} className="text-slate-500" />
+            <span className="max-w-28 truncate text-[11px]">
+              {templateLabel ?? COPY.sidebar.noTemplate}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDocumentsOpen(true)}
+            title="Dokumen lampiran sesi"
+            className="inline-flex cursor-pointer items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            <Paperclip size={12} className="text-slate-500" />
+            <span className="hidden text-[11px] sm:inline">Lampiran</span>
+            <span className="rounded bg-slate-200 px-1 py-px font-mono text-[10px] text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+              {documentState.documents.length}
+            </span>
+          </button>
+
+          <Button variant="outline" size="sm" onClick={() => openSettings()}>
+            <Sliders size={12} className="text-slate-500" />
+            <span className="hidden text-[11px] sm:inline">Pengaturan</span>
+          </Button>
+
+          <span
+            title={DEMO_USER_ID}
+            className="ms-1 grid size-6 shrink-0 place-items-center rounded-full border border-slate-200 bg-slate-800 text-[10px] font-semibold text-white dark:border-slate-700"
+          >
+            {initialsOf(DEMO_USER_ID)}
+          </span>
+        </>
+      }
       sidebar={
         <SessionSidebar
           sessions={sessions}
@@ -618,44 +516,22 @@ function Workspace() {
           onOpen={(id) => openSession(id)}
           onRename={(id, title) => void renameSession(id, title)}
           onDelete={(id) => void deleteSession(id)}
-          documents={documentState.documents}
-          documentsLoading={documentState.loading}
-          documentsUploading={documentState.uploading}
-          documentsError={documentState.error}
-          onUploadDocuments={(files) => void documentState.upload(files)}
-          onDeleteDocument={(id) => void documentState.remove(id)}
+          templateName={templateLabel}
+          activeBadge={activeBadge}
+          onOpenSettings={openSettings}
         />
-      }
-      headerAction={
-        <div className="flex items-center gap-2">
-          {brdState.active && (
-            <span className="hidden items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-xs font-medium text-success sm:inline-flex">
-              <CheckCircle2 size={13} />
-              {COPY.workspace.brdReady}
-            </span>
-          )}
-          {(phase === "CLARIFYING" || phase === "GENERATING") && (
-            <span className="hidden items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground sm:inline-flex">
-              {phase === "CLARIFYING" ? COPY.workspace.clarifying : COPY.workspace.generating}
-            </span>
-          )}
-          <SettingsDialog />
-        </div>
       }
     >
       {(error || brdState.error || flowError || history.error) && (
-        <div className="mx-auto mt-4 w-full max-w-3xl px-4">
-          <Alert variant="destructive">
+        <div className="mx-auto mt-3 w-full max-w-3xl px-4">
+          <Alert>
             {[error, brdState.error, flowError, history.error].filter(Boolean).join(" ")}
           </Alert>
         </div>
       )}
       {!brdState.active && pendingImport?.status === "FAILED" && (
-        <div className="mx-auto mt-4 w-full max-w-3xl px-4">
-          <Alert
-            variant="destructive"
-            className="flex flex-wrap items-center justify-between gap-3"
-          >
+        <div className="mx-auto mt-3 w-full max-w-3xl px-4">
+          <Alert tone="warning" className="flex flex-wrap items-center justify-between gap-3">
             <span>{COPY.errors.importPendingFailed(pendingImport.title)}</span>
             <Button size="sm" variant="outline" onClick={() => void dismissPendingImport()}>
               {COPY.workspace.dismissImport}
@@ -664,140 +540,115 @@ function Workspace() {
         </div>
       )}
       {!brdState.active && pendingImport && pendingImport.status !== "FAILED" && (
-        <div className="mx-auto mt-4 w-full max-w-3xl px-4 text-xs text-muted-foreground">
-          {COPY.notice.importWaiting}
+        <div className="mx-auto mt-3 w-full max-w-3xl px-4">
+          <Alert tone="info">{COPY.notice.importWaiting}</Alert>
         </div>
       )}
+
       {!activeId ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
           {loading ? COPY.workspace.loading : COPY.workspace.noSession}
         </div>
       ) : brdState.active ? (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="hidden shrink-0 items-center justify-between gap-2 border-b border-border/70 bg-muted/40 px-3 py-1 lg:flex">
-            <span className="truncate text-xs font-medium text-muted-foreground">
-              {brdState.active.title}
-            </span>
-            <button
-              type="button"
-              onClick={() => setBrdPaneVisible((visible) => !visible)}
-              aria-pressed={brdPaneVisible}
-              aria-label={brdPaneVisible ? COPY.workspace.hideBrd : COPY.workspace.showBrd}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              {brdPaneVisible ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-              {brdPaneVisible ? COPY.workspace.hideBrd : COPY.workspace.showBrd}
-            </button>
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          <div className="h-1/2 w-full shrink-0 border-b border-slate-200 md:h-full md:w-[360px] md:border-r md:border-b-0 lg:w-[400px] dark:border-slate-800">
+            <AnviaChat
+              key={activeId}
+              sessionId={activeId}
+              brdDocumentId={brdState.active.id}
+              initialMessages={initialMessages}
+              documentsCount={documentState.documents.length}
+              onOpenDocuments={() => setDocumentsOpen(true)}
+              mentionRequest={mentionRequest}
+              onMentionConsumed={() => setMentionRequest(null)}
+              pendingProposal={
+                brdState.active.pendingContentMarkdown
+                  ? {
+                      from: brdState.active.currentVersion,
+                      to: brdState.active.currentVersion + 1,
+                      summary: brdState.active.pendingChangeSummary,
+                    }
+                  : null
+              }
+              onReviewDiff={() => setBrdTab("diff")}
+              onRunEnded={() => {
+                void refreshAfterRun();
+                void brdState.refresh();
+              }}
+              onStatusChange={(status) => setStreaming(isStreaming(status))}
+            />
           </div>
 
-          <div className="flex shrink-0 items-center gap-1 border-b border-border/70 bg-muted/40 px-3 py-1.5 lg:hidden">
-            <button
-              type="button"
-              onClick={() => setMobileView("chat")}
-              className={cn(
-                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                mobileView === "chat"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {COPY.workspace.chatView}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileView("brd")}
-              className={cn(
-                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                mobileView === "brd"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {COPY.workspace.brdView}
-            </button>
-          </div>
-
-          <div ref={splitRef} className="flex min-h-0 flex-1 flex-col lg:flex-row">
-            <div
-              className={cn(
-                "min-h-0 flex-1 flex-col lg:flex",
-                mobileView === "chat" ? "flex" : "hidden",
-              )}
-            >
-              <AnviaChat
-                key={activeId}
-                sessionId={activeId}
-                brdDocumentId={brdState.active.id}
-                initialMessages={initialMessages}
-                onRunEnded={() => {
-                  void refreshAfterRun();
-                  void brdState.refresh();
-                }}
-                onStatusChange={(status) => setStreaming(isStreaming(status))}
-              />
-            </div>
-
-            {brdPaneVisible && (
-              <SplitResizer containerRef={splitRef} share={brdShare} onResize={setBrdShare} />
-            )}
-
-            <div
-              className={cn(
-                "min-h-0 flex-1 flex-col border-t lg:flex-none lg:border-l lg:border-t-0 lg:w-[var(--brd-share)]",
-                mobileView === "brd" ? "flex" : "hidden",
-                brdPaneVisible ? "lg:flex" : "lg:hidden",
-              )}
-              style={{ "--brd-share": `${brdShare * 100}%` } as React.CSSProperties}
-            >
-              <DocumentPane
-                brd={brdState.active}
-                content={draft}
-                diff={history.diff}
-                onDiff={(from, to) => void history.showDiff(from, to)}
-                onRestore={(version) => void history.restore(version)}
-                onClearDiff={history.clearDiff}
-                onApproved={(next) => {
-                  brdState.setActive(next);
-                  setDraft(next.contentMarkdown);
-                }}
-                busy={history.busy}
-              />
-            </div>
+          <div className="min-h-0 h-1/2 flex-1 md:h-full">
+            <DocumentPane
+              brd={brdState.active}
+              content={draft}
+              diff={history.diff}
+              tab={brdTab}
+              onTabChange={setBrdTab}
+              onDiff={(from, to) => void history.showDiff(from, to)}
+              onRestore={(version) => void history.restore(version)}
+              onClearDiff={history.clearDiff}
+              onApproved={(next) => {
+                brdState.setActive(next);
+                setDraft(next.contentMarkdown);
+              }}
+              busy={history.busy}
+            />
           </div>
         </div>
       ) : brdState.loading ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          Loading conversation…
+        <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+          {COPY.workspace.loadingConversation}
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <FlowSteps current={stepKey} />
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {phase === "CLARIFYING" ? (
-              <FeedbackForm
-                key={`round-${round}`}
-                questions={questions}
-                round={round}
-                initialAnswers={roundAnswers}
-                onSubmit={submitAnswers}
-                onSkip={skipClarification}
-              />
-            ) : phase === "GENERATING" ? (
-              <GeneratingView
-                resumable={generationMode === "resumable"}
-                onResume={generationMode === "resumable" ? resumeGeneration : undefined}
-              />
-            ) : (
-              <NewBrdPanel
-                onGenerate={(story, file) => void generate(story, file)}
-                onImport={(file) => void importExisting(file)}
-                busy={streaming}
-                importing={importing}
-              />
-            )}
-          </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {phase === "CLARIFYING" ? (
+            <FeedbackForm
+              key={`round-${round}`}
+              questions={questions}
+              round={round}
+              initialAnswers={roundAnswers}
+              onSubmit={submitAnswers}
+              onSkip={skipClarification}
+            />
+          ) : phase === "GENERATING" ? (
+            <GeneratingView
+              templateName={templateLabel}
+              resumable={generationMode === "resumable"}
+              onResume={generationMode === "resumable" ? resumeGeneration : undefined}
+            />
+          ) : (
+            <NewBrdPanel
+              onGenerate={(story, file) => void generate(story, file)}
+              onImport={(file) => void importExisting(file)}
+              busy={streaming}
+              importing={importing}
+              templateName={templateLabel}
+              onOpenTemplateManager={() => openSettings("template")}
+              initialStory={userStory}
+            />
+          )}
         </div>
       )}
+
+      <DocumentsModal
+        open={documentsOpen}
+        onClose={() => setDocumentsOpen(false)}
+        documents={documentState.documents}
+        loading={documentState.loading}
+        uploading={documentState.uploading}
+        error={documentState.error}
+        onUpload={(files) => void documentState.upload(files)}
+        onDelete={(id) => void documentState.remove(id)}
+        onMention={mentionDocument}
+      />
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        initialTab={settingsTab}
+      />
     </ChatShell>
   );
 }

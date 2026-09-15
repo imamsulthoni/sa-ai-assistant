@@ -12,7 +12,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Logo, LogoMark } from "#/components/brand/logo";
-import { Badge } from "#/components/ui/badge";
 import { SettingsDialog } from "#/modules/settings/settings-page";
 import { APP_NAME, APP_TAGLINE } from "#/lib/copy";
 
@@ -108,9 +107,9 @@ function Landing() {
       <section className="surface-grid border-b border-border/60">
         <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:py-24 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
           <div>
-            <Badge variant="info" className="mb-4">
+            <span className="mb-4 inline-flex w-fit items-center rounded-full bg-info/15 px-2.5 py-0.5 text-xs font-medium text-info">
               Untuk System Analyst
-            </Badge>
+            </span>
             <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
               Dari user story menjadi <span className="text-gradient-brand">BRD siap review</span>,
               tanpa kerja berulang.
@@ -160,9 +159,9 @@ function Landing() {
                   <p className="font-display text-sm font-semibold">BRD — Pengajuan Cuti</p>
                   <p className="text-xs text-muted-foreground">v3 · Dalam review</p>
                 </div>
-                <Badge variant="warning" className="ml-auto">
+                <span className="ml-auto inline-flex w-fit items-center rounded-full bg-warning/20 px-2.5 py-0.5 text-xs font-medium text-warning-foreground">
                   Pratinjau
-                </Badge>
+                </span>
               </div>
               <div className="mt-4 space-y-2 text-xs">
                 <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-foreground">

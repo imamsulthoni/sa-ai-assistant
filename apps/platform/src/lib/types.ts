@@ -1,11 +1,25 @@
 import type { UIMessage } from "@anvia/client";
 
+export type SessionBrdSummary = {
+  id: string;
+  currentVersion: number;
+  status: "DRAFT" | "IN_REVIEW" | "APPROVED";
+  hasPendingModification: boolean;
+};
+
+export type SessionFlowSummary = {
+  phase: "CLARIFYING" | "GENERATING";
+  round: number;
+};
+
 export type SessionSummary = {
   id: string;
   title: string;
   createdAt: string;
   updatedAt: string;
   messageCount: number;
+  brd?: SessionBrdSummary | null;
+  flow?: SessionFlowSummary | null;
 };
 
 export type DocumentSummary = {
@@ -37,6 +51,7 @@ export type BrdDocument = {
   pendingContentMarkdown: string | null;
   pendingChangeSummary: string | null;
   status: "DRAFT" | "IN_REVIEW" | "APPROVED";
+  statusBeforePending?: "DRAFT" | "IN_REVIEW" | "APPROVED" | null;
   approvedAt: string | null;
   approvedBy: string | null;
   createdAt: string;

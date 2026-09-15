@@ -142,6 +142,7 @@ model BrdDocument {
   pendingContentMarkdown String?
   pendingChangeSummary   String?
   status                 BrdDocumentStatus @default(DRAFT)
+  statusBeforePending    BrdDocumentStatus?
   approvedAt             DateTime?
   approvedBy             String?
   createdAt              DateTime          @default(now())

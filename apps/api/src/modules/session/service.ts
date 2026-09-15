@@ -7,13 +7,73 @@ import { prisma } from "../../lib/prisma.js";
 import { deleteDocument, deleteDocumentVectors } from "../document/services.js";
 import { DEFAULT_TITLE, TITLE_MAX_LENGTH, titleFromContent } from "./utils.js";
 
+export type SessionBrdSummary = {
+  id: string;
+  currentVersion: number;
+  status: "DRAFT" | "IN_REVIEW" | "APPROVED";
+  hasPendingModification: boolean;
+};
+
+export type SessionFlowSummary = {
+  phase: "CLARIFYING" | "GENERATING";
+  round: number;
+};
+
 export type SessionSummary = {
   id: string;
   title: string;
   createdAt: string;
   updatedAt: string;
   messageCount: number;
+  brd: SessionBrdSummary | null;
+  flow: SessionFlowSummary | null;
 };
+
+type SessionStatusMaps = {
+  brds: Map<string, SessionBrdSummary>;
+  flows: Map<string, SessionFlowSummary>;
+};
+
+/** Ambil ringkasan BRD + flow per sesi untuk badge sidebar (satu query batch). */
+async function sessionStatusMaps(userId: string, sessionIds: string[]): Promise<SessionStatusMaps> {
+  const brds = new Map<string, SessionBrdSummary>();
+  const flows = new Map<string, SessionFlowSummary>();
+  if (sessionIds.length === 0) return { brds, flows };
+
+  const [brdRows, pendingRows, flowRows] = await Promise.all([
+    prisma.brdDocument.findMany({
+      where: { userId, sessionId: { in: sessionIds } },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, sessionId: true, currentVersion: true, status: true },
+    }),
+    prisma.brdDocument.findMany({
+      where: { userId, sessionId: { in: sessionIds }, pendingContentMarkdown: { not: null } },
+      select: { sessionId: true },
+    }),
+    prisma.brdFlowState.findMany({
+      where: { userId, sessionId: { in: sessionIds } },
+      select: { sessionId: true, phase: true, round: true },
+    }),
+  ]);
+
+  const pending = new Set(pendingRows.map((row) => row.sessionId));
+  for (const row of brdRows) {
+    // orderBy updatedAt desc: entri pertama per sesi adalah BRD terbaru.
+    if (brds.has(row.sessionId)) continue;
+    brds.set(row.sessionId, {
+      id: row.id,
+      currentVersion: row.currentVersion,
+      status: row.status,
+      hasPendingModification: pending.has(row.sessionId),
+    });
+  }
+  for (const row of flowRows) {
+    if (!row.phase) continue;
+    flows.set(row.sessionId, { phase: row.phase, round: row.round });
+  }
+
+  return { brds, flows };
+}
 
 export function scopeKey(sessionId: string, userId: string): string {
   return createMemoryScopeKey({
@@ -31,12 +91,19 @@ export async function listSessions(userId: string): Promise<SessionSummary[]> {
     include: { _count: { select: { messages: true } } },
   });
 
+  const { brds, flows } = await sessionStatusMaps(
+    userId,
+    rows.map((row) => row.sessionId),
+  );
+
   return rows.map((row) => ({
     id: row.sessionId,
     title: row.title ?? DEFAULT_TITLE,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     messageCount: row._count.messages,
+    brd: brds.get(row.sessionId) ?? null,
+    flow: flows.get(row.sessionId) ?? null,
   }));
 }
 
@@ -68,6 +135,8 @@ export async function createSession(
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     messageCount: 0,
+    brd: null,
+    flow: null,
   };
 }
 
@@ -88,12 +157,15 @@ export async function updateSession(
   const messageCount = await prisma.agentMemoryMessage.count({
     where: { memorySessionId: updated.id },
   });
+  const { brds, flows } = await sessionStatusMaps(userId, [updated.sessionId]);
   return {
     id: updated.sessionId,
     title: updated.title ?? DEFAULT_TITLE,
     createdAt: updated.createdAt.toISOString(),
     updatedAt: updated.updatedAt.toISOString(),
     messageCount,
+    brd: brds.get(updated.sessionId) ?? null,
+    flow: flows.get(updated.sessionId) ?? null,
   };
 }
 
@@ -118,12 +190,15 @@ export async function renameSession(
   });
 
   if (!updated) return null;
+  const { brds, flows } = await sessionStatusMaps(userId, [updated.sessionId]);
   return {
     id: updated.sessionId,
     title: updated.title ?? DEFAULT_TITLE,
     createdAt: updated.createdAt.toISOString(),
     updatedAt: updated.updatedAt.toISOString(),
     messageCount: updated._count.messages,
+    brd: brds.get(updated.sessionId) ?? null,
+    flow: flows.get(updated.sessionId) ?? null,
   };
 }
 

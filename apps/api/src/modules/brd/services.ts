@@ -12,6 +12,7 @@ import {
   deleteBrdFlow,
   ensureBrdFlow,
   getBrdFlow,
+  markClarifyStarted,
   releaseGeneration,
   restorePendingImport,
   saveClarifyCheckpoint,
@@ -348,9 +349,16 @@ export async function stageBrdModification(
     };
   }
   if (decision === "noop") return { ok: true, status: "staged" };
+  // A staged change puts the document under review; reject restores the
+  // status the user had before the preview appeared.
   await prisma.brdDocument.update({
     where: { id },
-    data: { pendingContentMarkdown: contentMarkdown, pendingChangeSummary: changeSummary },
+    data: {
+      pendingContentMarkdown: contentMarkdown,
+      pendingChangeSummary: changeSummary,
+      statusBeforePending: brd.statusBeforePending ?? brd.status,
+      status: "IN_REVIEW",
+    },
   });
   return { ok: true, status: "staged" };
 }
@@ -362,8 +370,7 @@ export async function approveBrdModification(userId: string, id: string) {
       const pendingContent = brd?.pendingContentMarkdown;
       if (!brd || !pendingContent) return null;
       const nextVersion = brd.currentVersion + 1;
-      const currentStatus = brd.status as BrdStatus;
-      const nextStatus = statusAfterModification(currentStatus);
+      const nextStatus = statusAfterModification();
       const claimed = await tx.brdDocument.updateMany({
         where: {
           id,
@@ -377,7 +384,10 @@ export async function approveBrdModification(userId: string, id: string) {
           pendingContentMarkdown: null,
           pendingChangeSummary: null,
           status: nextStatus,
-          ...(currentStatus === "APPROVED" ? { approvedAt: null, approvedBy: null } : {}),
+          statusBeforePending: null,
+          // The content changed, so any previous approval is invalidated.
+          approvedAt: null,
+          approvedBy: null,
         },
       });
       if (claimed.count === 0) throw new VersionConflictError();
@@ -404,7 +414,12 @@ export async function rejectBrdModification(userId: string, id: string) {
   if (!brd?.pendingContentMarkdown) return null;
   return prisma.brdDocument.update({
     where: { id },
-    data: { pendingContentMarkdown: null, pendingChangeSummary: null },
+    data: {
+      pendingContentMarkdown: null,
+      pendingChangeSummary: null,
+      status: (brd.statusBeforePending ?? brd.status) as BrdStatus,
+      statusBeforePending: null,
+    },
   });
 }
 
@@ -428,6 +443,7 @@ export async function changeBrdStatus(
     where: { id },
     data: {
       status: nextStatus,
+      statusBeforePending: null,
       ...(nextStatus === "APPROVED"
         ? { approvedAt: new Date(), approvedBy: userId }
         : { approvedAt: null, approvedBy: null }),
@@ -498,6 +514,12 @@ function safeParse<T extends z.ZodType>(schema: T, value: unknown): z.infer<T> |
 
 export async function clarifyFlow(context: FlowContext, input: FlowInput) {
   const round = Math.min(Math.max(input.round ?? 1, 1), 2);
+  // Persist dulu supaya reload di tengah request tidak jatuh ke sesi kosong.
+  await markClarifyStarted(context, {
+    userStory: input.userStory,
+    round,
+    answers: input.answers ?? {},
+  });
   const templateBlock = await flowTemplateBlock(context.userId);
   const agent = await agentFor(context.userId, context.sessionId, "CLARIFY");
   const prompt = [

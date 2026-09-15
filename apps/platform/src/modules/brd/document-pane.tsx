@@ -1,10 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
-import { Check, Download, FileDown, RotateCcw, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Check,
+  Code,
+  Copy,
+  Download,
+  FileDown,
+  FileText,
+  History,
+  ListTree,
+  Search,
+  ShieldCheck,
+  SplitSquareVertical,
+} from "lucide-react";
 import { cn } from "#/lib/utils";
-import { Badge } from "#/components/ui/badge";
-import { Button } from "#/components/ui/button";
+import { Badge } from "#/components/base/badge";
+import { Button } from "#/components/base/button";
 import { MarkdownContent } from "#/components/markdown/markdown-content";
-import { buildCompactDiff, countDiffChanges } from "#/lib/diff";
+import { buildToc } from "#/lib/markdown-toc";
+import { highlightMatches } from "#/lib/search-highlight";
 import {
   approveBrdModification,
   exportBrd,
@@ -14,7 +27,8 @@ import {
 } from "#/lib/api";
 import { BRD_STATUS_ACTIONS, BRD_STATUS_LABEL } from "#/lib/copy";
 import { notify } from "#/lib/notify";
-import { BrdDiffView } from "./brd-diff-view";
+import { BrdDiffView, type CompareTarget } from "./brd-diff-view";
+import { VersionHistory } from "./version-history";
 
 type DocumentPaneProps = {
   brd: BrdDocument;
@@ -25,7 +39,11 @@ type DocumentPaneProps = {
   onClearDiff: () => void;
   onApproved: (brd: BrdDocument) => void;
   busy?: boolean;
+  tab?: DocumentTab;
+  onTabChange?: (tab: DocumentTab) => void;
 };
+
+export type DocumentTab = "preview" | "diff" | "history" | "raw";
 
 export function DocumentPane({
   brd,
@@ -36,35 +54,59 @@ export function DocumentPane({
   onClearDiff,
   onApproved,
   busy,
+  tab: tabProp,
+  onTabChange,
 }: DocumentPaneProps) {
-  const [dark, setDark] = useState(false);
-  const [selected, setSelected] = useState(brd.currentVersion);
+  const [internalTab, setInternalTab] = useState<DocumentTab>("preview");
+  const tab = tabProp ?? internalTab;
+  const setTab = useCallback(
+    (next: DocumentTab) => {
+      setInternalTab(next);
+      onTabChange?.(next);
+    },
+    [onTabChange],
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showToc, setShowToc] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
-  const [view, setView] = useState<"document" | "changes">("document");
+  const [compareFrom, setCompareFrom] = useState<number | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+
   const versions = brd.versions ?? [];
   const pending = brd.pendingContentMarkdown;
+  const current = brd.currentVersion;
+  const toc = useMemo(() => buildToc(content), [content]);
+  const statusActions = BRD_STATUS_ACTIONS[brd.status] ?? [];
 
   useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
-
-  useEffect(() => {
-    setSelected(brd.currentVersion);
+    setCompareFrom(null);
     onClearDiff();
+    setSearchQuery("");
   }, [brd.id, brd.currentVersion, onClearDiff]);
 
   useEffect(() => {
-    if (pending) setView("changes");
+    if (pending) setTab("diff");
   }, [pending]);
 
-  const pendingCounts = useMemo(
-    () => (pending ? countDiffChanges(buildCompactDiff(content, pending)) : null),
-    [content, pending],
-  );
+  // Sorotan pencarian hanya menyentuh DOM pratinjau, bukan tree markdown.
+  useEffect(() => {
+    const element = previewRef.current;
+    if (!element || tab !== "preview") return;
+    return highlightMatches(element, searchQuery);
+  }, [searchQuery, tab, content]);
 
-  const current = brd.currentVersion;
-  const statusActions = BRD_STATUS_ACTIONS[brd.status] ?? [];
+  const copyText = useCallback(async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+      window.setTimeout(() => setCopied(null), 2000);
+    } catch {
+      notify.error("Gagal menyalin ke clipboard.");
+    }
+  }, []);
+
   const approve = async () => {
     setApprovalBusy(true);
     try {
@@ -77,11 +119,12 @@ export function DocumentPane({
       setApprovalBusy(false);
     }
   };
+
   const reject = async () => {
     setApprovalBusy(true);
     try {
-      await rejectBrdModification(brd.id);
-      onApproved({ ...brd, pendingContentMarkdown: null, pendingChangeSummary: null });
+      const result = await rejectBrdModification(brd.id);
+      onApproved(result.brd);
       notify.info("Pratinjau perubahan ditolak.");
     } catch (error) {
       notify.error(error instanceof Error ? error.message : "Gagal menolak perubahan.");
@@ -89,6 +132,7 @@ export function DocumentPane({
       setApprovalBusy(false);
     }
   };
+
   const changeStatus = async (next: BrdDocument["status"]) => {
     setStatusBusy(true);
     try {
@@ -101,6 +145,7 @@ export function DocumentPane({
       setStatusBusy(false);
     }
   };
+
   const handleExport = async (format: "markdown" | "pdf") => {
     const toastId = notify.loading("Menyiapkan berkas…");
     try {
@@ -113,155 +158,236 @@ export function DocumentPane({
     }
   };
 
+  const compare: CompareTarget | null =
+    diff && compareFrom ? { from: compareFrom, to: current, diff } : null;
+
+  const openVersion = (version: number) => {
+    setCompareFrom(version);
+    onDiff(version, current);
+    setTab("diff");
+  };
+
+  // Anchor id dari markdown tidak stabil karena renderer memecah dokumen per blok,
+  // jadi daftar isi menavigasi lewat teks heading di dalam panel pratinjau.
+  const scrollToHeading = (text: string) => {
+    setTab("preview");
+    window.setTimeout(() => {
+      const container = previewRef.current;
+      if (!container) return;
+      const target = text.trim().toLowerCase();
+      const headings = container.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6");
+      for (const heading of headings) {
+        if ((heading.textContent ?? "").trim().toLowerCase() === target) {
+          heading.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+      }
+    }, 0);
+  };
+
+  const closeCompare = () => {
+    setCompareFrom(null);
+    onClearDiff();
+    setTab("preview");
+  };
+
   return (
-    <section
-      className="flex min-h-0 flex-1 flex-col bg-background"
-      data-color-mode={dark ? "dark" : "light"}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 bg-card/70 px-4 py-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-              BRD
-            </p>
-            <Badge variant={statusVariant(brd.status)}>{BRD_STATUS_LABEL[brd.status]}</Badge>
-          </div>
-          <h2 className="truncate font-display font-semibold">{brd.title}</h2>
-          {brd.status === "APPROVED" && brd.approvedBy && (
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Disetujui oleh {brd.approvedBy}
-              {brd.approvedAt
-                ? ` · ${new Date(brd.approvedAt).toLocaleDateString("id-ID", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}`
-                : ""}
-            </p>
+    <section className="flex min-h-0 flex-1 flex-col bg-slate-100/60 dark:bg-slate-950">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3.5 py-2 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+            <ShieldCheck size={12} />v{current}.0
+          </span>
+          <h2 className="max-w-xs truncate text-xs font-bold text-slate-900 md:max-w-md dark:text-slate-100">
+            {brd.title}
+          </h2>
+          <Badge tone={statusTone(brd.status)}>{BRD_STATUS_LABEL[brd.status]}</Badge>
+          {pending && (
+            <button
+              type="button"
+              onClick={() => setTab("diff")}
+              className="inline-flex cursor-pointer items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-300"
+            >
+              Usulan v{current + 1}.0 menunggu review
+            </button>
           )}
         </div>
+
         <div className="flex flex-wrap items-center gap-1.5">
-          {statusActions.map((action) => (
-            <Button
-              key={action.status}
-              size="sm"
-              variant={action.status === "APPROVED" ? "default" : "outline"}
-              disabled={statusBusy}
-              onClick={() => void changeStatus(action.status)}
-            >
-              {action.label}
-            </Button>
-          ))}
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            Versi
-            <select
-              value={selected}
-              onChange={(event) => {
-                const version = Number(event.target.value);
-                setSelected(version);
-                if (version === current) onClearDiff();
-                else onDiff(version, current);
-              }}
-              className="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
-            >
-              {versions.length === 0 && <option value={current}>v{current}</option>}
-              {versions.map((version) => (
-                <option key={version.id} value={version.versionNumber}>
-                  v{version.versionNumber}
-                  {version.versionNumber === current ? " (aktif)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selected !== current && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              onClick={() => void onRestore(selected)}
-            >
-              <RotateCcw size={14} /> {busy ? "Memulihkan…" : "Pulihkan"}
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={() => void handleExport("markdown")}>
-            <Download size={14} /> MD
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => void handleExport("pdf")}>
-            <FileDown size={14} /> PDF
-          </Button>
-        </div>
-      </div>
+          {!pending &&
+            statusActions.map((action) => (
+              <Button
+                key={action.status}
+                size="sm"
+                variant={action.status === "APPROVED" ? "success" : "outline"}
+                disabled={statusBusy}
+                onClick={() => void changeStatus(action.status)}
+              >
+                {action.label}
+              </Button>
+            ))}
 
-      {pending && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/30 bg-warning/10 px-4 py-2.5">
-          <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
-            <Badge variant="warning">Pratinjau</Badge>
-            <span className="truncate text-muted-foreground">
-              {brd.pendingChangeSummary ?? "Perubahan menunggu persetujuan"}
-            </span>
-            {pendingCounts && (
-              <span className="font-medium">
-                <span className="text-diff-added-foreground">+{pendingCounts.added}</span>{" "}
-                <span className="text-diff-removed-foreground">−{pendingCounts.removed}</span>
-              </span>
+          <div className="relative hidden md:block">
+            <Search size={12} className="absolute top-1/2 left-2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Cari klausul…"
+              aria-label="Cari klausul di dokumen"
+              className="w-32 rounded border border-slate-200 bg-slate-50 py-1 pr-2 pl-6 text-xs text-slate-900 transition-all focus:w-44 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-900"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowToc((open) => !open)}
+            title="Daftar Isi"
+            aria-pressed={showToc}
+            className={cn(
+              "grid size-7 cursor-pointer place-items-center rounded border transition-colors",
+              showToc
+                ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
+                : "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
             )}
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" disabled={approvalBusy} onClick={() => void approve()}>
-              <Check size={14} /> {approvalBusy ? "Menyetujui…" : "Setujui"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={approvalBusy}
-              onClick={() => void reject()}
-            >
-              <X size={14} /> Tolak
-            </Button>
-          </div>
-        </div>
-      )}
+          >
+            <ListTree size={13} />
+          </button>
 
-      <div className="flex items-center gap-1 border-b border-border/70 bg-muted/30 px-3 py-1.5">
-        <ViewToggle active={view === "document"} onClick={() => setView("document")}>
-          Dokumen
-        </ViewToggle>
-        <ViewToggle active={view === "changes"} onClick={() => setView("changes")}>
-          Perubahan
-          {pendingCounts && (
-            <span className="ml-1 text-[10px]">
-              +{pendingCounts.added}/−{pendingCounts.removed}
-            </span>
-          )}
-        </ViewToggle>
+          <Button variant="outline" size="sm" onClick={() => void copyText(content, "doc")}>
+            {copied === "doc" ? (
+              <Check size={13} className="text-emerald-600" />
+            ) : (
+              <Copy size={13} className="text-slate-500" />
+            )}
+            {copied === "doc" ? "Tersalin" : "Salin"}
+          </Button>
+
+          <Button variant="outline" size="sm" onClick={() => void handleExport("markdown")}>
+            <Download size={13} className="text-slate-500" /> .MD
+          </Button>
+
+          <Button variant="solid" size="sm" onClick={() => void handleExport("pdf")}>
+            <FileDown size={13} /> PDF
+          </Button>
+        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto p-4">
-        {view === "changes" ? (
-          <BrdDiffView
-            {...(pending
-              ? { before: content, after: pending }
-              : diff
-                ? { diff }
-                : { before: content, after: content })}
-          />
-        ) : (
-          <div className="mx-auto w-full max-w-4xl">
-            <MarkdownContent source={content} colorMode={dark ? "dark" : "light"} />
+      <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3.5 text-xs font-semibold dark:border-slate-800 dark:bg-slate-900">
+        <TabButton active={tab === "preview"} onClick={() => setTab("preview")}>
+          <FileText size={12} /> Preview BRD
+        </TabButton>
+        <TabButton active={tab === "diff"} onClick={() => setTab("diff")}>
+          <SplitSquareVertical size={12} /> Review Diff
+          {pending && (
+            <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-amber-500" />
+          )}
+        </TabButton>
+        <TabButton active={tab === "history"} onClick={() => setTab("history")}>
+          <History size={12} /> Riwayat ({versions.length})
+        </TabButton>
+        <TabButton active={tab === "raw"} onClick={() => setTab("raw")}>
+          <Code size={12} /> Raw .MD
+        </TabButton>
+      </div>
+
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        {showToc && (
+          <div className="w-56 shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-1.5 dark:border-slate-800">
+              <span className="text-[10px] font-bold tracking-wider text-slate-600 uppercase dark:text-slate-400">
+                Daftar Isi
+              </span>
+              <span className="font-mono text-[10px] text-slate-400">{toc.length}</span>
+            </div>
+            <div className="space-y-0.5 text-xs">
+              {toc.length === 0 && <p className="p-1 text-[11px] text-slate-400">Tanpa heading.</p>}
+              {toc.map((item) => (
+                <button
+                  key={`${item.line}-${item.slug}`}
+                  type="button"
+                  onClick={() => scrollToHeading(item.text)}
+                  className="w-full cursor-pointer truncate rounded p-1 text-left text-[11px] text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  style={{ paddingLeft: `${(item.level - 2) * 8 + 4}px` }}
+                >
+                  {item.text}
+                </button>
+              ))}
+            </div>
           </div>
         )}
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-3.5 md:p-5">
+          {tab === "preview" && (
+            <div
+              ref={previewRef}
+              className="mx-auto max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-xs md:p-8 dark:border-slate-800 dark:bg-slate-900"
+            >
+              <MarkdownContent source={content} />
+            </div>
+          )}
+
+          {tab === "diff" && (
+            <div className="h-full">
+              <BrdDiffView
+                currentVersion={current}
+                content={content}
+                pending={pending}
+                pendingSummary={brd.pendingChangeSummary}
+                compare={compare}
+                busy={busy || approvalBusy}
+                onApprove={() => void approve()}
+                onReject={() => void reject()}
+                onCloseCompare={closeCompare}
+              />
+            </div>
+          )}
+
+          {tab === "history" && (
+            <div className="mx-auto max-w-2xl">
+              <VersionHistory
+                versions={versions}
+                currentVersion={current}
+                compareFrom={compareFrom}
+                onOpen={openVersion}
+                onRestore={(version) => {
+                  onRestore(version);
+                  setCompareFrom(null);
+                  setTab("preview");
+                }}
+                busy={busy}
+              />
+            </div>
+          )}
+
+          {tab === "raw" && (
+            <div className="mx-auto max-w-4xl overflow-x-auto rounded-lg border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-300">
+              <div className="mb-2 flex items-center justify-between border-b border-slate-800 pb-2 text-slate-400">
+                <span className="text-[11px]">Markdown Source (v{current}.0)</span>
+                <button
+                  type="button"
+                  onClick={() => void copyText(content, "raw")}
+                  className="cursor-pointer rounded bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300 transition-colors hover:bg-slate-700"
+                >
+                  {copied === "raw" ? "Tersalin!" : "Copy Code"}
+                </button>
+              </div>
+              <pre className="leading-relaxed whitespace-pre-wrap">{content}</pre>
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
 }
 
-function statusVariant(status: BrdDocument["status"]): "secondary" | "info" | "success" {
+function statusTone(status: BrdDocument["status"]): "neutral" | "info" | "success" {
   if (status === "APPROVED") return "success";
   if (status === "IN_REVIEW") return "info";
-  return "secondary";
+  return "neutral";
 }
 
-function ViewToggle({
+function TabButton({
   active,
   onClick,
   children,
@@ -276,10 +402,10 @@ function ViewToggle({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+        "flex cursor-pointer items-center gap-1.5 border-b-2 py-2 transition-colors",
         active
-          ? "bg-background text-foreground shadow-xs"
-          : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
+          ? "border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100"
+          : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
       )}
     >
       {children}

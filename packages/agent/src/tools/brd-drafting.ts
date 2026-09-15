@@ -116,7 +116,9 @@ function sectionBody(
   const hint = KNOWN_SECTION_HINTS.find((candidate) =>
     candidate.match.test(`${section.id} ${section.title} ${section.purpose ?? ""}`),
   );
-  const body = hint?.body ?? section.expectedFormat ?? section.purpose ?? "";
+  // purpose/expectedFormat adalah deskripsi struktur, bukan isi dokumen: jangan
+  // pernah dipakai sebagai badan section. Tanpa hint, biarkan penulis mengisi.
+  const body = hint?.body ?? `- (see ${section.id})`;
   return body
     .replaceAll(
       "{{templateName}}",
@@ -127,6 +129,162 @@ function sectionBody(
     .replaceAll("{{assumptions}}", fallback.assumptionsText)
     .replaceAll("{{referenceContext}}", fallback.referenceText)
     .replaceAll("{{flowchart}}", fallback.flowchart);
+}
+
+export type TemplateExtraction = z.infer<typeof TemplateExtractionSchema>;
+
+const COPIED_WINDOW_CHARS = 60;
+
+function normalizeText(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * True bila nilai memuat potongan verbatim (>= 60 karakter) dari dokumen sumber.
+ * Dipakai untuk mencegah isi dokumen template ikut tersimpan sebagai "purpose".
+ */
+export function copiedFromTemplateSource(value: string, source: string): boolean {
+  const candidate = normalizeText(value);
+  const haystack = normalizeText(source);
+  if (candidate.length < COPIED_WINDOW_CHARS || !haystack) return false;
+  for (let start = 0; start + COPIED_WINDOW_CHARS <= candidate.length; start += 20) {
+    if (haystack.includes(candidate.slice(start, start + COPIED_WINDOW_CHARS))) return true;
+  }
+  return false;
+}
+
+const CONTENT_SIGNALS: RegExp[] = [
+  /\b(BR|FR|NFR|UC|API)[-_ ]?\d{1,4}\b/i,
+  /https?:\/\//i,
+  /\b\d+(?:[.,]\d+)?\s*(?:%|ms|detik|menit|jam|hari|juta|ribu)\b/i,
+];
+
+/** Singkatan generik/teknis yang aman muncul di deskripsi struktur. */
+const GENERIC_ACRONYMS = new Set([
+  "BRD",
+  "API",
+  "UI",
+  "UX",
+  "SLA",
+  "KPI",
+  "BR",
+  "FR",
+  "NFR",
+  "QA",
+  "UAT",
+  "RACI",
+  "ID",
+  "IT",
+  "MD",
+  "PDF",
+  "DOCX",
+  "XLSX",
+  "CSV",
+  "REST",
+  "JSON",
+  "XML",
+  "SQL",
+  "HTTP",
+  "HTTPS",
+  "URL",
+  "URI",
+  "CRUD",
+  "SSO",
+  "JWT",
+  "CORS",
+]);
+
+/** Frasa generik yang memang boleh tampil dalam Title Case. */
+const GENERIC_PHRASES = [
+  "business requirement document",
+  "product requirement document",
+  "user story",
+  "acceptance criteria",
+];
+
+const PROJECT_PATTERNS: RegExp[] = [
+  /\b(?:dokumen|file|berkas)\s+(?:ini|tersebut|yang diunggah)\b/i,
+  /\b(?:isi|konten)\s+dokumen\b/i,
+  /\b(?:aplikasi|sistem|platform|modul|produk|fitur|proyek|inisiatif)\s+[A-Z][\w-]+/,
+];
+
+/**
+ * Deteksi teks yang menyebut hal spesifik proyek (nama sistem, singkatan seperti
+ * "LMS", frasa Title Case, atau rujukan ke dokumen sumber) alih-alih struktur.
+ */
+export function looksProjectSpecific(value: string): boolean {
+  if (!value.trim()) return false;
+
+  const acronyms = value.match(/\b[A-Z]{3,}\b/g) ?? [];
+  if (acronyms.some((acronym) => !GENERIC_ACRONYMS.has(acronym))) return true;
+
+  if (/(?:^|[\s(])(?:[A-Z][a-z]+\s+){1,}[A-Z][a-z]+/.test(value)) {
+    const normalized = normalizeText(value);
+    if (!GENERIC_PHRASES.some((phrase) => normalized.includes(phrase))) return true;
+  }
+
+  return PROJECT_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+/** Nilai yang menyerupai konten bisnis (bukan deskripsi struktur) dianggap bocor. */
+export function looksLikeTemplateContent(value: string, source: string): boolean {
+  if (copiedFromTemplateSource(value, source)) return true;
+  if (looksProjectSpecific(value)) return true;
+  return CONTENT_SIGNALS.filter((pattern) => pattern.test(value)).length >= 2;
+}
+
+/** Deskripsi template generik yang diturunkan dari struktur, bukan isi dokumen. */
+function genericTemplateDescription(sections: TemplateExtraction["sections"]): string {
+  const titles = [...sections]
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((section) => section.title)
+    .filter(Boolean);
+  const shown = titles.slice(0, 4);
+  const rest = titles.length - shown.length;
+  return `Template BRD dengan ${sections.length} bab standar: ${shown.join(", ")}${
+    rest > 0 ? `, dan ${rest} bab lainnya` : ""
+  }.`;
+}
+
+/**
+ * Buang purpose/format/metadata yang menyalin atau menyebut isi dokumen. Nilai
+ * section yang bocor menjadi null; metadata yang bocor digeneralisasi agar
+ * template tetap dapat dipakai ulang lintas inisiatif.
+ */
+export function sanitizeTemplateExtraction(
+  extraction: TemplateExtraction,
+  source: string,
+): TemplateExtraction {
+  const clean = (value: string | null): string | null => {
+    if (!value) return null;
+    return looksLikeTemplateContent(value, source) ? null : value;
+  };
+
+  const templateName = extraction.metadata.templateName;
+  const description = extraction.metadata.description;
+
+  return {
+    ...extraction,
+    sections: extraction.sections.map((section) => ({
+      ...section,
+      purpose: clean(section.purpose),
+      expectedFormat: clean(section.expectedFormat),
+    })),
+    acceptanceStyle: clean(extraction.acceptanceStyle),
+    metadata: {
+      ...extraction.metadata,
+      templateName:
+        templateName &&
+        !looksProjectSpecific(templateName) &&
+        !copiedFromTemplateSource(templateName, source)
+          ? templateName
+          : "Template BRD Standar",
+      description:
+        description && !looksLikeTemplateContent(description, source)
+          ? description
+          : genericTemplateDescription(extraction.sections),
+    },
+  };
 }
 
 export function normalizeTemplateStructure(value: unknown): BrdTemplateStructure | null {
