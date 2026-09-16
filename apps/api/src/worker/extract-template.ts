@@ -143,9 +143,7 @@ export async function extractTemplate(job: Job<TemplateExtractionJob>) {
         data: {
           status: "FAILED",
           error:
-            error instanceof Error
-              ? error.message.slice(0, 1000)
-              : "Template extraction failed",
+            error instanceof Error ? error.message.slice(0, 1000) : "Template extraction failed",
         },
       });
     } catch (updateError) {

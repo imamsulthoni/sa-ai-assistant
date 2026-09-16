@@ -466,10 +466,16 @@ async function flowTemplateBlock(userId: string): Promise<string | null> {
   return active ? templateInstructionBlock(active.structure) : null;
 }
 
-async function collectAgent(
+/**
+ * Jalankan agent sampai selesai, atau berhenti lebih awal begitu tool yang
+ * diminta sudah menghasilkan output (mis. elicit_clarifications). Early exit
+ * menghemat satu turn LLM yang hanya mengulang hasil tool.
+ */
+export async function collectAgent(
   agent: Awaited<ReturnType<typeof agentFor>>,
   prompt: string,
   context: FlowContext,
+  options: { stopOnTool?: string } = {},
 ) {
   let text = "";
   const toolResults: Array<{ toolName?: string; output?: { type?: string; value?: unknown } }> = [];
@@ -486,7 +492,12 @@ async function collectAgent(
   }
   for await (const event of agent.stream(run)) {
     if (event.type === "text_delta") text += event.delta ?? "";
-    if (event.type === "tool_result") toolResults.push(event);
+    if (event.type === "tool_result") {
+      toolResults.push(event);
+      const output = (event as { output?: { value?: unknown } }).output;
+      const hasOutput = output?.value != null;
+      if (options.stopOnTool && event.toolName === options.stopOnTool && hasOutput) break;
+    }
   }
   return { text, toolResults };
 }
@@ -532,7 +543,9 @@ export async function clarifyFlow(context: FlowContext, input: FlowInput) {
   ]
     .filter(Boolean)
     .join("\n\n");
-  const result = await collectAgent(agent, prompt, context);
+  const result = await collectAgent(agent, prompt, context, {
+    stopOnTool: "elicit_clarifications",
+  });
   const tool = result.toolResults.find((item) => item.toolName === "elicit_clarifications");
   const parsed = safeParse(
     ClarificationOutputSchema,

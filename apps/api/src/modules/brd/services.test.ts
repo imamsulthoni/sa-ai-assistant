@@ -13,7 +13,7 @@ const prismaMock = vi.hoisted(() => ({
 
 vi.mock("../../lib/prisma.js", () => ({ prisma: prismaMock }));
 
-import { rejectBrdModification, stageBrdModification } from "./services.js";
+import { collectAgent, rejectBrdModification, stageBrdModification } from "./services.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -79,6 +79,68 @@ describe("stageBrdModification", () => {
 
     expect(result).toMatchObject({ ok: false, reason: "pending_exists" });
     expect(prismaMock.brdDocument.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("collectAgent", () => {
+  const context = { userId: "user-1", sessionId: "session-1" };
+
+  function fakeAgent(events: unknown[]) {
+    return {
+      memory: undefined,
+      stream: async function* () {
+        for (const event of events) yield event;
+      },
+    } as never;
+  }
+
+  it("stops early once the requested tool produced its output", async () => {
+    const result = await collectAgent(
+      fakeAgent([
+        { type: "turn_start" },
+        { type: "tool_result", toolName: "search_context" },
+        { type: "tool_result", toolName: "elicit_clarifications", output: { value: { ok: true } } },
+        { type: "text_delta", delta: "turn echo yang tidak perlu" },
+      ]),
+      "prompt",
+      context,
+      { stopOnTool: "elicit_clarifications" },
+    );
+
+    expect(result.toolResults.map((event) => event.toolName)).toEqual([
+      "search_context",
+      "elicit_clarifications",
+    ]);
+    expect(result.text).toBe("");
+  });
+
+  it("keeps streaming when the stop tool returned no usable output", async () => {
+    const result = await collectAgent(
+      fakeAgent([
+        { type: "tool_result", toolName: "elicit_clarifications", output: { value: null } },
+        { type: "text_delta", delta: '{"clarification_questions":[]}' },
+      ]),
+      "prompt",
+      context,
+      { stopOnTool: "elicit_clarifications" },
+    );
+
+    expect(result.text).toBe('{"clarification_questions":[]}');
+    expect(result.toolResults).toHaveLength(1);
+  });
+
+  it("reads the full stream when no stop tool is configured", async () => {
+    const result = await collectAgent(
+      fakeAgent([
+        { type: "tool_result", toolName: "search_context" },
+        { type: "text_delta", delta: "jawaban final" },
+      ]),
+      "prompt",
+      context,
+    );
+
+    expect(result.text).toBe("jawaban final");
+    expect(result.toolResults).toHaveLength(1);
   });
 });
 
