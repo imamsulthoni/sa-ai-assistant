@@ -20,12 +20,10 @@ export const BRD_STATUS_ACTIONS: Record<
   string,
   Array<{ label: string; status: "DRAFT" | "IN_REVIEW" | "APPROVED" }>
 > = {
-  DRAFT: [{ label: "Ajukan review", status: "IN_REVIEW" }],
   IN_REVIEW: [
     { label: "Setujui", status: "APPROVED" },
     { label: "Kembalikan", status: "DRAFT" },
   ],
-  APPROVED: [{ label: "Buka kembali", status: "IN_REVIEW" }],
 };
 
 export const TOOL_LABEL: Record<string, string> = {
@@ -144,6 +142,7 @@ export const COPY = {
     dismissImport: "Batalkan antrian impor",
   },
   flow: {
+    clarifyTitle: "Menyiapkan Pertanyaan Klarifikasi",
     generatingTitle: "Menyusun Dokumen BRD",
     resumeTitle: "Penyusunan terputus",
     resumeBody:
@@ -163,8 +162,7 @@ export const COPY = {
     preparing: "Menyiapkan BRD…",
     submitRound1: "Lanjut ke Putaran 2",
     submitRound2: "Generate Dokumen BRD v1",
-    skip: "Lanjut dengan asumsi",
-    skipHint: "Putaran terakhir — kekurangan akan dicatat sebagai asumsi eksplisit di dalam BRD.",
+    completeHint: "Lengkapi semua jawaban agar BRD tersusun selengkap mungkin.",
     nextRoundHint:
       "Anda akan mendapat satu putaran pertanyaan lanjutan bila masih ada yang belum jelas.",
   },
@@ -185,7 +183,7 @@ export const COPY = {
     technicalConstraints: "Batasan Teknis / Regulasi",
     startClarify: "Mulai Klarifikasi",
     clarifyHint: "Dilanjutkan 2 putaran klarifikasi ringkas sebelum generate BRD.",
-    validation: "Mohon lengkapi minimal Nama Fitur dan User Story Utama.",
+    validation: "Tuliskan user story terlebih dahulu.",
     pasteRequired: "Mohon pilih berkas atau tempelkan isi teks terlebih dahulu.",
     uploadTitle: "Upload / Tempel Dokumen Acuan",
     pickFile: "Pilih Dokumen",
@@ -199,6 +197,10 @@ export const COPY = {
     importing: "Memproses dokumen…",
     importingHint:
       "Mengekstrak teks dan mengindeks dokumen. PDF hasil scan bisa memakan waktu lebih lama.",
+    templateRequired:
+      "Template struktur BRD belum diatur, jadi pembuatan BRD dari user story belum bisa dimulai.",
+    templateBadge: "Template BRD belum diatur — klik untuk mengaturnya dulu.",
+    manageTemplate: "Atur template",
   },
   notice: {
     brdReady: (title: string) =>
@@ -221,6 +223,8 @@ export const COPY = {
     generationTimeout:
       "Penyusunan memakan waktu lebih lama dari biasanya. Periksa koneksi lalu coba lanjutkan lagi.",
     attachmentTooLarge: (name: string, limit: string) => `${name} melebihi batas ${limit}.`,
+    brdImportTooLarge: (name: string, limit: string) =>
+      `Berkas BRD “${name}” melebihi batas ${limit}.`,
     uploadFailed: "Gagal mengunggah berkas.",
     deleteFailed: "Gagal menghapus berkas.",
   },

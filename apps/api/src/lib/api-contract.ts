@@ -35,12 +35,28 @@ export const BrdDiffQuerySchema = z.object({
   to: z.coerce.number().int().positive(),
 });
 
-// PRD §4H: provider/model/baseUrl/credentials are server-managed (env).
-// PATCH /settings only accepts user-editable preferences; any other keys
-// sent by older clients are stripped by zod and ignored.
+// Provider/model/baseUrl/credentials can be overridden per user; empty or null
+// values fall back to the server-managed defaults from env.
+const optionalModelId = z.string().trim().max(200).nullable().optional();
+
 export const SettingsPatchSchema = z.object({
   theme: z.string().trim().min(1).max(40).optional(),
   systemPrompt: z.string().max(20_000).nullable().optional(),
+  aiProvider: z.enum(["openrouter", "custom"]).optional(),
+  aiModel: optionalModelId,
+  easyModel: optionalModelId,
+  mediumModel: optionalModelId,
+  hardModel: optionalModelId,
+  customBaseUrl: z
+    .string()
+    .trim()
+    .max(300)
+    .refine((value) => value === "" || /^https?:\/\//i.test(value), {
+      message: "Base URL harus diawali http:// atau https://",
+    })
+    .nullable()
+    .optional(),
+  apiKey: z.string().trim().max(500).nullable().optional(),
 });
 
 // Structure is validated and normalized server-side via the agent package

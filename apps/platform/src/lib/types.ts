@@ -63,12 +63,29 @@ export type Settings = {
   id: string;
   userId: string;
   theme: "light" | "dark" | "system";
-  aiProvider: string;
-  aiModel: string;
+  aiProvider: "openrouter" | "custom";
+  aiModel: string | null;
+  easyModel: string | null;
+  mediumModel: string | null;
+  hardModel: string | null;
   customBaseUrl: string | null;
   encryptedApiKey: string | null;
   systemPrompt: string | null;
   activeTemplateId: string | null;
+};
+
+export type ModelDefaults = {
+  aiModel: string;
+  easyModel: string;
+  mediumModel: string;
+  hardModel: string;
+  baseUrl: string;
+};
+
+export type SettingsResponse = {
+  settings: Settings | null;
+  modelDefaults: ModelDefaults;
+  hasServerApiKey: boolean;
 };
 
 export type SearchResult = {
@@ -83,6 +100,7 @@ export type SearchResult = {
 export type ClarificationQuestion = {
   id: string;
   question: string;
+  purpose?: string;
   options: string[];
   required: boolean;
 };

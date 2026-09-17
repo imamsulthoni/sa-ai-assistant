@@ -16,9 +16,9 @@ import { useDocuments } from "#/modules/chat/hooks/use-documents";
 import { useBrds } from "#/modules/brd/hooks/use-brds";
 import { useBrdFlow } from "#/modules/brd/hooks/use-brd-flow";
 import { useVersionHistory } from "#/modules/brd/hooks/use-version-history";
-import { NewBrdPanel } from "#/modules/brd/new-brd-panel";
+import { NewBrdPanel, type NewBrdMode } from "#/modules/brd/new-brd-panel";
 import { FeedbackForm, type ClarificationQuestion } from "#/modules/brd/feedback-form";
-import { GeneratingView } from "#/modules/brd/generating-view";
+import { GeneratingView, type GenerationStage } from "#/modules/brd/generating-view";
 import { DocumentPane, type DocumentTab } from "#/modules/brd/document-pane";
 import { DocumentsModal } from "#/modules/brd/documents-modal";
 import {
@@ -105,7 +105,7 @@ function Workspace() {
   } = useBrdFlow(activeId);
   const brdSelect = brdState.select;
   const brdRefresh = brdState.refresh;
-  const { template } = useCurrentTemplate();
+  const { template, hasTemplate } = useCurrentTemplate();
 
   const refreshDocuments = useCallback(() => {
     if (!activeId) return;
@@ -122,8 +122,10 @@ function Workspace() {
   const [importing, setImporting] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [generationMode, setGenerationMode] = useState<GenerationMode>(null);
+  const [generationStage, setGenerationStage] = useState<GenerationStage>("clarify");
   const [pendingClarifyStory, setPendingClarifyStory] = useState<string | null>(null);
   const [brdTab, setBrdTab] = useState<DocumentTab>("preview");
+  const [newBrdMode, setNewBrdMode] = useState<NewBrdMode>("story");
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("theme");
@@ -150,9 +152,11 @@ function Workspace() {
     setDraft("");
     setFlowError(null);
     setGenerationMode(null);
+    setGenerationStage("clarify");
     setImporting(false);
     setPendingClarifyStory(null);
     setBrdTab("preview");
+    setNewBrdMode("story");
     pendingImportRef.current = null;
     clarifyResumeRef.current = null;
   }, [activeId]);
@@ -188,6 +192,7 @@ function Workspace() {
     if (flow?.phase) {
       // GENERATING: ikuti hasilnya lewat poll/lanjutkan.
       setPhase("GENERATING");
+      setGenerationStage("generate");
       setUserStory((prev) => prev || (flow.userStory ?? ""));
       setRoundAnswers(flow.answers);
       setGenerationMode((prev) => (prev === "remote" ? "remote" : "resumable"));
@@ -197,9 +202,11 @@ function Workspace() {
     setGenerationMode(null);
   }, [brdState.active, brdState.loading, flow, flowLoading, generationMode]);
 
-  // Ikuti hasil generate yang sedang dipegang request/tab lain.
+  // Ikuti hasil generate yang sedang dipegang request/tab lain. Poll hanya
+  // untuk mode "remote"; saat request lokal kita sendiri sedang berjalan,
+  // mem-poll /flow & /brd hanya menambah trafik dan memicu perlombaan state.
   useEffect(() => {
-    if (phase !== "GENERATING" || !generationMode || !activeId) return;
+    if (phase !== "GENERATING" || generationMode !== "remote" || !activeId) return;
     const startedAt = Date.now();
     const timer = window.setInterval(() => {
       void refreshFlow();
@@ -243,6 +250,7 @@ function Workspace() {
       setFlowError(null);
       setPhase("GENERATING");
       setGenerationMode("local");
+      setGenerationStage("generate");
       try {
         const result = await submitClarification(activeId, {
           userStory: story,
@@ -302,6 +310,11 @@ function Workspace() {
         setQuestions([]);
         setPhase("GENERATING");
         setGenerationMode("local");
+        setGenerationStage("clarify");
+        // Tandai story ini sedang kami klarifikasi sendiri supaya checkpoint
+        // CLARIFYING sementara (tanpa pertanyaan) dari poll tidak memicu
+        // /clarify kedua.
+        clarifyResumeRef.current = story;
         const result = await clarifyBrd(activeId, { userStory: story, round: 1 });
         if (sessionAtStart !== activeIdRef.current) return;
         if (result.clarification_questions.length) {
@@ -312,6 +325,9 @@ function Workspace() {
         } else await runGeneration({}, true, story);
       } catch (caught) {
         if (sessionAtStart !== activeIdRef.current) return;
+        // Tandai story sudah dicoba supaya hydrate effect tidak otomatis
+        // me-retry /clarify yang gagal dalam loop.
+        clarifyResumeRef.current = story;
         setFlowError(messageOf(caught));
         notify.error(COPY.errors.generateStart(messageOf(caught)));
         setGenerationMode(null);
@@ -338,15 +354,11 @@ function Workspace() {
     [roundAnswers, runGeneration],
   );
 
-  const skipClarification = useCallback(() => {
-    setQuestions([]);
-    void runGeneration(roundAnswers, true);
-  }, [roundAnswers, runGeneration]);
-
   const resumeGeneration = useCallback(() => {
     const story = userStory || flow?.userStory || "";
     setPhase("GENERATING");
     setGenerationMode("local");
+    setGenerationStage("generate");
     void runGeneration(roundAnswers, questions.length === 0, story);
   }, [flow?.userStory, questions.length, roundAnswers, runGeneration, userStory]);
 
@@ -610,11 +622,11 @@ function Workspace() {
               round={round}
               initialAnswers={roundAnswers}
               onSubmit={submitAnswers}
-              onSkip={skipClarification}
             />
           ) : phase === "GENERATING" ? (
             <GeneratingView
               templateName={templateLabel}
+              stage={generationStage}
               resumable={generationMode === "resumable"}
               onResume={generationMode === "resumable" ? resumeGeneration : undefined}
             />
@@ -625,12 +637,34 @@ function Workspace() {
               busy={streaming}
               importing={importing}
               templateName={templateLabel}
+              templateReady={hasTemplate}
               onOpenTemplateManager={() => openSettings("template")}
+              onModeChange={setNewBrdMode}
               initialStory={userStory}
             />
           )}
         </div>
       )}
+
+      {!hasTemplate &&
+        !brdState.active &&
+        phase === "EMPTY_SESSION" &&
+        newBrdMode === "story" &&
+        !importing &&
+        !pendingImport && (
+          <button
+            type="button"
+            onClick={() => openSettings("template")}
+            className="fixed right-4 bottom-4 z-40 inline-flex max-w-[calc(100vw-2rem)] cursor-pointer items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900 shadow-lg transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+          >
+            <span className="relative flex size-2 shrink-0">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-500 opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-amber-500" />
+            </span>
+            <Layers size={13} className="shrink-0" />
+            {COPY.newBrd.templateBadge}
+          </button>
+        )}
 
       <DocumentsModal
         open={documentsOpen}

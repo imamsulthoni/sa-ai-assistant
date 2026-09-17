@@ -10,11 +10,23 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AgentDemoRouteImport } from './routes/agent-demo'
+import { Route as MermaidDemoRouteImport } from './routes/mermaid-demo'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentDemoRoute = AgentDemoRouteImport.update({
+  id: '/agent-demo',
+  path: '/agent-demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MermaidDemoRoute = MermaidDemoRouteImport.update({
+  id: '/mermaid-demo',
+  path: '/mermaid-demo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkspaceRoute = WorkspaceRouteImport.update({
@@ -25,27 +37,35 @@ const WorkspaceRoute = WorkspaceRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agent-demo': typeof AgentDemoRoute
+  '/mermaid-demo': typeof MermaidDemoRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agent-demo': typeof AgentDemoRoute
+  '/mermaid-demo': typeof MermaidDemoRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agent-demo': typeof AgentDemoRoute
+  '/mermaid-demo': typeof MermaidDemoRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/workspace'
+  fullPaths: '/' | '/agent-demo' | '/mermaid-demo' | '/workspace'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/workspace'
-  id: '__root__' | '/' | '/workspace'
+  to: '/' | '/agent-demo' | '/mermaid-demo' | '/workspace'
+  id: '__root__' | '/' | '/agent-demo' | '/mermaid-demo' | '/workspace'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentDemoRoute: typeof AgentDemoRoute
+  MermaidDemoRoute: typeof MermaidDemoRoute
   WorkspaceRoute: typeof WorkspaceRoute
 }
 
@@ -56,6 +76,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent-demo': {
+      id: '/agent-demo'
+      path: '/agent-demo'
+      fullPath: '/agent-demo'
+      preLoaderRoute: typeof AgentDemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mermaid-demo': {
+      id: '/mermaid-demo'
+      path: '/mermaid-demo'
+      fullPath: '/mermaid-demo'
+      preLoaderRoute: typeof MermaidDemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/workspace': {
@@ -70,6 +104,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentDemoRoute: AgentDemoRoute,
+  MermaidDemoRoute: MermaidDemoRoute,
   WorkspaceRoute: WorkspaceRoute,
 }
 export const routeTree = rootRouteImport

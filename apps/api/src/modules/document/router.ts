@@ -2,7 +2,12 @@ import { Hono } from "hono";
 import { prisma } from "../../lib/prisma.js";
 import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
 import { documentQueue, retryPolicies } from "../../lib/queue.js";
-import { DOCUMENT_MIME_TYPES, MAX_DOCUMENT_SIZE, UploadDocumentSchema } from "./schema.js";
+import {
+  DOCUMENT_MIME_TYPES,
+  MAX_ATTACHMENT_SIZE,
+  MAX_BRD_IMPORT_SIZE,
+  UploadDocumentSchema,
+} from "./schema.js";
 import { deleteDocument, deleteDocumentVectors, documentUrl, uploadDocument } from "./services.js";
 import { documentFileType } from "./types.js";
 import { clearPendingImport, markPendingImport } from "../brd/flow-state.js";
@@ -33,7 +38,10 @@ export const documentModule = new Hono()
     if (!parsed.success) return c.json({ error: "A file is required" }, 400);
 
     const file = parsed.data.file;
-    if (file.size > MAX_DOCUMENT_SIZE) {
+    // BRD import boleh lebih besar (20MB) daripada lampiran biasa (10MB).
+    const brdImport = form.get("brdImport") === "true";
+    const maxSize = brdImport ? MAX_BRD_IMPORT_SIZE : MAX_ATTACHMENT_SIZE;
+    if (file.size > maxSize) {
       return c.json({ error: "The file exceeds the upload size limit" }, 413);
     }
 
@@ -59,7 +67,6 @@ export const documentModule = new Hono()
 
     // Marked in the same request that creates the document, so an unmount
     // between upload and import can never lose the pending intent.
-    const brdImport = form.get("brdImport") === "true";
     if (brdImport) {
       await markPendingImport({ userId, sessionId }, document.id);
     }

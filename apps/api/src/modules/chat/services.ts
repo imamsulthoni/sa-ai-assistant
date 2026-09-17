@@ -13,6 +13,7 @@ import {
   DEFAULT_TRANSFORMERS_EMBEDDING_MODEL,
 } from "@anvia/transformers";
 import { prisma } from "../../lib/prisma.js";
+import { decryptSecret } from "../../lib/crypto.js";
 import { agentCacheKey, agentFingerprint } from "./utils.js";
 import type { AgentPhase } from "./types.js";
 
@@ -134,6 +135,42 @@ export async function activeTemplateFor(
   return { templateId: template.id, updatedAt: template.updatedAt.toISOString(), structure };
 }
 
+/** Resolve router options from the user's saved model settings, dengan fallback env. */
+function modelRouterOptionsFor(settings: {
+  aiProvider: string;
+  aiModel: string | null;
+  easyModel: string | null;
+  mediumModel: string | null;
+  hardModel: string | null;
+  customBaseUrl: string | null;
+  encryptedApiKey: string | null;
+} | null) {
+  let userApiKey: string | undefined;
+  if (settings?.encryptedApiKey) {
+    try {
+      userApiKey = decryptSecret(settings.encryptedApiKey);
+    } catch (error) {
+      console.warn("Failed to decrypt user API key; falling back to server key", {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  }
+  const provider = settings?.aiProvider ?? "openrouter";
+  const baseUrl =
+    settings?.customBaseUrl ??
+    (provider === "openrouter"
+      ? (process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1")
+      : undefined);
+  return {
+    apiKey: userApiKey,
+    baseUrl,
+    defaultModelId: settings?.aiModel ?? undefined,
+    easyModelId: settings?.easyModel ?? undefined,
+    mediumModelId: settings?.mediumModel ?? undefined,
+    hardModelId: settings?.hardModel ?? undefined,
+  };
+}
+
 export async function agentFor(
   userId: string,
   sessionId: string,
@@ -155,13 +192,8 @@ export async function agentFor(
   const cached = agentCache.get(cacheKey);
   if (cached?.fingerprint === fingerprint) return cached.agent;
   const agent = createSystemAnalystAgent({
-    // PRD §4H: provider/model/baseUrl/credentials are server-managed via env
-    // (the agent package falls back to OPENAI_* env vars); never per-user.
-    modelId: undefined,
-    apiKey: undefined,
-    baseUrl: undefined,
-    // Empty object activates the env-driven per-phase model routing.
-    modelRouter: {},
+    // Model routing mengikuti settings user; kosong = default env server.
+    modelRouter: modelRouterOptionsFor(settings),
     phase,
     contextAdapters: await adaptersFor(userId, sessionId, brdId),
     allowedTools: allowedToolsForPhase(phase),

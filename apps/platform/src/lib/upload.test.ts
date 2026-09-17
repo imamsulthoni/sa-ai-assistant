@@ -1,20 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { resolveMaxUploadBytes } from "./upload.js";
+import {
+  ATTACHMENT_MAX_UPLOAD_BYTES,
+  ATTACHMENT_MAX_UPLOAD_LABEL,
+  BRD_IMPORT_MAX_UPLOAD_BYTES,
+  BRD_IMPORT_MAX_UPLOAD_LABEL,
+} from "./upload.js";
 
-describe("resolveMaxUploadBytes", () => {
-  it("falls back to the API default when unset", () => {
-    expect(resolveMaxUploadBytes(undefined)).toBe(50 * 1024 * 1024);
-    expect(resolveMaxUploadBytes("")).toBe(50 * 1024 * 1024);
+describe("upload limits", () => {
+  it("caps session attachments at 10MB", () => {
+    expect(ATTACHMENT_MAX_UPLOAD_BYTES).toBe(10 * 1024 * 1024);
+    expect(ATTACHMENT_MAX_UPLOAD_LABEL).toBe("10 MB");
   });
 
-  it("accepts a positive override", () => {
-    expect(resolveMaxUploadBytes("10485760")).toBe(10 * 1024 * 1024);
-    expect(resolveMaxUploadBytes(2048)).toBe(2048);
-  });
-
-  it("rejects invalid values", () => {
-    expect(resolveMaxUploadBytes("bukan-angka")).toBe(50 * 1024 * 1024);
-    expect(resolveMaxUploadBytes("-1")).toBe(50 * 1024 * 1024);
-    expect(resolveMaxUploadBytes("0")).toBe(50 * 1024 * 1024);
+  it("caps BRD import at 20MB", () => {
+    expect(BRD_IMPORT_MAX_UPLOAD_BYTES).toBe(20 * 1024 * 1024);
+    expect(BRD_IMPORT_MAX_UPLOAD_LABEL).toBe("20 MB");
   });
 });

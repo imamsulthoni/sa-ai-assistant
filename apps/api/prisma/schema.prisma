@@ -190,8 +190,11 @@ model UserSetting {
   id               String   @id @default(cuid())
   userId           String   @unique
   theme            String   @default("system")
-  aiProvider       String   @default("openai")
-  aiModel          String   @default("gpt-4o-mini")
+  aiProvider       String   @default("openrouter")
+  aiModel          String?
+  easyModel        String?
+  mediumModel      String?
+  hardModel        String?
   customBaseUrl    String?
   encryptedApiKey  String?
   systemPrompt     String?

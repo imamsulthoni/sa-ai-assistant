@@ -9,14 +9,14 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "#/components/base/button";
-import { Input, Textarea } from "#/components/base/input";
+import { Textarea } from "#/components/base/input";
 import { COPY } from "#/lib/copy";
 import {
-  composeUserStory,
-  EMPTY_STORY_FIELDS,
-  parseUserStory,
-  type BrdStoryFields,
-} from "#/lib/story-input";
+  ATTACHMENT_MAX_UPLOAD_BYTES,
+  ATTACHMENT_MAX_UPLOAD_LABEL,
+  BRD_IMPORT_MAX_UPLOAD_BYTES,
+  BRD_IMPORT_MAX_UPLOAD_LABEL,
+} from "#/lib/upload";
 
 type NewBrdPanelProps = {
   onGenerate: (story: string, file?: File) => void;
@@ -24,51 +24,13 @@ type NewBrdPanelProps = {
   busy?: boolean;
   importing?: boolean;
   templateName?: string | null;
+  templateReady?: boolean;
   onOpenTemplateManager?: () => void;
+  onModeChange?: (mode: NewBrdMode) => void;
   initialStory?: string;
 };
 
-type Mode = "story" | "upload";
-
-const PRESET: BrdStoryFields = {
-  featureName: "Open Finance API Account Aggregation & Consent Engine",
-  userStory:
-    "Sebagai nasabah multi-bank, saya ingin menghubungkan rekening bank pihak ketiga via OAuth SNAP BI, agar mutasi dan saldo agregat terpantau real-time dalam satu aplikasi.",
-  businessObjective:
-    "Konsolidasi multi-rekening perbankan ke satu dashboard standar SNAP BI dengan target 200k nasabah aktif.",
-  targetUsers: "Nasabah ritel, wealth management, audit risk officer.",
-  acceptanceCriteria:
-    "Linking < 45 detik; masa berlaku token 90 hari; auto-revoke saat device tampering.",
-  technicalConstraints:
-    "Standar SNAP Bank Indonesia; enkripsi AES-256; autentikasi mTLS dengan sertifikat perbankan.",
-};
-
-function Field({
-  label,
-  required,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  required?: boolean;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
-        {label} {required && <span className="text-rose-500">*</span>}
-      </span>
-      <Input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-      />
-    </label>
-  );
-}
+export type NewBrdMode = "story" | "upload";
 
 export function NewBrdPanel({
   onGenerate,
@@ -76,11 +38,17 @@ export function NewBrdPanel({
   busy,
   importing,
   templateName,
+  templateReady = true,
   onOpenTemplateManager,
+  onModeChange,
   initialStory,
 }: NewBrdPanelProps) {
-  const [mode, setMode] = useState<Mode>("story");
-  const [fields, setFields] = useState<BrdStoryFields>(EMPTY_STORY_FIELDS);
+  const [mode, setModeState] = useState<NewBrdMode>("story");
+  const setMode = (next: NewBrdMode) => {
+    setModeState(next);
+    onModeChange?.(next);
+  };
+  const [story, setStory] = useState("");
   const [reference, setReference] = useState<File>();
   const [brdFile, setBrdFile] = useState<File>();
   const [pasteText, setPasteText] = useState("");
@@ -88,24 +56,45 @@ export function NewBrdPanel({
   const appliedStory = useRef("");
 
   useEffect(() => {
-    const story = initialStory?.trim() ?? "";
-    if (!story || story === appliedStory.current) return;
-    appliedStory.current = story;
-    setFields(parseUserStory(story));
+    const text = initialStory?.trim() ?? "";
+    if (!text || text === appliedStory.current) return;
+    appliedStory.current = text;
+    setStory(text);
   }, [initialStory]);
 
-  const update = (key: keyof BrdStoryFields, value: string) => {
-    setFields((prev) => ({ ...prev, [key]: value }));
-  };
-
   const submitStory = () => {
-    if (!fields.featureName.trim() || !fields.userStory.trim()) {
+    const text = story.trim();
+    if (!text) {
       setError(COPY.newBrd.validation);
       return;
     }
+    if (!templateReady) {
+      setError(COPY.newBrd.templateRequired);
+      return;
+    }
     setError(null);
-    appliedStory.current = composeUserStory(fields);
-    onGenerate(appliedStory.current, reference);
+    appliedStory.current = text;
+    onGenerate(text, reference);
+  };
+
+  const pickReference = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > ATTACHMENT_MAX_UPLOAD_BYTES) {
+      setError(COPY.errors.attachmentTooLarge(file.name, ATTACHMENT_MAX_UPLOAD_LABEL));
+      return;
+    }
+    setError(null);
+    setReference(file);
+  };
+
+  const pickBrdFile = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > BRD_IMPORT_MAX_UPLOAD_BYTES) {
+      setError(COPY.errors.brdImportTooLarge(file.name, BRD_IMPORT_MAX_UPLOAD_LABEL));
+      return;
+    }
+    setError(null);
+    setBrdFile(file);
   };
 
   const submitPaste = () => {
@@ -181,64 +170,39 @@ export function NewBrdPanel({
             <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
               {COPY.newBrd.formTitle}
             </span>
-            <button
-              type="button"
-              onClick={() => setFields(PRESET)}
-              className="cursor-pointer text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              {COPY.newBrd.fillSample}
-            </button>
           </div>
-
-          <Field
-            label={COPY.newBrd.featureName}
-            required
-            value={fields.featureName}
-            onChange={(value) => update("featureName", value)}
-            placeholder="Contoh: Open Finance API Account Aggregation"
-          />
 
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
               {COPY.newBrd.userStory} <span className="text-rose-500">*</span>
             </span>
             <Textarea
-              rows={2}
-              value={fields.userStory}
-              onChange={(event) => update("userStory", event.target.value)}
-              placeholder="Sebagai [pengguna], saya ingin [tindakan], sehingga [manfaat bisnis]…"
+              rows={6}
+              value={story}
+              onChange={(event) => setStory(event.target.value)}
+              placeholder={
+                "Sebagai [pengguna], saya ingin [tindakan], sehingga [manfaat bisnis]…\n\nSertakan juga tujuan bisnis, target pengguna, dan batasan bila ada."
+              }
             />
           </label>
 
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            <Field
-              label={COPY.newBrd.businessObjective}
-              value={fields.businessObjective}
-              onChange={(value) => update("businessObjective", value)}
-              placeholder="Target efisiensi / peningkatan volume"
-            />
-            <Field
-              label={COPY.newBrd.targetUsers}
-              value={fields.targetUsers}
-              onChange={(value) => update("targetUsers", value)}
-              placeholder="Nasabah ritel, staf operasional"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            <Field
-              label={COPY.newBrd.acceptanceCriteria}
-              value={fields.acceptanceCriteria}
-              onChange={(value) => update("acceptanceCriteria", value)}
-              placeholder="Misal: waktu linking < 45 detik"
-            />
-            <Field
-              label={COPY.newBrd.technicalConstraints}
-              value={fields.technicalConstraints}
-              onChange={(value) => update("technicalConstraints", value)}
-              placeholder="Misal: Standar SNAP BI, mTLS"
-            />
-          </div>
+          {!templateReady && (
+            <p className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+              <AlertCircle size={13} className="mt-px shrink-0" />
+              <span>
+                {COPY.newBrd.templateRequired}{" "}
+                {onOpenTemplateManager && (
+                  <button
+                    type="button"
+                    onClick={onOpenTemplateManager}
+                    className="cursor-pointer font-semibold underline underline-offset-2 hover:text-amber-950 dark:hover:text-amber-100"
+                  >
+                    {COPY.newBrd.manageTemplate}
+                  </button>
+                )}
+              </span>
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
             {reference ? (
@@ -254,18 +218,21 @@ export function NewBrdPanel({
                 </button>
               </span>
             ) : (
-              <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200">
+              <label
+                title={COPY.chat.attachTitle(ATTACHMENT_MAX_UPLOAD_LABEL)}
+                className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              >
                 <Paperclip size={12} /> {COPY.newBrd.attach}
                 <input
                   type="file"
                   className="sr-only"
                   accept=".md,.pdf,.docx"
-                  onChange={(event) => setReference(event.target.files?.[0])}
+                  onChange={(event) => pickReference(event.target.files?.[0])}
                 />
               </label>
             )}
 
-            <Button disabled={busy} onClick={submitStory}>
+            <Button disabled={busy || !templateReady} onClick={submitStory}>
               {busy ? <LoaderCircle size={13} className="animate-spin" /> : null}
               {COPY.newBrd.startClarify} <ArrowRight size={13} />
             </Button>
@@ -291,10 +258,12 @@ export function NewBrdPanel({
                 type="file"
                 className="sr-only"
                 accept=".md,.markdown,.docx,.pdf,.txt"
-                onChange={(event) => setBrdFile(event.target.files?.[0])}
+                onChange={(event) => pickBrdFile(event.target.files?.[0])}
               />
             </label>
-            <p className="mt-1 text-[11px] text-slate-400">{COPY.newBrd.uploadHint}</p>
+            <p className="mt-1 text-[11px] text-slate-400">
+              {COPY.newBrd.uploadHint} · maks {BRD_IMPORT_MAX_UPLOAD_LABEL}
+            </p>
           </div>
 
           <label className="block">

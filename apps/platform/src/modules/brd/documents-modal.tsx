@@ -7,7 +7,7 @@ import { Modal } from "#/components/base/modal";
 import type { DocumentSummary } from "#/lib/api";
 import { COPY, formatBytes, statusLabel } from "#/lib/copy";
 import { relativeTime } from "#/lib/time";
-import { MAX_UPLOAD_LABEL } from "#/lib/upload";
+import { ATTACHMENT_MAX_UPLOAD_LABEL } from "#/lib/upload";
 
 type DocumentsModalProps = {
   open: boolean;
@@ -77,7 +77,7 @@ export function DocumentsModal({
               {COPY.documents.dropTitle}
             </p>
             <p className="mt-0.5 text-[11px] text-slate-400">
-              {COPY.documents.dropHint(MAX_UPLOAD_LABEL)}
+              {COPY.documents.dropHint(ATTACHMENT_MAX_UPLOAD_LABEL)}
             </p>
             <label className="mt-2 inline-flex cursor-pointer items-center gap-1 rounded border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
               {uploading ? <LoaderCircle size={12} className="animate-spin" /> : <Plus size={12} />}

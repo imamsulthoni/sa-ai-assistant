@@ -7,6 +7,7 @@ import type {
   SearchResult,
   SessionSummary,
   Settings,
+  SettingsResponse,
 } from "./types.js";
 
 export type {
@@ -18,6 +19,7 @@ export type {
   SearchResult,
   SessionSummary,
   Settings,
+  SettingsResponse,
 } from "./types.js";
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -223,12 +225,12 @@ export async function exportBrd(id: string, format: "markdown" | "pdf"): Promise
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function getSettings(): Promise<{ settings: Settings | null }> {
+export function getSettings(): Promise<SettingsResponse> {
   return request("/settings");
 }
 
 export function updateSettings(
-  input: Partial<Settings> & { apiKey?: string },
+  input: Partial<Settings> & { apiKey?: string | null },
 ): Promise<{ settings: Settings }> {
   return request("/settings", { method: "PATCH", body: JSON.stringify(input) });
 }
@@ -247,6 +249,7 @@ export function getTemplate(
 
 export function getCurrentTemplate(): Promise<{
   document: (DocumentSummary & { templateStructure?: unknown; error: string | null }) | null;
+  activeTemplateId: string | null;
 }> {
   return request("/settings/template");
 }

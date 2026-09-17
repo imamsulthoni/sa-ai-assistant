@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
 import type { SettingsPatchInput } from "../../lib/api-contract.js";
+import { encryptSecret } from "../../lib/crypto.js";
 import { documentQueue, retryPolicies } from "../../lib/queue.js";
 import {
   deleteDocument,
@@ -9,26 +10,52 @@ import {
 } from "../document/services.js";
 import { documentFileType } from "../document/types.js";
 
+function maskSecret(settings: { encryptedApiKey: string | null }) {
+  return { ...settings, encryptedApiKey: settings.encryptedApiKey ? "********" : null };
+}
+
+/** Default model routing dari env, ditampilkan sebagai placeholder di UI. */
+export function modelDefaults() {
+  const fallback = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  return {
+    aiModel: fallback,
+    easyModel: process.env.OPENAI_EASY_MODEL || fallback,
+    mediumModel: process.env.OPENAI_MEDIUM_MODEL || fallback,
+    hardModel: process.env.OPENAI_HARD_MODEL || fallback,
+    baseUrl: process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1",
+  };
+}
+
+export function hasServerApiKey() {
+  return Boolean(process.env.OPENAI_API_KEY);
+}
+
 export async function getSettings(userId: string) {
   const settings = await prisma.userSetting.findUnique({ where: { userId } });
-  return settings
-    ? { ...settings, encryptedApiKey: settings.encryptedApiKey ? "********" : null }
-    : null;
+  return settings ? maskSecret(settings) : null;
 }
 
 export async function patchSettings(userId: string, input: SettingsPatchInput) {
-  // Server-managed fields (aiProvider/aiModel/customBaseUrl/apiKey) are
-  // intentionally not writable here — see PRD §4H.
   const data = {
     ...(input.theme !== undefined ? { theme: input.theme } : {}),
     ...(input.systemPrompt !== undefined ? { systemPrompt: input.systemPrompt } : {}),
+    ...(input.aiProvider !== undefined ? { aiProvider: input.aiProvider } : {}),
+    ...(input.aiModel !== undefined ? { aiModel: input.aiModel || null } : {}),
+    ...(input.easyModel !== undefined ? { easyModel: input.easyModel || null } : {}),
+    ...(input.mediumModel !== undefined ? { mediumModel: input.mediumModel || null } : {}),
+    ...(input.hardModel !== undefined ? { hardModel: input.hardModel || null } : {}),
+    ...(input.customBaseUrl !== undefined ? { customBaseUrl: input.customBaseUrl || null } : {}),
+    // API key hanya ditimpa saat dikirim; null/kosong menghapus key tersimpan.
+    ...(input.apiKey !== undefined
+      ? { encryptedApiKey: input.apiKey ? encryptSecret(input.apiKey) : null }
+      : {}),
   };
   const settings = await prisma.userSetting.upsert({
     where: { userId },
     create: { userId, ...data },
     update: data,
   });
-  return { ...settings, encryptedApiKey: settings.encryptedApiKey ? "********" : null };
+  return maskSecret(settings);
 }
 
 export async function uploadTemplate(userId: string, sessionId: string | undefined, file: File) {
@@ -88,9 +115,17 @@ export async function getTemplate(userId: string, id: string) {
 /**
  * Template yang paling relevan untuk ditampilkan di Settings: template yang
  * sedang diproses selalu mengalahkan template aktif, supaya progress ekstraksi
- * tidak hilang saat dialog ditutup dan dibuka kembali.
+ * tidak hilang saat dialog ditutup dan dibuka kembali. `activeTemplateId`
+ * dikembalikan terpisah agar klien bisa tahu apakah user sudah punya template
+ * aktif (dipakai untuk gating pembuatan BRD).
  */
 export async function getCurrentTemplate(userId: string) {
+  const settings = await prisma.userSetting.findUnique({
+    where: { userId },
+    select: { activeTemplateId: true },
+  });
+  const activeTemplateId = settings?.activeTemplateId ?? null;
+
   const inFlight = await prisma.document.findFirst({
     where: {
       userId,
@@ -100,18 +135,15 @@ export async function getCurrentTemplate(userId: string) {
     orderBy: { updatedAt: "desc" },
     select: TEMPLATE_SELECT,
   });
-  if (inFlight) return inFlight;
+  if (inFlight) return { document: inFlight, activeTemplateId };
 
-  const settings = await prisma.userSetting.findUnique({
-    where: { userId },
-    select: { activeTemplateId: true },
-  });
-  if (!settings?.activeTemplateId) return null;
+  if (!activeTemplateId) return { document: null, activeTemplateId: null };
 
-  return prisma.document.findFirst({
-    where: { id: settings.activeTemplateId, userId, isTemplate: true },
+  const document = await prisma.document.findFirst({
+    where: { id: activeTemplateId, userId, isTemplate: true },
     select: TEMPLATE_SELECT,
   });
+  return { document, activeTemplateId: document ? activeTemplateId : null };
 }
 
 export async function patchTemplateStructure(

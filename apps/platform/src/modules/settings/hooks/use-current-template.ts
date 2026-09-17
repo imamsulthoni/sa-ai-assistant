@@ -7,8 +7,16 @@ export const CURRENT_TEMPLATE_QUERY_KEY = ["settings", "template", "current"] as
 export function useCurrentTemplate() {
   const query = useQuery({
     queryKey: CURRENT_TEMPLATE_QUERY_KEY,
-    queryFn: () => getCurrentTemplate().then((response) => response.document),
+    queryFn: () => getCurrentTemplate(),
     staleTime: 60_000,
   });
-  return { template: query.data ?? null, loading: query.isPending };
+  const template = query.data?.document ?? null;
+  const activeTemplateId = query.data?.activeTemplateId ?? null;
+  return {
+    template,
+    activeTemplateId,
+    /** True saat user sudah punya template aktif yang tersimpan. */
+    hasTemplate: activeTemplateId !== null,
+    loading: query.isPending,
+  };
 }

@@ -17,7 +17,7 @@ import {
 import type { UIMessage } from "@anvia/client";
 import { DEMO_USER_ID, deleteDocument, listDocuments, uploadDocument } from "#/lib/api";
 import { COPY } from "#/lib/copy";
-import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "#/lib/upload";
+import { ATTACHMENT_MAX_UPLOAD_BYTES, ATTACHMENT_MAX_UPLOAD_LABEL } from "#/lib/upload";
 import { describeError } from "#/lib/errors";
 import { notify } from "#/lib/notify";
 import { ComposerAttachment, MessageBubble } from "#/modules/chat/message-bubble";
@@ -165,8 +165,8 @@ export function AnviaChat({
     async (files: FileList) => {
       setUploadError(null);
       for (const file of Array.from(files)) {
-        if (file.size > MAX_UPLOAD_BYTES) {
-          const message = COPY.errors.attachmentTooLarge(file.name, MAX_UPLOAD_LABEL);
+        if (file.size > ATTACHMENT_MAX_UPLOAD_BYTES) {
+          const message = COPY.errors.attachmentTooLarge(file.name, ATTACHMENT_MAX_UPLOAD_LABEL);
           setUploadError(message);
           notify.error(message);
           continue;
@@ -307,7 +307,7 @@ export function AnviaChat({
   }, [sessionId]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       <ChatProvider controller={chat}>
         <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
           <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
@@ -456,7 +456,7 @@ export function AnviaChat({
               <div className="flex items-end gap-1.5 rounded-lg border border-slate-300 bg-slate-100 p-1 transition-all focus-within:ring-1 focus-within:ring-slate-500 dark:border-slate-700 dark:bg-slate-800">
                 <label
                   className="grid size-7 shrink-0 cursor-pointer place-items-center rounded text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                  title={COPY.chat.attachTitle(MAX_UPLOAD_LABEL)}
+                  title={COPY.chat.attachTitle(ATTACHMENT_MAX_UPLOAD_LABEL)}
                 >
                   <Paperclip size={15} />
                   <input

@@ -62,11 +62,17 @@ export function useBrds(sessionId: string | null) {
     [queryClient, sessionId],
   );
 
-  const setActive = useCallback((brd: BrdDocument | null) => {
-    selectedRef.current = brd?.id ?? null;
-    setActiveId(brd?.id ?? null);
-    setCachedActive(brd);
-  }, []);
+  const setActive = useCallback(
+    (brd: BrdDocument | null) => {
+      selectedRef.current = brd?.id ?? null;
+      setActiveId(brd?.id ?? null);
+      setCachedActive(brd);
+      // Keep the query cache in sync, otherwise activeQuery.data (which takes
+      // precedence over cachedActive) keeps serving the pre-approval document.
+      if (brd) queryClient.setQueryData(["brd", brd.id], brd);
+    },
+    [queryClient],
+  );
 
   const refresh = useCallback(async () => {
     if (!sessionId) return;

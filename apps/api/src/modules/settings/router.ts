@@ -13,6 +13,8 @@ import {
   getCurrentTemplate,
   getSettings,
   getTemplate,
+  hasServerApiKey,
+  modelDefaults,
   patchSettings,
   patchTemplateStructure,
   rejectTemplate,
@@ -24,7 +26,13 @@ const user = (c: { req: { header(name: string): string | undefined } }) =>
   resolveUserId(c.req.header(USER_ID_HEADER));
 
 export const settingsModule = new Hono()
-  .get("/", async (c) => c.json({ settings: await getSettings(user(c)) }))
+  .get("/", async (c) =>
+    c.json({
+      settings: await getSettings(user(c)),
+      modelDefaults: modelDefaults(),
+      hasServerApiKey: hasServerApiKey(),
+    }),
+  )
   .patch("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const parsed = SettingsPatchSchema.safeParse(body);
@@ -51,10 +59,7 @@ export const settingsModule = new Hono()
     return c.json({ document }, 201);
   })
   // Registered before "/template/:id" so the literal path is not swallowed.
-  .get("/template", async (c) => {
-    const document = await getCurrentTemplate(user(c));
-    return c.json({ document });
-  })
+  .get("/template", async (c) => c.json(await getCurrentTemplate(user(c))))
   .get("/template/:id", async (c) => {
     const document = await getTemplate(user(c), c.req.param("id"));
     return document ? c.json({ document }) : c.json({ error: "Template not found" }, 404);

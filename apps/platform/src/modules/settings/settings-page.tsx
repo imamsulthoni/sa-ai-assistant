@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Check,
   Code,
+  Cpu,
   FileText,
+  KeyRound,
   Layers,
   LoaderCircle,
   Monitor,
@@ -13,20 +14,19 @@ import {
   Settings as SettingsIcon,
   Sliders,
   Sun,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
 import { cn } from "#/lib/utils";
 import { Alert } from "#/components/base/alert";
 import { Button } from "#/components/base/button";
+import { Input } from "#/components/base/input";
 import { Modal } from "#/components/base/modal";
 import {
-  approveTemplate,
   getCurrentTemplate,
   getTemplate,
-  rejectTemplate,
   resetTemplate,
-  updateTemplateStructure,
   uploadTemplate,
   type DocumentSummary,
   type Settings,
@@ -37,7 +37,7 @@ import { useSettings } from "#/modules/settings/hooks/use-settings";
 import { CURRENT_TEMPLATE_QUERY_KEY } from "#/modules/settings/hooks/use-current-template";
 import { TemplateStructureView } from "#/modules/settings/template-structure-view";
 
-export type SettingsTab = "theme" | "prompt" | "template";
+export type SettingsTab = "theme" | "prompt" | "model" | "template";
 
 type TemplateStatus = DocumentSummary & {
   templateStructure?: unknown;
@@ -112,7 +112,7 @@ export function SettingsModal({
       onClose={onClose}
       size="2xl"
       title="Pengaturan Sistem & Model AI"
-      description="Konfigurasi tema, prompt instruksi, dan template struktur BRD"
+      description="Konfigurasi tema, prompt instruksi, model AI, dan template struktur BRD"
       bodyClassName="p-0"
       footer={
         <span className="mr-auto text-[11px] text-slate-400">
@@ -127,6 +127,9 @@ export function SettingsModal({
           </TabButton>
           <TabButton active={tab === "prompt"} onClick={() => setTab("prompt")}>
             <FileText size={13} /> Instruksi Prompt AI
+          </TabButton>
+          <TabButton active={tab === "model"} onClick={() => setTab("model")}>
+            <Cpu size={13} /> Model AI
           </TabButton>
           <TabButton active={tab === "template"} onClick={() => setTab("template")}>
             <Layers size={13} /> Template Struktur BRD
@@ -167,7 +170,16 @@ function TabButton({
 }
 
 export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
-  const { settings, loading, saving, error: settingsError, save, refresh } = useSettings();
+  const {
+    settings,
+    modelDefaults,
+    hasServerApiKey,
+    loading,
+    saving,
+    error: settingsError,
+    save,
+    refresh,
+  } = useSettings();
   const queryClient = useQueryClient();
   const refreshHeaderTemplate = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: CURRENT_TEMPLATE_QUERY_KEY });
@@ -177,9 +189,11 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
   const [uploading, setUploading] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [structureText, setStructureText] = useState("");
-  const [editingStructure, setEditingStructure] = useState(false);
   const [showRawStructure, setShowRawStructure] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [apiKeyDraft, setApiKeyDraft] = useState("");
+  const [clearApiKey, setClearApiKey] = useState(false);
 
   useEffect(() => {
     if (settings) setForm(settings);
@@ -215,21 +229,20 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
       void getTemplate(template.id).then(
         (response) => {
           if (epoch !== templateEpoch.current) return;
-          setTemplate(response.document as TemplateStatus);
+          const next = response.document as TemplateStatus;
+          setTemplate(next);
+          // Ekstraksi selesai = template otomatis aktif; segarkan header/sidebar.
+          if (!TRANSIENT_STATUSES.has(next.status)) refreshHeaderTemplate();
         },
         () => undefined,
       );
     }, 2000);
     return () => window.clearInterval(timer);
-  }, [template]);
+  }, [template, refreshHeaderTemplate]);
 
   useEffect(() => {
-    if (template?.templateStructure) {
-      setStructureText(JSON.stringify(template.templateStructure, null, 2));
-    }
-    setEditingStructure(false);
     setShowRawStructure(false);
-  }, [template?.id, template?.templateStructure]);
+  }, [template?.id]);
 
   if (loading) {
     return (
@@ -246,12 +259,27 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
 
   const onSave = async () => {
     const prompt = (form.systemPrompt ?? "").trim();
+    const baseUrl = (form.customBaseUrl ?? "").trim();
+    if (baseUrl && !/^https?:\/\//i.test(baseUrl)) {
+      notify.error("Base URL harus diawali http:// atau https://.");
+      return;
+    }
+    const apiKey = apiKeyDraft.trim();
     try {
       await save({
         theme: form.theme,
         systemPrompt: prompt ? prompt : null,
+        aiProvider: form.aiProvider,
+        aiModel: form.aiModel?.trim() || null,
+        easyModel: form.easyModel?.trim() || null,
+        mediumModel: form.mediumModel?.trim() || null,
+        hardModel: form.hardModel?.trim() || null,
+        customBaseUrl: baseUrl || null,
+        ...(clearApiKey ? { apiKey: null } : apiKey ? { apiKey } : {}),
       });
       setSaved(true);
+      setApiKeyDraft("");
+      setClearApiKey(false);
       notify.success("Preferensi disimpan.");
       void refresh();
     } catch (caught) {
@@ -276,77 +304,28 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
     }
   };
 
-  const onApprove = async () => {
-    if (!template) return;
-    setTemplateError(null);
-    try {
-      await approveTemplate(template.id);
-      await refresh();
-      await loadCurrentTemplate();
-      refreshHeaderTemplate();
-      notify.success("Template diaktifkan untuk draft berikutnya.");
-    } catch (caught) {
-      const message = messageOf(caught);
-      setTemplateError(message);
-      notify.error(message);
-    }
-  };
-
-  const onReject = async () => {
-    if (!template) return;
-    setTemplateError(null);
-    try {
-      await rejectTemplate(template.id);
-      await loadCurrentTemplate();
-      refreshHeaderTemplate();
-      notify.info("Template ditolak.");
-    } catch (caught) {
-      const message = messageOf(caught);
-      setTemplateError(message);
-      notify.error(message);
-    }
-  };
-
   const onResetTemplate = async () => {
-    if (!window.confirm("Reset template BRD aktif dan hapus berkas referensinya?")) return;
+    setResetBusy(true);
     setTemplateError(null);
     try {
       await resetTemplate();
-      setStructureText("");
       await refresh();
       await loadCurrentTemplate();
       refreshHeaderTemplate();
       notify.info("Template aktif direset.");
+      setResetConfirmOpen(false);
     } catch (caught) {
       const message = messageOf(caught);
       setTemplateError(message);
       notify.error(message);
-    }
-  };
-
-  const onSaveStructure = async () => {
-    if (!template) return;
-    setTemplateError(null);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(structureText);
-    } catch {
-      setTemplateError("Struktur bukan JSON yang valid.");
-      return;
-    }
-    try {
-      const response = await updateTemplateStructure(template.id, parsed);
-      templateEpoch.current += 1;
-      setTemplate(response.document as TemplateStatus);
-      notify.success("Struktur template disimpan.");
-    } catch (caught) {
-      const message = messageOf(caught);
-      setTemplateError(message);
-      notify.error(message);
+    } finally {
+      setResetBusy(false);
     }
   };
 
   const theme = form.theme ?? settings?.theme ?? "system";
+  // Unggahan diblokir selama unggah berjalan dan selama struktur diekstrak.
+  const uploadLocked = uploading || (template != null && TRANSIENT_STATUSES.has(template.status));
 
   return (
     <div className="space-y-4">
@@ -488,6 +467,136 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
         </div>
       )}
 
+      {tab === "model" && (
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-xs font-semibold tracking-wider text-slate-900 uppercase dark:text-slate-100">
+              Konfigurasi Model AI
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Opsional — kosongkan field untuk memakai default sistem. Perubahan berlaku untuk
+              generasi dan dialog agen berikutnya.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                Provider
+              </span>
+              <select
+                value={form.aiProvider ?? settings?.aiProvider ?? "openrouter"}
+                onChange={(event) => update("aiProvider", event.target.value)}
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-900 transition-colors focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                <option value="openrouter">OpenRouter (default)</option>
+                <option value="custom">Custom provider</option>
+              </select>
+              <span className="mt-1 block text-[10px] leading-4 text-slate-400">
+                {form.aiProvider === "custom"
+                  ? "Provider OpenAI-compatible milik Anda: isi Base URL dan API key."
+                  : "Memakai endpoint OpenRouter; API key default server bila dikosongkan."}
+              </span>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                Base URL
+              </span>
+              <Input
+                value={form.customBaseUrl ?? ""}
+                onChange={(event) => update("customBaseUrl", event.target.value)}
+                placeholder={modelDefaults?.baseUrl ?? "https://openrouter.ai/api/v1"}
+                spellCheck={false}
+              />
+              <span className="mt-1 block text-[10px] leading-4 text-slate-400">
+                Contoh: https://openrouter.ai/api/v1
+              </span>
+            </label>
+
+            <label className="block sm:col-span-2">
+              <span className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                <KeyRound size={11} /> API Key
+              </span>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="password"
+                  value={apiKeyDraft}
+                  onChange={(event) => {
+                    setApiKeyDraft(event.target.value);
+                    setClearApiKey(false);
+                  }}
+                  autoComplete="off"
+                  placeholder={
+                    settings?.encryptedApiKey
+                      ? "•••••••• (tersimpan)"
+                      : hasServerApiKey
+                        ? "Kosongkan untuk memakai key default server"
+                        : "Masukkan API key provider"
+                  }
+                />
+                {settings?.encryptedApiKey && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={clearApiKey}
+                    onClick={() => {
+                      setClearApiKey(true);
+                      setApiKeyDraft("");
+                    }}
+                  >
+                    <Trash2 size={12} /> {clearApiKey ? "Akan dihapus" : "Hapus"}
+                  </Button>
+                )}
+              </div>
+              <span className="mt-1 block text-[10px] leading-4 text-slate-400">
+                {clearApiKey
+                  ? "API key tersimpan akan dihapus saat disimpan."
+                  : "Biarkan kosong untuk mempertahankan key yang tersimpan."}
+              </span>
+            </label>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-950/40">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+              <Cpu size={12} /> Routing model per tingkat kesulitan
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {(
+                [
+                  { key: "aiModel", label: "Model default", hint: "Fallback semua tingkat." },
+                  { key: "easyModel", label: "Model easy", hint: "Klarifikasi cepat." },
+                  { key: "mediumModel", label: "Model medium", hint: "QA & judge BRD." },
+                  { key: "hardModel", label: "Model hard", hint: "Generate BRD penuh." },
+                ] as const
+              ).map((field) => (
+                <label key={field.key} className="block">
+                  <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    {field.label}
+                  </span>
+                  <Input
+                    value={form[field.key] ?? ""}
+                    onChange={(event) => update(field.key, event.target.value)}
+                    placeholder={modelDefaults?.[field.key] ?? "default sistem"}
+                    spellCheck={false}
+                  />
+                  <span className="mt-1 block text-[10px] leading-4 text-slate-400">
+                    {field.hint}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button disabled={saving} onClick={() => void onSave()}>
+              <Save size={13} /> {saving ? "Menyimpan…" : "Simpan pengaturan model"}
+            </Button>
+            {saved && <span className="text-xs text-slate-400">Tersimpan.</span>}
+          </div>
+        </div>
+      )}
+
       {tab === "template" && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -496,20 +605,32 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
                 Template Struktur Acuan BRD
               </h3>
               <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                Unggah standar perusahaan. Tinjau struktur hasil ekstraksi sebelum mengaktifkannya.
+                Unggah standar perusahaan; struktur hasil ekstraksi otomatis diaktifkan.
               </p>
             </div>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-              {uploading ? (
+            <label
+              aria-disabled={uploadLocked}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors dark:border-slate-700 dark:text-slate-200",
+                uploadLocked
+                  ? "cursor-not-allowed opacity-60"
+                  : "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800",
+              )}
+            >
+              {uploadLocked ? (
                 <LoaderCircle size={13} className="animate-spin" />
               ) : (
                 <Upload size={13} />
               )}
-              {uploading ? "Mengunggah…" : "Unggah template"}
+              {uploading
+                ? "Mengunggah…"
+                : template != null && TRANSIENT_STATUSES.has(template.status)
+                  ? "Mengekstrak…"
+                  : "Unggah template"}
               <input
                 type="file"
                 accept=".md,.pdf,.docx"
-                disabled={uploading}
+                disabled={uploadLocked}
                 className="sr-only"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
@@ -539,62 +660,13 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {template.status === "PENDING_CONFIRMATION" && (
-                    <>
-                      <Button size="sm" variant="success" onClick={() => void onApprove()}>
-                        <Check size={12} /> Setujui
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => void onReject()}>
-                        <X size={12} /> Tolak
-                      </Button>
-                    </>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => void onResetTemplate()}>
+                  <Button size="sm" variant="outline" onClick={() => setResetConfirmOpen(true)}>
                     <X size={12} /> Reset template
                   </Button>
                 </div>
               </div>
 
-              {template.status === "PENDING_CONFIRMATION" && template.templateStructure ? (
-                <div className="mt-3 space-y-3">
-                  <TemplateStructureView structure={template.templateStructure} />
-
-                  <div className="border-t border-slate-200 pt-3 dark:border-slate-800">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditingStructure((open) => !open)}
-                      >
-                        <Code size={12} />
-                        {editingStructure ? "Tutup editor JSON" : "Edit struktur (JSON)"}
-                      </Button>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                        JSON yang disimpan dipakai sebagai struktur wajib saat menyusun BRD.
-                      </span>
-                    </div>
-                    {editingStructure && (
-                      <div className="mt-3">
-                        <textarea
-                          value={structureText}
-                          onChange={(event) => setStructureText(event.target.value)}
-                          spellCheck={false}
-                          className="min-h-48 w-full rounded-lg border border-slate-300 bg-white p-3 font-mono text-[11px] text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                        />
-                        <div className="mt-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void onSaveStructure()}
-                          >
-                            <Save size={12} /> Simpan struktur
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : template.templateStructure ? (
+              {template.templateStructure ? (
                 <div className="mt-3 space-y-3">
                   <TemplateStructureView structure={template.templateStructure} />
                   <div className="border-t border-slate-200 pt-3 dark:border-slate-800">
@@ -634,6 +706,46 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
           )}
         </div>
       )}
+
+      <Modal
+        open={resetConfirmOpen}
+        onClose={() => {
+          if (!resetBusy) setResetConfirmOpen(false);
+        }}
+        size="sm"
+        className="z-[70]"
+        title="Reset template aktif?"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={resetBusy}
+              onClick={() => setResetConfirmOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={resetBusy}
+              onClick={() => void onResetTemplate()}
+            >
+              <RotateCcw size={12} /> {resetBusy ? "Mereset…" : "Reset template"}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+          Template BRD aktif beserta berkas referensi dan struktur hasil ekstraksinya akan dihapus
+          permanen. Tindakan ini tidak bisa dibatalkan.
+        </p>
+        {template && (
+          <p className="mt-2.5 truncate rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-200">
+            {template.title}
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -1,12 +1,7 @@
-import { formatBytes } from "#/lib/copy";
+/** Lampiran sesi & chat (dokumen referensi): maksimal 10MB. */
+export const ATTACHMENT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+/** Impor BRD existing: maksimal 20MB. */
+export const BRD_IMPORT_MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
-/** Samakan dengan default MAX_UPLOAD_BYTES di API (50MB). */
-const DEFAULT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
-
-export function resolveMaxUploadBytes(raw: string | number | undefined): number {
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_UPLOAD_BYTES;
-}
-
-export const MAX_UPLOAD_BYTES = resolveMaxUploadBytes(import.meta.env.VITE_MAX_UPLOAD_BYTES);
-export const MAX_UPLOAD_LABEL = formatBytes(MAX_UPLOAD_BYTES);
+export const ATTACHMENT_MAX_UPLOAD_LABEL = "10 MB";
+export const BRD_IMPORT_MAX_UPLOAD_LABEL = "20 MB";

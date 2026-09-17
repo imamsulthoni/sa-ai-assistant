@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { getSettings, updateSettings, type Settings } from "#/lib/api";
+import { getSettings, updateSettings, type Settings, type SettingsResponse } from "#/lib/api";
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -12,22 +12,34 @@ export function useSettings() {
 
   const settingsQuery = useQuery({
     queryKey: ["settings"],
-    queryFn: () => getSettings().then((response) => response.settings),
+    queryFn: () => getSettings(),
   });
-  const settings = settingsQuery.data ?? null;
+  const settings = settingsQuery.data?.settings ?? null;
+  const modelDefaults = settingsQuery.data?.modelDefaults ?? null;
+  const hasServerApiKey = settingsQuery.data?.hasServerApiKey ?? false;
   const loading = settingsQuery.isPending;
   const error = actionError ?? (settingsQuery.isError ? messageOf(settingsQuery.error) : null);
 
   const saveMutation = useMutation({
-    mutationFn: (input: Partial<Settings> & { apiKey?: string }) => updateSettings(input),
+    mutationFn: (input: Partial<Settings> & { apiKey?: string | null }) => updateSettings(input),
     onSuccess: (response) => {
-      queryClient.setQueryData(["settings"], response.settings);
+      queryClient.setQueryData<SettingsResponse>(["settings"], (previous) => ({
+        settings: response.settings,
+        modelDefaults: previous?.modelDefaults ?? {
+          aiModel: "",
+          easyModel: "",
+          mediumModel: "",
+          hardModel: "",
+          baseUrl: "",
+        },
+        hasServerApiKey: previous?.hasServerApiKey ?? false,
+      }));
     },
     onError: (caught) => setActionError(messageOf(caught)),
   });
 
   const save = useCallback(
-    async (input: Partial<Settings> & { apiKey?: string }) => {
+    async (input: Partial<Settings> & { apiKey?: string | null }) => {
       setActionError(null);
       await saveMutation.mutateAsync(input);
     },
@@ -38,5 +50,14 @@ export function useSettings() {
     void queryClient.invalidateQueries({ queryKey: ["settings"] });
   }, [queryClient]);
 
-  return { settings, loading, saving: saveMutation.isPending, error, save, refresh };
+  return {
+    settings,
+    modelDefaults,
+    hasServerApiKey,
+    loading,
+    saving: saveMutation.isPending,
+    error,
+    save,
+    refresh,
+  };
 }

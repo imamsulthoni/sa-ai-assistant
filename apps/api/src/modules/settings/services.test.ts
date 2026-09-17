@@ -32,8 +32,12 @@ beforeEach(() => {
 describe("getCurrentTemplate", () => {
   it("lets an in-flight template beat the active one", async () => {
     prismaMock.document.findFirst.mockResolvedValueOnce(inFlightTemplate);
+    prismaMock.userSetting.findUnique.mockResolvedValueOnce({ activeTemplateId: "t-active" });
 
-    await expect(getCurrentTemplate("user-1")).resolves.toEqual(inFlightTemplate);
+    await expect(getCurrentTemplate("user-1")).resolves.toEqual({
+      document: inFlightTemplate,
+      activeTemplateId: "t-active",
+    });
     expect(prismaMock.document.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -44,31 +48,39 @@ describe("getCurrentTemplate", () => {
         orderBy: { updatedAt: "desc" },
       }),
     );
-    expect(prismaMock.userSetting.findUnique).not.toHaveBeenCalled();
   });
 
   it("falls back to the active template when nothing is in flight", async () => {
     prismaMock.document.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(activeTemplate);
     prismaMock.userSetting.findUnique.mockResolvedValueOnce({ activeTemplateId: "t-active" });
 
-    await expect(getCurrentTemplate("user-1")).resolves.toEqual(activeTemplate);
+    await expect(getCurrentTemplate("user-1")).resolves.toEqual({
+      document: activeTemplate,
+      activeTemplateId: "t-active",
+    });
     expect(prismaMock.document.findFirst).toHaveBeenLastCalledWith(
       expect.objectContaining({ where: { id: "t-active", userId: "user-1", isTemplate: true } }),
     );
   });
 
-  it("returns null when there is neither an in-flight nor an active template", async () => {
+  it("returns null document and activeTemplateId when there is neither an in-flight nor an active template", async () => {
     prismaMock.document.findFirst.mockResolvedValueOnce(null);
     prismaMock.userSetting.findUnique.mockResolvedValueOnce(null);
 
-    await expect(getCurrentTemplate("user-1")).resolves.toBeNull();
+    await expect(getCurrentTemplate("user-1")).resolves.toEqual({
+      document: null,
+      activeTemplateId: null,
+    });
   });
 
   it("does not query documents when the user has no active template", async () => {
     prismaMock.document.findFirst.mockResolvedValueOnce(null);
     prismaMock.userSetting.findUnique.mockResolvedValueOnce({ activeTemplateId: null });
 
-    await expect(getCurrentTemplate("user-1")).resolves.toBeNull();
+    await expect(getCurrentTemplate("user-1")).resolves.toEqual({
+      document: null,
+      activeTemplateId: null,
+    });
     expect(prismaMock.document.findFirst).toHaveBeenCalledTimes(1);
   });
 });

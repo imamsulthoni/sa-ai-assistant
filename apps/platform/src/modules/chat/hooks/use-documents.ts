@@ -4,7 +4,7 @@ import { deleteDocument, listDocuments, uploadDocument, type DocumentSummary } f
 import { COPY } from "#/lib/copy";
 import { describeError } from "#/lib/errors";
 import { notify } from "#/lib/notify";
-import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "#/lib/upload";
+import { ATTACHMENT_MAX_UPLOAD_BYTES, ATTACHMENT_MAX_UPLOAD_LABEL } from "#/lib/upload";
 
 const TRANSIENT_STATUSES = new Set(["UPLOADING", "PROCESSING"]);
 
@@ -47,13 +47,13 @@ export function useDocuments(sessionId: string | null) {
     mutationFn: ({ files }: { files: FileList | File[] }) => {
       if (!sessionId) throw new Error("A conversation is required to upload documents");
       const all = Array.from(files);
-      const oversized = all.filter((file) => file.size > MAX_UPLOAD_BYTES);
+      const oversized = all.filter((file) => file.size > ATTACHMENT_MAX_UPLOAD_BYTES);
       if (oversized.length) {
-        const message = COPY.errors.attachmentTooLarge(oversized[0].name, MAX_UPLOAD_LABEL);
+        const message = COPY.errors.attachmentTooLarge(oversized[0].name, ATTACHMENT_MAX_UPLOAD_LABEL);
         setActionError(message);
         notify.error(message);
       }
-      const allowed = all.filter((file) => file.size <= MAX_UPLOAD_BYTES);
+      const allowed = all.filter((file) => file.size <= ATTACHMENT_MAX_UPLOAD_BYTES);
       return Promise.all(allowed.map((file) => uploadDocument(sessionId, file)));
     },
     onSuccess: () => {
