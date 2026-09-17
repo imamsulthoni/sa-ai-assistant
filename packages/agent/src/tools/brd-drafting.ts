@@ -6,13 +6,54 @@ const clarificationSchema = z.object({
   answer: z.string().min(1),
 });
 
+/** Batas panjang satu contoh format per section (karakter). */
+export const MAX_TEMPLATE_EXAMPLE_CHARS = 1200;
+/** Anggaran total blok contoh yang disuntikkan ke prompt generate (karakter). */
+export const MAX_TEMPLATE_EXEMPLAR_TOTAL_CHARS = 6000;
+
+/**
+ * Deskripsi field dipakai di `.describe()` agar ikut terkirim ke model lewat
+ * JSON Schema (`z.toJSONSchema`). Selalu pasang `.describe()` di lapisan
+ * terluar (setelah `.nullable()`/`.optional()`).
+ */
+const FIELD_DESCRIPTIONS = {
+  id: "Slug unik section: huruf kecil, kata dipisah underscore (mis. aktor_dan_alur).",
+  title: "Nama section yang generik dan dapat dipakai ulang untuk BRD apa pun, bukan nama fitur spesifik.",
+  required: "true bila section selalu wajib ada di BRD sejenis; false bila opsional/bersyarat.",
+  purpose:
+    "Jenis informasi yang harus dimuat section ini (maks 2 kalimat). null bila tidak bisa digeneralisasi tanpa membocorkan data proyek.",
+  expectedFormat:
+    "Format penyajian: bullet, tabel beserta daftar kolomnya, Given/When/Then, checklist, mermaid, atau daftar ber-ID. null bila tidak dapat disimpulkan.",
+  example:
+    "Contoh singkat pola isi section yang sudah digeneralisasi dengan placeholder ([Aktor], [Field], [ID]); tanpa nama proyek/aktor/endpoint/angka nyata. null bila tidak ada pola yang bisa dicontohkan.",
+  order: "Urutan section sesuai posisi di dokumen sumber, mulai dari 0, tanpa duplikat atau lompatan.",
+  templateName: "Nama template generik yang berlaku lintas inisiatif (mis. 'Template BRD Standar').",
+  description: "1 kalimat tentang ciri struktur template, mengikuti bab yang benar-benar ada di dokumen sumber.",
+  sourceFormat: "Gaya penulisan dokumen sumber: 'naratif', 'tabular', atau 'campuran'. null bila tidak pasti.",
+  idConventions: "Pola identifier generik yang dipakai dokumen sumber (mis. 'BR-###'); angka diganti '###'.",
+  language: "Kode/nama bahasa dokumen sumber (mis. 'id', 'en').",
+  acceptanceStyle: "Gaya penulisan kriteria penerimaan (mis. 'Given/When/Then'). null bila tidak ada.",
+} as const;
+
 const BrdTemplateSectionSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().min(1),
-  required: z.boolean(),
-  purpose: z.string().min(1).max(500).nullable().optional(),
-  expectedFormat: z.string().min(1).max(500).nullable().optional(),
-  order: z.number().int().nonnegative().nullable().optional(),
+  id: z.string().min(1).describe(FIELD_DESCRIPTIONS.id),
+  title: z.string().min(1).describe(FIELD_DESCRIPTIONS.title),
+  required: z.boolean().describe(FIELD_DESCRIPTIONS.required),
+  purpose: z.string().min(1).max(500).nullable().optional().describe(FIELD_DESCRIPTIONS.purpose),
+  expectedFormat: z
+    .string()
+    .min(1)
+    .max(500)
+    .nullable()
+    .optional()
+    .describe(FIELD_DESCRIPTIONS.expectedFormat),
+  example: z
+    .string()
+    .max(MAX_TEMPLATE_EXAMPLE_CHARS)
+    .nullable()
+    .optional()
+    .describe(FIELD_DESCRIPTIONS.example),
+  order: z.number().int().nonnegative().nullable().optional().describe(FIELD_DESCRIPTIONS.order),
 });
 
 const BrdTemplateStructureSchema = z.object({
@@ -39,23 +80,37 @@ export const TemplateExtractionSchema = z.object({
   sections: z
     .array(
       z.object({
-        id: z.string().min(1),
-        title: z.string().min(1),
-        required: z.boolean(),
-        purpose: z.string().min(1).max(500).nullable(),
-        expectedFormat: z.string().min(1).max(500).nullable(),
-        order: z.number().int().nonnegative().nullable(),
+        id: z.string().min(1).describe(FIELD_DESCRIPTIONS.id),
+        title: z.string().min(1).describe(FIELD_DESCRIPTIONS.title),
+        required: z.boolean().describe(FIELD_DESCRIPTIONS.required),
+        purpose: z.string().min(1).max(500).nullable().describe(FIELD_DESCRIPTIONS.purpose),
+        expectedFormat: z
+          .string()
+          .min(1)
+          .max(500)
+          .nullable()
+          .describe(FIELD_DESCRIPTIONS.expectedFormat),
+        example: z
+          .string()
+          .max(MAX_TEMPLATE_EXAMPLE_CHARS)
+          .nullable()
+          .describe(FIELD_DESCRIPTIONS.example),
+        order: z.number().int().nonnegative().nullable().describe(FIELD_DESCRIPTIONS.order),
       }),
     )
     .min(1)
-    .max(30),
-  idConventions: z.array(z.string().min(1).max(200)).max(20),
-  language: z.string().min(1).max(60).nullable(),
-  acceptanceStyle: z.string().min(1).max(200).nullable(),
+    .max(30)
+    .describe("Daftar section terurut yang membentuk struktur template."),
+  idConventions: z
+    .array(z.string().min(1).max(200))
+    .max(20)
+    .describe(FIELD_DESCRIPTIONS.idConventions),
+  language: z.string().min(1).max(60).nullable().describe(FIELD_DESCRIPTIONS.language),
+  acceptanceStyle: z.string().min(1).max(200).nullable().describe(FIELD_DESCRIPTIONS.acceptanceStyle),
   metadata: z.object({
-    templateName: z.string().nullable(),
-    description: z.string().nullable(),
-    sourceFormat: z.string().nullable(),
+    templateName: z.string().nullable().describe(FIELD_DESCRIPTIONS.templateName),
+    description: z.string().nullable().describe(FIELD_DESCRIPTIONS.description),
+    sourceFormat: z.string().nullable().describe(FIELD_DESCRIPTIONS.sourceFormat),
   }),
 });
 
@@ -260,6 +315,15 @@ export function sanitizeTemplateExtraction(
     return looksLikeTemplateContent(value, source) ? null : value;
   };
 
+  // Contoh format memang memuat pola isi, jadi hanya salinan verbatim dari
+  // dokumen sumber yang dibuang — pola tergeneralisasi tetap dipertahankan.
+  const cleanExample = (value: string | null): string | null => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return copiedFromTemplateSource(trimmed, source) ? null : trimmed;
+  };
+
   const templateName = extraction.metadata.templateName;
   const description = extraction.metadata.description;
 
@@ -269,6 +333,7 @@ export function sanitizeTemplateExtraction(
       ...section,
       purpose: clean(section.purpose),
       expectedFormat: clean(section.expectedFormat),
+      example: cleanExample(section.example),
     })),
     acceptanceStyle: clean(extraction.acceptanceStyle),
     metadata: {
@@ -357,6 +422,33 @@ export function templateInstructionBlock(template: BrdTemplateStructure): string
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/**
+ * Blok contoh bentuk isi per section yang disuntikkan ke prompt generate.
+ * Tujuannya meniru TINGKAT KEDALAMAN dan FORMAT (tabel/bullet/Given-When-Then),
+ * bukan menyalin data proyek — total dibatasi anggaran karakter.
+ */
+export function templateExemplarBlock(
+  template: BrdTemplateStructure,
+  options: { maxChars?: number } = {},
+): string {
+  const budget = options.maxChars ?? MAX_TEMPLATE_EXEMPLAR_TOTAL_CHARS;
+  const lines: string[] = [];
+  let used = 0;
+  for (const section of orderedSections(template)) {
+    if (!section.example?.trim()) continue;
+    const line = `- ${section.title}: ${section.example.trim()}`;
+    if (used + line.length > budget) break;
+    used += line.length;
+    lines.push(line);
+  }
+  if (!lines.length) return "";
+  return [
+    "CONTOH FORMAT & KEDALAMAN PER SECTION (acuan GAYA dari dokumen contoh; JANGAN salin entitas, nama proyek/produk, aktor, endpoint, angka, atau aturan bisnisnya):",
+    ...lines,
+    "Pakai contoh di atas hanya untuk meniru tingkat detail dan bentuk penyajian (tabel/bullet/Given-When-Then), lalu isi dengan data dari user story, jawaban klarifikasi, dan konteks referensi.",
+  ].join("\n");
 }
 
 export function createBrdDraft(

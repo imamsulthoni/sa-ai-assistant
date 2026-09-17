@@ -6,6 +6,7 @@ import {
   missingRequiredSections,
   statusAfterModification,
   titleFromStory,
+  weakRequiredSections,
 } from "./flow-utils.js";
 import type { BrdTemplateStructure, JudgeOutput } from "@sa-ai-assistant/agent";
 
@@ -33,6 +34,26 @@ describe("missingRequiredSections", () => {
 
   it("returns an empty list when no template is active", () => {
     expect(missingRequiredSections("# BRD", null)).toEqual([]);
+  });
+});
+
+describe("weakRequiredSections", () => {
+  it("flags present required sections whose body is too thin", () => {
+    const markdown =
+      "# BRD\n\n## Ringkasan dan ruang lingkup\nterlalu singkat\n\n" +
+      `## Kebutuhan fungsional\n${"detail perilaku sistem. ".repeat(30)}`;
+    expect(weakRequiredSections(markdown, STRUCTURE, { minChars: 50 })).toEqual([
+      "Ringkasan dan ruang lingkup",
+    ]);
+  });
+
+  it("ignores sections that are missing entirely", () => {
+    const markdown = `# BRD\n\n## Ringkasan dan ruang lingkup\n${"x".repeat(100)}`;
+    expect(weakRequiredSections(markdown, STRUCTURE, { minChars: 50 })).toEqual([]);
+  });
+
+  it("returns an empty list without a template", () => {
+    expect(weakRequiredSections("# BRD", null)).toEqual([]);
   });
 });
 

@@ -13,7 +13,8 @@ export function TemplateStructureView({ structure }: { structure: unknown }) {
   if (!parsed) {
     return (
       <p className="text-[11px] text-slate-400">
-        Struktur template belum dapat ditampilkan. Periksa kembali hasil ekstraksi.
+        Struktur template belum dapat ditampilkan. Periksa kembali hasil
+        ekstraksi.
       </p>
     );
   }
@@ -82,7 +83,10 @@ export function TemplateStructureView({ structure }: { structure: unknown }) {
                 <span className="rounded border border-slate-200 bg-white px-1 py-px font-mono text-[9px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
                   {section.id}
                 </span>
-                <Badge tone={section.required ? "success" : "neutral"} className="ml-auto shrink-0">
+                <Badge
+                  tone={section.required ? "success" : "neutral"}
+                  className="ml-auto shrink-0"
+                >
                   {section.required ? "Wajib" : "Opsional"}
                 </Badge>
               </div>

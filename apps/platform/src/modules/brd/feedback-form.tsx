@@ -8,6 +8,7 @@ import { COPY } from "#/lib/copy";
 export type ClarificationQuestion = {
   id: string;
   question: string;
+  purpose?: string;
   options?: string[];
   required?: boolean;
 };
@@ -17,7 +18,6 @@ type FeedbackFormProps = {
   round: number;
   initialAnswers?: Record<string, string>;
   onSubmit: (answers: Record<string, string>) => void | Promise<void>;
-  onSkip: () => void | Promise<void>;
 };
 
 export function FeedbackForm({
@@ -25,7 +25,6 @@ export function FeedbackForm({
   round,
   initialAnswers,
   onSubmit,
-  onSkip,
 }: FeedbackFormProps) {
   const [answers, setAnswers] = useState<Record<string, string>>(() => {
     const merged: Record<string, string> = {};
@@ -41,7 +40,7 @@ export function FeedbackForm({
   const [showMissing, setShowMissing] = useState(false);
 
   const answered = questions.filter((question) => answers[question.id]?.trim()).length;
-  const missing = questions.find((question) => question.required && !answers[question.id]?.trim());
+  const missing = questions.find((question) => !answers[question.id]?.trim()) ?? null;
 
   const submit = async () => {
     if (missing) {
@@ -119,8 +118,7 @@ export function FeedbackForm({
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    {COPY.clarify.questionLabel}
-                    {question.required ? " wajib" : ""}
+                    {COPY.clarify.questionLabel} wajib
                   </span>
                   <span className="font-mono text-[10px] text-slate-400">#{index + 1}</span>
                 </div>
@@ -128,6 +126,12 @@ export function FeedbackForm({
                 <h3 className="text-xs leading-snug font-semibold text-slate-900 dark:text-slate-100">
                   {question.question}
                 </h3>
+
+                {question.purpose && (
+                  <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                    {question.purpose}
+                  </p>
+                )}
 
                 {chips.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -171,10 +175,7 @@ export function FeedbackForm({
             </p>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
-            <Button variant="ghost" disabled={submitting} onClick={() => void onSkip()}>
-              {COPY.clarify.skip}
-            </Button>
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
             <Button disabled={submitting} onClick={() => void submit()}>
               {submitting && <LoaderCircle size={13} className="animate-spin" />}
               {submitting
@@ -186,7 +187,7 @@ export function FeedbackForm({
             </Button>
           </div>
           <p className="text-[11px] text-slate-400">
-            {round === 2 ? COPY.clarify.skipHint : COPY.clarify.nextRoundHint}
+            {round === 2 ? COPY.clarify.completeHint : COPY.clarify.nextRoundHint}
           </p>
         </div>
       </div>

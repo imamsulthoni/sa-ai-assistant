@@ -34,11 +34,16 @@ export type BadgeProps = React.ComponentProps<"span"> & {
   mono?: boolean;
 };
 
-export function Badge({ className, tone = "neutral", mono = false, ...props }: BadgeProps) {
+export function Badge({
+  className,
+  tone = "neutral",
+  mono = false,
+  ...props
+}: BadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex w-fit shrink-0 items-center gap-1 rounded border px-1.5 py-px text-[10px] font-semibold whitespace-nowrap",
+        "inline-flex w-fit shrink-0 items-center gap-1 rounded border px-1.5 py-px text-[10px] font-semibold",
         mono && "font-mono",
         TONES[tone],
         className,

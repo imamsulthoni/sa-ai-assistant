@@ -40,21 +40,19 @@ async function sessionStatusMaps(userId: string, sessionIds: string[]): Promise<
   const flows = new Map<string, SessionFlowSummary>();
   if (sessionIds.length === 0) return { brds, flows };
 
-  const [brdRows, pendingRows, flowRows] = await Promise.all([
-    prisma.brdDocument.findMany({
-      where: { userId, sessionId: { in: sessionIds } },
-      orderBy: { updatedAt: "desc" },
-      select: { id: true, sessionId: true, currentVersion: true, status: true },
-    }),
-    prisma.brdDocument.findMany({
-      where: { userId, sessionId: { in: sessionIds }, pendingContentMarkdown: { not: null } },
-      select: { sessionId: true },
-    }),
-    prisma.brdFlowState.findMany({
-      where: { userId, sessionId: { in: sessionIds } },
-      select: { sessionId: true, phase: true, round: true },
-    }),
-  ]);
+  const brdRows = await prisma.brdDocument.findMany({
+    where: { userId, sessionId: { in: sessionIds } },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, sessionId: true, currentVersion: true, status: true },
+  });
+  const pendingRows = await prisma.brdDocument.findMany({
+    where: { userId, sessionId: { in: sessionIds }, pendingContentMarkdown: { not: null } },
+    select: { sessionId: true },
+  });
+  const flowRows = await prisma.brdFlowState.findMany({
+    where: { userId, sessionId: { in: sessionIds } },
+    select: { sessionId: true, phase: true, round: true },
+  });
 
   const pending = new Set(pendingRows.map((row) => row.sessionId));
   for (const row of brdRows) {

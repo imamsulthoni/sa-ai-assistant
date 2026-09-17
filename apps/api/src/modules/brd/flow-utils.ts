@@ -24,6 +24,30 @@ export const FALLBACK_FOLLOW_UPS: JudgeOutput["clarification_questions"] = [
   },
 ];
 
+export const FALLBACK_ROUND_1: JudgeOutput["clarification_questions"] = [
+  {
+    id: "q1_1",
+    question: "Siapa aktor atau pengguna utama yang terlibat dalam proses ini?",
+    purpose: "Melengkapi identifikasi aktor dan permission model.",
+    options: [],
+    required: true,
+  },
+  {
+    id: "q1_2",
+    question: "Apa alur utama yang diharapkan dari awal hingga akhir proses?",
+    purpose: "Melengkapi alur utama dan batasan ruang lingkup.",
+    options: [],
+    required: true,
+  },
+  {
+    id: "q1_3",
+    question: "Apa data atau dokumen pendukung yang menjadi dasar proses ini?",
+    purpose: "Melengkapi data utama dan integrasi.",
+    options: [],
+    required: true,
+  },
+];
+
 /** Ensure round-2 questions are fresh: drop answered ids, renumber to q2_{n}, cap at 3. */
 export function followUpQuestions(
   questions: JudgeOutput["clarification_questions"],
@@ -49,6 +73,49 @@ export function missingRequiredSections(
       const title = section.title.toLowerCase();
       const id = section.id.toLowerCase();
       return !haystack.includes(title) && !haystack.includes(id);
+    })
+    .map((section) => section.title);
+}
+
+/** Ambang minimum isi sebuah section wajib (karakter, di luar heading). */
+export const MIN_REQUIRED_SECTION_CHARS = 200;
+
+/**
+ * Isi markdown sebuah section berdasarkan heading yang memuat judul atau id-nya.
+ * `null` bila section tidak ditemukan (kasus "hilang" ditangani terpisah).
+ */
+function sectionBody(markdown: string, title: string, id: string): string | null {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const needles = [title.trim().toLowerCase(), id.trim().toLowerCase()].filter(Boolean);
+  for (let index = 0; index < lines.length; index += 1) {
+    const heading = /^#{1,6}\s+(.*)$/.exec(lines[index]);
+    if (!heading) continue;
+    const text = heading[1].toLowerCase();
+    if (!needles.some((needle) => text.includes(needle))) continue;
+    let end = index + 1;
+    while (end < lines.length && !/^#{1,6}\s+/.test(lines[end])) end += 1;
+    return lines.slice(index + 1, end).join("\n");
+  }
+  return null;
+}
+
+/**
+ * Section wajib yang ada tapi isinya terlalu tipis (di bawah ambang karakter).
+ * Section yang sama sekali tidak ada tidak dikembalikan di sini.
+ */
+export function weakRequiredSections(
+  markdown: string,
+  structure: BrdTemplateStructure | null,
+  options: { minChars?: number } = {},
+): string[] {
+  if (!structure) return [];
+  const minChars = options.minChars ?? MIN_REQUIRED_SECTION_CHARS;
+  return structure.sections
+    .filter((section) => section.required)
+    .filter((section) => {
+      const body = sectionBody(markdown, section.title, section.id);
+      if (body === null) return false;
+      return body.replace(/\s+/g, " ").trim().length < minChars;
     })
     .map((section) => section.title);
 }

@@ -192,7 +192,7 @@ export function DocumentPane({
   };
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col bg-slate-100/60 dark:bg-slate-950">
+    <section className="flex h-full min-h-0 flex-1 flex-col bg-slate-100/60 dark:bg-slate-950">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3.5 py-2 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">

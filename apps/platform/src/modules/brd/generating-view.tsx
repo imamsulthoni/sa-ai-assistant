@@ -3,10 +3,19 @@ import { CheckCircle2, LoaderCircle, Sparkles } from "lucide-react";
 import { Button } from "#/components/base/button";
 import { COPY } from "#/lib/copy";
 
-const STEPS = [
-  "Memetakan user story & ekstraksi problem statement",
-  "Mengintegrasikan hasil klarifikasi putaran 1 & 2",
+export type GenerationStage = "clarify" | "generate";
+
+const CLARIFY_STEPS = [
+  "Menganalisis user story & problem statement",
+  "Menyusun pertanyaan klarifikasi putaran 1",
+  "Memeriksa celah informasi yang perlu dikonfirmasi",
+  "Menyiapkan sesi tanya-jawab",
+];
+
+const GENERATE_STEPS = [
+  "Mengintegrasikan jawaban & konteks sesi",
   "Menyusun spesifikasi fungsional (FR) & NFR",
+  "Memvalidasi kelengkapan section template",
   "Memformat Markdown & finalisasi BRD versi 1.0",
 ];
 
@@ -14,22 +23,29 @@ const STEP_INTERVAL_MS = 1200;
 
 export function GeneratingView({
   templateName,
+  stage = "generate",
   resumable,
   onResume,
 }: {
   templateName?: string | null;
+  stage?: GenerationStage;
   resumable?: boolean;
   onResume?: () => void;
 }) {
+  const steps = stage === "clarify" ? CLARIFY_STEPS : GENERATE_STEPS;
   const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    setStepIndex(0);
+  }, [stage]);
 
   useEffect(() => {
     if (resumable) return;
     const timer = window.setInterval(() => {
-      setStepIndex((index) => (index >= STEPS.length - 1 ? index : index + 1));
+      setStepIndex((index) => (index >= steps.length - 1 ? index : index + 1));
     }, STEP_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [resumable]);
+  }, [resumable, steps.length]);
 
   return (
     <div className="flex flex-1 items-center justify-center p-4">
@@ -41,7 +57,11 @@ export function GeneratingView({
 
         <div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-            {resumable ? COPY.flow.resumeTitle : COPY.flow.generatingTitle}
+            {resumable
+              ? COPY.flow.resumeTitle
+              : stage === "clarify"
+                ? COPY.flow.clarifyTitle
+                : COPY.flow.generatingTitle}
           </h3>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
             {resumable ? (
@@ -60,7 +80,7 @@ export function GeneratingView({
           </Button>
         ) : (
           <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3.5 text-left text-xs dark:border-slate-800 dark:bg-slate-900">
-            {STEPS.map((step, index) => {
+            {steps.map((step, index) => {
               const done = index < stepIndex;
               const current = index === stepIndex;
               return (

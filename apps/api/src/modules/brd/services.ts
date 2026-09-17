@@ -23,17 +23,20 @@ import {
   ClarificationOutputSchema,
   JudgeOutputSchema,
   extractBrdDocument,
+  templateExemplarBlock,
   templateInstructionBlock,
 } from "@sa-ai-assistant/agent";
 import { activeTemplateFor, agentFor, distillSessionContext } from "../chat/services.js";
 import {
   FALLBACK_FOLLOW_UPS,
+  FALLBACK_ROUND_1,
   canStageModification,
   canTransitionBrdStatus,
   followUpQuestions,
   missingRequiredSections,
   statusAfterModification,
   titleFromStory,
+  weakRequiredSections,
   type BrdStatus,
 } from "./flow-utils.js";
 
@@ -523,6 +526,67 @@ function safeParse<T extends z.ZodType>(schema: T, value: unknown): z.infer<T> |
   return parsed.success ? parsed.data : null;
 }
 
+/**
+ * Toleransi deviasi kecil pada output agent klarifikasi: id diacak ulang ke
+ * q{round}_{n}, field dianggap opsional, dan daftar dibatasi maksimal 3.
+ * Mengembalikan null ketika tidak ada pertanyaan yang bisa diselamatkan.
+ */
+function normalizeClarificationOutput(
+  value: unknown,
+  round: number,
+): z.infer<typeof ClarificationOutputSchema> | null {
+  const direct = safeParse(ClarificationOutputSchema, value);
+  if (direct) return direct;
+  const object = typeof value === "object" && value !== null ? value : {};
+  const list = (object as { clarification_questions?: unknown }).clarification_questions;
+  if (!Array.isArray(list)) return null;
+  const questions = list
+    .filter(
+      (item): item is Record<string, unknown> =>
+        typeof item === "object" && item !== null,
+    )
+    .map((item) => item.question)
+    .filter((question) => typeof question === "string" && question.trim().length > 0)
+    .slice(0, 3)
+    .map((question, index) => ({
+      id: `q${round}_${index + 1}`,
+      question: question as string,
+      purpose:
+        typeof (list[index] as { purpose?: unknown }).purpose === "string" &&
+        (list[index] as { purpose?: string }).purpose!.trim()
+          ? (list[index] as { purpose?: string }).purpose!
+          : "Resolve an implementation-impacting ambiguity.",
+      options: Array.isArray((list[index] as { options?: unknown }).options)
+        ? (
+            (list[index] as { options: unknown }).options as unknown[]
+          )
+            .filter(
+              (option): option is string =>
+                typeof option === "string" && option.trim().length > 0,
+            )
+            .slice(0, 5)
+        : [],
+      required: (list[index] as { required?: unknown }).required === true,
+    }));
+  if (!questions.length) return null;
+  return { clarification_questions: questions, round, capped: round === 2 };
+}
+
+async function resolveClarificationOutput(
+  agent: Awaited<ReturnType<typeof agentFor>>,
+  prompt: string,
+  context: FlowContext,
+  round: number,
+): Promise<z.infer<typeof ClarificationOutputSchema> | null> {
+  const result = await collectAgent(agent, prompt, context, {
+    stopOnTool: "elicit_clarifications",
+  });
+  const tool = result.toolResults.find((item) => item.toolName === "elicit_clarifications");
+  let raw = tool?.output?.value ?? parseLooseJson(result.text) ?? {};
+  if (typeof raw === "string") raw = parseLooseJson(raw) ?? {};
+  return normalizeClarificationOutput(raw, round);
+}
+
 export async function clarifyFlow(context: FlowContext, input: FlowInput) {
   const round = Math.min(Math.max(input.round ?? 1, 1), 2);
   // Persist dulu supaya reload di tengah request tidak jatuh ke sesi kosong.
@@ -543,15 +607,25 @@ export async function clarifyFlow(context: FlowContext, input: FlowInput) {
   ]
     .filter(Boolean)
     .join("\n\n");
-  const result = await collectAgent(agent, prompt, context, {
-    stopOnTool: "elicit_clarifications",
-  });
-  const tool = result.toolResults.find((item) => item.toolName === "elicit_clarifications");
-  const parsed = safeParse(
-    ClarificationOutputSchema,
-    tool?.output?.value ?? parseLooseJson(result.text) ?? {},
-  );
-  if (!parsed) throw new Error("Clarification agent returned invalid output");
+  let parsed = await resolveClarificationOutput(agent, prompt, context, round);
+  if (!parsed) {
+    // Panggilan tool sempat gagal (mis. id pertanyaan tidak sesuai pola):
+    // beri agent satu kesempatan ulang sebelum degradasi ke pertanyaan fallback.
+    parsed = await resolveClarificationOutput(
+      agent,
+      `${prompt}\n\nIngat: output wajib dikembalikan lewat tool elicit_clarifications dalam satu panggilan. Jangan menulis pertanyaan sebagai teks biasa.`,
+      context,
+      round,
+    );
+  }
+  if (!parsed) {
+    parsed = {
+      clarification_questions:
+        round === 2 ? FALLBACK_FOLLOW_UPS : FALLBACK_ROUND_1,
+      round,
+      capped: round === 2,
+    };
+  }
   await saveClarifyCheckpoint(context, {
     userStory: input.userStory,
     round: parsed.round,
@@ -627,6 +701,8 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
 
   try {
     const agent = await agentFor(context.userId, context.sessionId, "GENERATE");
+    const structure = activeTemplate?.structure ?? null;
+    const exemplarBlock = activeTemplate ? templateExemplarBlock(activeTemplate.structure) : "";
     const generatePrompt = [
       `User story (data): ${input.userStory}`,
       `Answers (data): ${JSON.stringify(answers)}`,
@@ -634,6 +710,7 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
       templateBlock
         ? `TEMPLATE AKTIF (WAJIB DIIKUTI - BRD final harus memuat semua section ini dengan urutan dan judul yang sama, isi setiap section secara lengkap):\n${templateBlock}`
         : "",
+      exemplarBlock,
       `Generate BRD lengkap berbahasa Indonesia dengan flowchart mermaid; gunakan draft_brd sebagai basis validasi, lalu tulis BRD final sebagai jawaban. force: ${input.skip || round === 2}`,
     ]
       .filter(Boolean)
@@ -643,20 +720,42 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
     const value = tool?.output?.value as { markdown?: string; assumptions?: string[] } | undefined;
     let markdown = extractBrdDocument(generated.text.trim() || value?.markdown || "");
     if (!markdown) throw new Error("BRD generator returned no markdown");
-    const missing = missingRequiredSections(markdown, activeTemplate?.structure ?? null);
-    if (missing.length) {
+
+    const audit = (text: string) => ({
+      missing: missingRequiredSections(text, structure),
+      weak: weakRequiredSections(text, structure),
+    });
+    let issues = audit(markdown);
+    if (issues.missing.length || issues.weak.length) {
+      const problems = [
+        issues.missing.length
+          ? `belum memuat section wajib: ${issues.missing.join(", ")}`
+          : "",
+        issues.weak.length
+          ? `section berikut isinya terlalu tipis dan harus diperdalam: ${issues.weak.join(", ")}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("; ");
       const retry = await collectAgent(
         agent,
-        `${generatePrompt}\n\nKOREKSI: BRD yang baru saja ditulis belum memuat section wajib template berikut: ${missing.join(", ")}. Tulis ulang seluruh BRD sekali lagi, lengkap dengan semua section tersebut.`,
+        `${generatePrompt}\n\nKOREKSI: BRD yang baru saja ditulis ${problems}. Tulis ulang seluruh BRD sekali lagi: lengkapi section yang hilang dan perdalam section yang tipis (jangan satu baris; sertakan detail perilaku, validasi, dan tabel/daftar yang relevan).`,
         context,
       );
       const retryText = extractBrdDocument(retry.text);
-      const retryMissing = retryText
-        ? missingRequiredSections(retryText, activeTemplate?.structure ?? null)
-        : missing;
-      if (retryMissing.length < missing.length && retryText) markdown = retryText;
-      if (retryMissing.length)
-        console.warn(`BRD missing template sections after retry: ${retryMissing.join(", ")}`);
+      if (retryText) {
+        const retryIssues = audit(retryText);
+        const before = issues.missing.length + issues.weak.length;
+        const after = retryIssues.missing.length + retryIssues.weak.length;
+        if (after < before) {
+          markdown = retryText;
+          issues = retryIssues;
+        }
+      }
+      if (issues.missing.length || issues.weak.length)
+        console.warn(
+          `BRD still incomplete after retry: missing=[${issues.missing.join(", ")}] weak=[${issues.weak.join(", ")}]`,
+        );
     }
 
     const brd = await createBrd(context.userId, {
