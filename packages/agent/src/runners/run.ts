@@ -1,4 +1,11 @@
-import { dumpArtifact, hasApiKey, type Scenario, type ScenarioResult } from "./harness.js";
+import { closeTracing, type TracingCaptureMode, type TracingProvider } from "../index.js";
+import {
+  configureRunner,
+  dumpArtifact,
+  hasApiKey,
+  type Scenario,
+  type ScenarioResult,
+} from "./harness.js";
 import { clarifyScenario } from "./scenarios/clarify.runner.js";
 import { fullFlowScenario } from "./scenarios/full-flow.runner.js";
 import { generateScenario } from "./scenarios/generate.runner.js";
@@ -28,6 +35,28 @@ async function main() {
     return;
   }
 
+  const tracingFlag = args.find((arg) => arg.startsWith("--tracing="));
+  const tracingValue = tracingFlag?.slice("--tracing=".length);
+  if (tracingValue && tracingValue !== "lens" && tracingValue !== "langfuse") {
+    console.error(`Provider tracing tidak dikenal: ${tracingValue}. Pilihan: lens, langfuse.`);
+    process.exitCode = 1;
+    return;
+  }
+  const captureFlag = args.find((arg) => arg.startsWith("--tracing-capture="));
+  const captureValue = captureFlag?.slice("--tracing-capture=".length);
+  if (captureValue && captureValue !== "safe" && captureValue !== "full") {
+    console.error(`Capture mode tidak dikenal: ${captureValue}. Pilihan: safe, full.`);
+    process.exitCode = 1;
+    return;
+  }
+  configureRunner({
+    tracing: (tracingValue as TracingProvider | undefined) ?? null,
+    captureMode:
+      captureValue === "safe" || captureValue === "full"
+        ? (captureValue as TracingCaptureMode)
+        : null,
+  });
+
   const requested = args.find((arg) => !arg.startsWith("--")) ?? "all";
   const selected =
     requested === "all" ? SCENARIOS : SCENARIOS.filter((scenario) => scenario.name === requested);
@@ -44,46 +73,50 @@ async function main() {
     return;
   }
 
-  let failures = 0;
-  let skips = 0;
-  for (const scenario of selected) {
-    process.stdout.write(`\n▶ ${scenario.name}\n`);
-    let result: ScenarioResult;
-    try {
-      result = await scenario.run();
-    } catch (error) {
-      failures += 1;
-      const message = error instanceof Error ? error.message : String(error);
-      console.log(`  ERROR: ${message}`);
-      dumpArtifact({ name: scenario.name, status: "fail", assertions: [], error: message });
-      continue;
-    }
-
-    if (result.status === "skip") {
-      skips += 1;
-      console.log("  SKIP");
-      continue;
-    }
-
-    for (const assertion of result.assertions) {
-      if (assertion.ok) {
-        if (verbose) console.log(`  ✓ ${assertion.label}`);
-      } else {
-        console.log(`  ✗ ${assertion.label}${assertion.detail ? ` — ${assertion.detail}` : ""}`);
+  try {
+    let failures = 0;
+    let skips = 0;
+    for (const scenario of selected) {
+      process.stdout.write(`\n▶ ${scenario.name}\n`);
+      let result: ScenarioResult;
+      try {
+        result = await scenario.run();
+      } catch (error) {
+        failures += 1;
+        const message = error instanceof Error ? error.message : String(error);
+        console.log(`  ERROR: ${message}`);
+        dumpArtifact({ name: scenario.name, status: "fail", assertions: [], error: message });
+        continue;
       }
-    }
-    if (result.status === "pass") {
-      console.log(`  PASS (${result.assertions.length} assertion)`);
-    } else {
-      failures += 1;
-      console.log("  FAIL");
-    }
-    console.log(`  artifact: ${dumpArtifact(result)}`);
-  }
 
-  const passed = selected.length - failures - skips;
-  console.log(`\nRingkasan: ${passed} pass · ${failures} fail · ${skips} skip`);
-  if (failures > 0) process.exitCode = 1;
+      if (result.status === "skip") {
+        skips += 1;
+        console.log("  SKIP");
+        continue;
+      }
+
+      for (const assertion of result.assertions) {
+        if (assertion.ok) {
+          if (verbose) console.log(`  ✓ ${assertion.label}`);
+        } else {
+          console.log(`  ✗ ${assertion.label}${assertion.detail ? ` — ${assertion.detail}` : ""}`);
+        }
+      }
+      if (result.status === "pass") {
+        console.log(`  PASS (${result.assertions.length} assertion)`);
+      } else {
+        failures += 1;
+        console.log("  FAIL");
+      }
+      console.log(`  artifact: ${dumpArtifact(result)}`);
+    }
+
+    const passed = selected.length - failures - skips;
+    console.log(`\nRingkasan: ${passed} pass · ${failures} fail · ${skips} skip`);
+    if (failures > 0) process.exitCode = 1;
+  } finally {
+    await closeTracing();
+  }
 }
 
 await main();

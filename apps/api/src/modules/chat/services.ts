@@ -203,7 +203,6 @@ export async function agentFor(
     // phase) is persisted so the transcript stays empty after BRD v1.
     memory:
       phase === undefined || phase === "QA" ? { store: memory, savePolicy: "turn" } : undefined,
-    enableTracing: false,
   });
 
   agentCache.set(cacheKey, { fingerprint, agent });

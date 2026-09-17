@@ -34,7 +34,18 @@ export {
 export { applyChange } from "./tools/brd-modification.js";
 export { applyOperations, extractBrdDocument, BrdOperationSchema } from "./tools/brd-operations.js";
 export type { BrdOperation, ApplyOperationsResult } from "./tools/brd-operations.js";
-export { createTracing } from "./tracing.js";
+export {
+  closeTracing,
+  createTracing,
+  flushTracing,
+  tracing,
+  DEFAULT_TRACING_CAPTURE_MODE,
+  TRACING_SERVICE_NAME,
+  type Tracing,
+  type TracingCaptureMode,
+  type TracingOptions,
+  type TracingProvider,
+} from "./tracing.js";
 export { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";
 export {
   CLARIFY_INSTRUCTIONS,

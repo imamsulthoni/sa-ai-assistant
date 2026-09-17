@@ -23,7 +23,7 @@ import {
   modifyBrdTool,
   webTools,
 } from "./tools/index.js";
-import { createTracing } from "./tracing.js";
+import { tracing, type TracingCaptureMode, type TracingProvider } from "./tracing.js";
 
 export interface CreateSystemAnalystAgentOptions {
   modelId?: string;
@@ -31,7 +31,8 @@ export interface CreateSystemAnalystAgentOptions {
   baseUrl?: string;
   memory?: AgentOptions["memory"];
   additionalTools?: AnyTool[];
-  enableTracing?: boolean;
+  tracingBy?: TracingProvider | null;
+  tracingCaptureMode?: TracingCaptureMode | null;
   modelRouter?: ModelRouterOptions;
   phase?: "CLARIFY" | "JUDGE" | "GENERATE" | "QA";
   contextAdapters?: AgentContextAdapters;
@@ -65,7 +66,6 @@ export function allowedToolsForPhase(phase?: AgentPhaseName): string[] | undefin
 }
 
 export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOptions = {}): Agent {
-  const tracing = createTracing();
   const tavily = createTavilyProvider();
   const router = options.modelRouter
     ? createModelRouter({
@@ -119,10 +119,14 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
       ? allTools.filter((tool) => options.allowedTools?.includes(tool.name))
       : allTools,
     memory: options.memory,
-    observability:
-      options.enableTracing && tracing.observer
-        ? { observers: { lens: tracing.observer } }
-        : undefined,
+    observability: options.tracingBy
+      ? {
+          observers: tracing(options.tracingBy, {
+            captureMode: options.tracingCaptureMode ?? undefined,
+          }).observers,
+          primaryTrace: options.tracingBy,
+        }
+      : undefined,
     maxTurns: 8,
   });
 }

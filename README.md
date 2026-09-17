@@ -111,12 +111,18 @@ one at a time while iterating:
 pnpm --filter @sa-ai-assistant/agent runner -- --list
 pnpm --filter @sa-ai-assistant/agent runner -- clarify --verbose
 pnpm --filter @sa-ai-assistant/agent runner -- all
+pnpm --filter @sa-ai-assistant/agent runner -- all --tracing=lens
 ```
 
 Scenarios: `clarify`, `judge`, `generate`, `modify`, `qa`, `injection`,
 `full-flow`. Results are printed with per-assertion detail and written to
 `packages/agent/runners/.artifacts/*.json` (gitignored). Without an API key the
 runner skips and exits successfully; pass `--require-env` to fail instead.
+
+Tracing is opt-in via `--tracing=lens|langfuse` (traces are flushed before the
+runner exits). Credentials come from `ANVIA_LENS_*` / `LANGFUSE_*` in `.env`.
+Input/output payloads are captured by default; pass `--tracing-capture=safe` to
+send metadata only, or `--tracing-capture=full` to force payload capture.
 
 ## Repository layout
 

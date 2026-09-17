@@ -5,12 +5,24 @@ import {
   createSystemAnalystAgent,
   type AgentContextAdapters,
   type AgentPhaseName,
+  type TracingCaptureMode,
+  type TracingProvider,
 } from "../index.js";
 
 export type AgentCapture = {
   text: string;
   toolCalls: Array<{ name: string; output?: unknown }>;
 };
+
+let tracingProvider: TracingProvider | null = null;
+let tracingCaptureMode: TracingCaptureMode | null = null;
+
+export function configureRunner(
+  options: { tracing?: TracingProvider | null; captureMode?: TracingCaptureMode | null } = {},
+): void {
+  tracingProvider = options.tracing ?? null;
+  tracingCaptureMode = options.captureMode ?? null;
+}
 
 export type ScenarioResult = {
   name: string;
@@ -54,6 +66,8 @@ export async function runAgent(input: {
     contextAdapters: input.adapters,
     systemPrompt: input.systemPrompt,
     templateInstruction: input.templateInstruction,
+    tracingBy: tracingProvider,
+    tracingCaptureMode: tracingCaptureMode,
   });
   const capture: AgentCapture = { text: "", toolCalls: [] };
   for await (const event of agent.stream({
