@@ -68,10 +68,13 @@ export const COPY = {
     documentsCount: (count: number) => `${count} Dokumen`,
     pendingProposal: "Usulan Revisi Klausul",
     reviewDiff: "Review Perbedaan Klausul (Diff)",
-    agentWorking: "Agen sedang bekerja…",
-    composerPlaceholderBrd: "Tanyakan tentang BRD… (tip: @ untuk menyebut file sesi)",
-    composerPlaceholder: "Ceritakan user story Anda… (tip: @ untuk menyebut file sesi)",
-    attachTitle: (limit: string) => `Lampirkan dokumen atau gambar (maks ${limit})`,
+    agentWorking: "Generating...",
+    composerPlaceholderBrd:
+      "Tanyakan tentang BRD… (tip: @ untuk menyebut file sesi)",
+    composerPlaceholder:
+      "Ceritakan user story Anda… (tip: @ untuk menyebut file sesi)",
+    attachTitle: (limit: string) =>
+      `Lampirkan dokumen atau gambar (maks ${limit})`,
     mentionTitle: "Sebut file di sesi ini (@)",
   },
   quickPrompts: [
@@ -151,7 +154,8 @@ export const COPY = {
   },
   clarify: {
     roundLabel: (round: number) => `Putaran ${round} / 2`,
-    answered: (answered: number, total: number) => `${answered}/${total} terjawab`,
+    answered: (answered: number, total: number) =>
+      `${answered}/${total} terjawab`,
     titleRound1: "Klarifikasi Ruang Lingkup & Metrik",
     titleRound2: "Klarifikasi Skenario Edge Case & SLA",
     questionLabel: "Klarifikasi",
@@ -182,14 +186,17 @@ export const COPY = {
     acceptanceCriteria: "Kriteria Keberhasilan Awal",
     technicalConstraints: "Batasan Teknis / Regulasi",
     startClarify: "Mulai Klarifikasi",
-    clarifyHint: "Dilanjutkan 2 putaran klarifikasi ringkas sebelum generate BRD.",
+    clarifyHint:
+      "Dilanjutkan 2 putaran klarifikasi ringkas sebelum generate BRD.",
     validation: "Tuliskan user story terlebih dahulu.",
-    pasteRequired: "Mohon pilih berkas atau tempelkan isi teks terlebih dahulu.",
+    pasteRequired:
+      "Mohon pilih berkas atau tempelkan isi teks terlebih dahulu.",
     uploadTitle: "Upload / Tempel Dokumen Acuan",
     pickFile: "Pilih Dokumen",
     uploadHint: "Format: PDF, DOCX, Markdown, TXT",
     pasteLabel: "Atau Tempel Teks Dokumen",
-    uploadFooterHint: "Dokumen akan diselaraskan dengan struktur template baku.",
+    uploadFooterHint:
+      "Dokumen akan diselaraskan dengan struktur template baku.",
     restructure: "Restrukturisasi ke BRD v1",
     attach: "Lampirkan referensi",
     chooseFile: "Pilih berkas BRD",
@@ -209,20 +216,23 @@ export const COPY = {
       `BRD “${title}” berhasil diimpor. Tanyakan isinya atau minta perubahan — panel BRD akan muncul saat ada pratinjau yang perlu disetujui.`,
     importWaiting:
       "Menunggu dokumen selesai diproses — impor BRD dilanjutkan otomatis setelah siap.",
-    importContinues: "Dokumen masih diproses. Impor akan dilanjutkan otomatis begitu dokumen siap.",
+    importContinues:
+      "Dokumen masih diproses. Impor akan dilanjutkan otomatis begitu dokumen siap.",
     referenceStillIndexing:
       "Referensi masih diproses. Pertanyaan awal mungkin belum memakainya, tetapi dokumen akan otomatis dipakai saat menyusun BRD.",
     dismiss: "Tutup",
   },
   errors: {
     emptyBrd: "Agen mengembalikan BRD kosong",
-    generateStart: (message: string) => `Gagal memulai pembuatan BRD: ${message}`,
+    generateStart: (message: string) =>
+      `Gagal memulai pembuatan BRD: ${message}`,
     importFailed: (message: string) => `Impor gagal: ${message}`,
     importPendingFailed: (title: string) =>
       `Dokumen “${title}” gagal diproses sehingga tidak bisa diimpor.`,
     generationTimeout:
       "Penyusunan memakan waktu lebih lama dari biasanya. Periksa koneksi lalu coba lanjutkan lagi.",
-    attachmentTooLarge: (name: string, limit: string) => `${name} melebihi batas ${limit}.`,
+    attachmentTooLarge: (name: string, limit: string) =>
+      `${name} melebihi batas ${limit}.`,
     brdImportTooLarge: (name: string, limit: string) =>
       `Berkas BRD “${name}” melebihi batas ${limit}.`,
     uploadFailed: "Gagal mengunggah berkas.",

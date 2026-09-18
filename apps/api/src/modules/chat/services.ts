@@ -17,7 +17,10 @@ import { decryptSecret } from "../../lib/crypto.js";
 import { agentCacheKey, agentFingerprint } from "./utils.js";
 import type { AgentPhase } from "./types.js";
 
-type CachedAgent = { fingerprint: string; agent: ReturnType<typeof createSystemAnalystAgent> };
+type CachedAgent = {
+  fingerprint: string;
+  agent: ReturnType<typeof createSystemAnalystAgent>;
+};
 const agentCache = new Map<string, CachedAgent>();
 
 const memory = new PrismaMemoryStore({
@@ -25,13 +28,16 @@ const memory = new PrismaMemoryStore({
   scopeKey: { metadataKeys: ["userId"] },
 });
 
-const qdrant = new QdrantVectorClient({ url: process.env.QDRANT_URL ?? "http://127.0.0.1:6333" });
+const qdrant = new QdrantVectorClient({
+  url: process.env.QDRANT_URL ?? "http://127.0.0.1:6333",
+});
 const contextStore = qdrant.vectorStore({
   collectionName: "documents",
   dimensions: 384,
   metric: "cosine",
 });
-let contextEmbeddingModel: ReturnType<typeof loadTransformersEmbeddingModel> | undefined;
+let contextEmbeddingModel:
+  ReturnType<typeof loadTransformersEmbeddingModel> | undefined;
 
 async function embeddingModel() {
   contextEmbeddingModel ??= loadTransformersEmbeddingModel({
@@ -60,9 +66,13 @@ async function adaptersFor(
       return results.map((result) => ({
         documentId: String(result.metadata?.documentId ?? result.id),
         title:
-          typeof result.metadata?.documentName === "string" ? result.metadata.documentName : null,
+          typeof result.metadata?.documentName === "string"
+            ? result.metadata.documentName
+            : null,
         pageNumber:
-          typeof result.metadata?.pageNumber === "number" ? result.metadata.pageNumber : null,
+          typeof result.metadata?.pageNumber === "number"
+            ? result.metadata.pageNumber
+            : null,
         content:
           typeof result.document === "string"
             ? result.document
@@ -122,44 +132,62 @@ async function adaptersFor(
 
 export async function activeTemplateFor(
   userId: string,
-): Promise<{ templateId: string; updatedAt: string; structure: BrdTemplateStructure } | null> {
+): Promise<{
+  templateId: string;
+  updatedAt: string;
+  structure: BrdTemplateStructure;
+} | null> {
   const settings = await prisma.userSetting.findUnique({ where: { userId } });
   if (!settings?.activeTemplateId) return null;
   const template = await prisma.document.findFirst({
-    where: { id: settings.activeTemplateId, userId, isTemplate: true, status: "READY" },
+    where: {
+      id: settings.activeTemplateId,
+      userId,
+      isTemplate: true,
+      status: "READY",
+    },
     select: { id: true, templateStructure: true, updatedAt: true },
   });
   if (!template) return null;
   const structure = normalizeTemplateStructure(template.templateStructure);
   if (!structure) return null;
-  return { templateId: template.id, updatedAt: template.updatedAt.toISOString(), structure };
+  return {
+    templateId: template.id,
+    updatedAt: template.updatedAt.toISOString(),
+    structure,
+  };
 }
 
 /** Resolve router options from the user's saved model settings, dengan fallback env. */
-function modelRouterOptionsFor(settings: {
-  aiProvider: string;
-  aiModel: string | null;
-  easyModel: string | null;
-  mediumModel: string | null;
-  hardModel: string | null;
-  customBaseUrl: string | null;
-  encryptedApiKey: string | null;
-} | null) {
+function modelRouterOptionsFor(
+  settings: {
+    aiProvider: string;
+    aiModel: string | null;
+    easyModel: string | null;
+    mediumModel: string | null;
+    hardModel: string | null;
+    customBaseUrl: string | null;
+    encryptedApiKey: string | null;
+  } | null,
+) {
   let userApiKey: string | undefined;
   if (settings?.encryptedApiKey) {
     try {
       userApiKey = decryptSecret(settings.encryptedApiKey);
     } catch (error) {
-      console.warn("Failed to decrypt user API key; falling back to server key", {
-        error: error instanceof Error ? error.message : error,
-      });
+      console.warn(
+        "Failed to decrypt user API key; falling back to server key",
+        {
+          error: error instanceof Error ? error.message : error,
+        },
+      );
     }
   }
   const provider = settings?.aiProvider ?? "openrouter";
   const baseUrl =
     settings?.customBaseUrl ??
     (provider === "openrouter"
-      ? (process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1")
+      ? process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1"
       : undefined);
   return {
     apiKey: userApiKey,
@@ -198,21 +226,29 @@ export async function agentFor(
     contextAdapters: await adaptersFor(userId, sessionId, brdId),
     allowedTools: allowedToolsForPhase(phase),
     systemPrompt: settings?.systemPrompt ?? undefined,
+    tracingBy: "lens",
     // Flow phases (CLARIFY/JUDGE/GENERATE) are stateless per request and must
     // not pollute the session chat history. Only interactive chat (QA / no
     // phase) is persisted so the transcript stays empty after BRD v1.
     memory:
-      phase === undefined || phase === "QA" ? { store: memory, savePolicy: "turn" } : undefined,
+      phase === undefined || phase === "QA"
+        ? { store: memory, savePolicy: "turn" }
+        : undefined,
   });
 
   agentCache.set(cacheKey, { fingerprint, agent });
-  if (agentCache.size > 100) agentCache.delete(agentCache.keys().next().value as string);
+  if (agentCache.size > 100)
+    agentCache.delete(agentCache.keys().next().value as string);
   return agent;
 }
 
-export async function distillSessionContext(userId: string, sessionId: string): Promise<string> {
+export async function distillSessionContext(
+  userId: string,
+  sessionId: string,
+): Promise<string> {
   const results = await retrieveDocuments({
-    query: "requirements business rules actors integrations acceptance criteria",
+    query:
+      "requirements business rules actors integrations acceptance criteria",
     topK: 5,
     model: await embeddingModel(),
     store: contextStore,
@@ -223,7 +259,9 @@ export async function distillSessionContext(userId: string, sessionId: string): 
   });
   return results
     .map((result) =>
-      typeof result.document === "string" ? result.document : JSON.stringify(result.document),
+      typeof result.document === "string"
+        ? result.document
+        : JSON.stringify(result.document),
     )
     .join("\n")
     .slice(0, 4000);
@@ -241,10 +279,9 @@ export async function attachmentContextBlock(
   sessionId: string,
   documentIds: string[],
 ): Promise<string> {
-  const ids = [...new Set(documentIds.filter((id) => typeof id === "string" && id.trim()))].slice(
-    0,
-    5,
-  );
+  const ids = [
+    ...new Set(documentIds.filter((id) => typeof id === "string" && id.trim())),
+  ].slice(0, 5);
   if (!ids.length) return "";
 
   const documents = await prisma.document.findMany({
@@ -256,7 +293,10 @@ export async function attachmentContextBlock(
   const blocks: string[] = [];
   let budget = MAX_ATTACHMENT_CONTEXT_CHARS;
   for (const document of documents) {
-    if (document.status !== "READY" && document.status !== "PENDING_CONFIRMATION") {
+    if (
+      document.status !== "READY" &&
+      document.status !== "PENDING_CONFIRMATION"
+    ) {
       blocks.push(
         `### File: ${document.title}\n(status: ${document.status} — masih diproses; beri tahu user untuk menunggu sebentar lalu coba lagi)`,
       );
@@ -273,7 +313,9 @@ export async function attachmentContextBlock(
       if (!content) continue;
       const slice = content.slice(0, budget);
       budget -= slice.length;
-      blocks.push(`### File: ${document.title} (halaman ${page.pageNumber})\n${slice}`);
+      blocks.push(
+        `### File: ${document.title} (halaman ${page.pageNumber})\n${slice}`,
+      );
     }
   }
   if (!blocks.length) return "";

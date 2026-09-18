@@ -1,5 +1,20 @@
-import { MessagePrimitive, useAttachment, useMessage, useMessagePart } from "@anvia/react-ui";
-import { Bot, Brain, Copy, FileText, LoaderCircle, RefreshCw, User, Wrench, X } from "lucide-react";
+import {
+  MessagePrimitive,
+  useAttachment,
+  useMessage,
+  useMessagePart,
+} from "@anvia/react-ui";
+import {
+  Bot,
+  Brain,
+  Copy,
+  FileText,
+  LoaderCircle,
+  RefreshCw,
+  User,
+  Wrench,
+  X,
+} from "lucide-react";
 import { MarkdownContent } from "#/components/markdown/markdown-content";
 import { toolLabel } from "#/lib/copy";
 
@@ -10,7 +25,9 @@ export function MessageBubble() {
     return (
       <div className="my-1 text-center">
         <MessagePrimitive.Content className="inline-block rounded-full border border-slate-300/60 bg-slate-200/70 px-2.5 py-0.5 text-[10px] text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-          <MessagePrimitive.Parts>{() => <MessagePrimitive.Text />}</MessagePrimitive.Parts>
+          <MessagePrimitive.Parts>
+            {() => <MessagePrimitive.Text />}
+          </MessagePrimitive.Parts>
         </MessagePrimitive.Content>
       </div>
     );
@@ -18,11 +35,13 @@ export function MessageBubble() {
 
   if (message.role === "user") {
     return (
-      <div className="flex items-start justify-end gap-2">
+      <div className="flex items-start justify-end gap-2 mb-2">
         <div className="max-w-[85%] rounded-lg rounded-tr-xs bg-slate-900 p-2.5 text-xs leading-relaxed text-white dark:bg-slate-100 dark:text-slate-900">
           <MessagePrimitive.Root className="min-w-0">
             <MessagePrimitive.Content>
-              <MessagePrimitive.Parts>{() => <UserPart />}</MessagePrimitive.Parts>
+              <MessagePrimitive.Parts>
+                {() => <UserPart />}
+              </MessagePrimitive.Parts>
             </MessagePrimitive.Content>
           </MessagePrimitive.Root>
         </div>
@@ -38,7 +57,9 @@ export function MessageBubble() {
       <div className="mx-auto max-w-[95%]">
         <MessagePrimitive.Root className="min-w-0">
           <MessagePrimitive.Content>
-            <MessagePrimitive.Parts>{() => <AssistantPart />}</MessagePrimitive.Parts>
+            <MessagePrimitive.Parts>
+              {() => <AssistantPart />}
+            </MessagePrimitive.Parts>
           </MessagePrimitive.Content>
         </MessagePrimitive.Root>
       </div>
@@ -54,18 +75,20 @@ export function MessageBubble() {
         <div className="rounded-lg rounded-tl-xs border border-slate-200 bg-white p-2.5 text-xs leading-relaxed shadow-xs dark:border-slate-800 dark:bg-slate-900">
           <MessagePrimitive.Root className="min-w-0">
             <MessagePrimitive.Content>
-              <MessagePrimitive.Parts>{() => <AssistantPart />}</MessagePrimitive.Parts>
+              <MessagePrimitive.Parts>
+                {() => <AssistantPart />}
+              </MessagePrimitive.Parts>
             </MessagePrimitive.Content>
           </MessagePrimitive.Root>
         </div>
         <MessagePrimitive.Actions className="flex items-center gap-1 pl-1 opacity-100 focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
           <MessagePrimitive.Copy className="inline-flex h-6 cursor-pointer items-center gap-1 rounded px-1.5 text-[11px] text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100">
             <Copy size={12} />
-            Salin
+            Copy
           </MessagePrimitive.Copy>
           <MessagePrimitive.Regenerate className="inline-flex h-6 cursor-pointer items-center gap-1 rounded px-1.5 text-[11px] text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100">
             <RefreshCw size={12} />
-            Ulangi
+            Regenerate
           </MessagePrimitive.Regenerate>
         </MessagePrimitive.Actions>
       </div>
@@ -98,7 +121,7 @@ function AssistantPart() {
         <MessagePrimitive.Reasoning className="my-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
           <summary className="flex cursor-pointer items-center gap-1.5 font-medium select-none">
             <Brain size={13} />
-            Proses berpikir
+            Thinking
           </summary>
           <pre className="mt-2 max-h-60 overflow-auto font-sans whitespace-pre-wrap">
             {part.text}
@@ -128,7 +151,8 @@ function ToolCall() {
   const { part } = useMessagePart();
   if (part.type !== "tool") return null;
 
-  const running = part.state === "input-streaming" || part.state === "input-available";
+  const running =
+    part.state === "input-streaming" || part.state === "input-available";
 
   return (
     <MessagePrimitive.Tool className="my-2 inline-flex max-w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
@@ -139,12 +163,14 @@ function ToolCall() {
       {running ? (
         <span className="inline-flex shrink-0 items-center gap-1.5">
           <LoaderCircle size={11} className="animate-spin" />
-          Berjalan
+          Regenerating...
         </span>
       ) : (
         <MessagePrimitive.ToolStatus className="shrink-0" />
       )}
-      {part.state === "error" && <MessagePrimitive.ToolError className="text-rose-600" />}
+      {part.state === "error" && (
+        <MessagePrimitive.ToolError className="text-rose-600" />
+      )}
     </MessagePrimitive.Tool>
   );
 }
@@ -152,7 +178,12 @@ function ToolCall() {
 function AttachmentView({
   attachment,
 }: {
-  attachment: { name?: string; mediaType?: string; url?: string; data?: string };
+  attachment: {
+    name?: string;
+    mediaType?: string;
+    url?: string;
+    data?: string;
+  };
 }) {
   return (
     <div className="my-1 flex max-w-full items-center gap-2 overflow-hidden rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
@@ -167,7 +198,9 @@ export function ComposerAttachment() {
   return (
     <div className="flex items-center gap-2 rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
       <FileText size={12} className="shrink-0 text-slate-400" />
-      <span className="max-w-36 truncate sm:max-w-48">{attachment.name ?? "Lampiran"}</span>
+      <span className="max-w-36 truncate sm:max-w-48">
+        {attachment.name ?? "Lampiran"}
+      </span>
       {remove && (
         <button
           type="button"

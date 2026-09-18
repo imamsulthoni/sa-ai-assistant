@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createHttpClientTransport } from "@anvia/client";
 import { useChat, type UseChatStatus } from "@anvia/react";
-import { ChatProvider, ComposerPrimitive, ThreadPrimitive, useComposer } from "@anvia/react-ui";
+import {
+  ChatProvider,
+  ComposerPrimitive,
+  ThreadPrimitive,
+  useComposer,
+} from "@anvia/react-ui";
 import {
   AtSign,
   Bot,
@@ -15,12 +20,23 @@ import {
   X,
 } from "lucide-react";
 import type { UIMessage } from "@anvia/client";
-import { DEMO_USER_ID, deleteDocument, listDocuments, uploadDocument } from "#/lib/api";
+import {
+  DEMO_USER_ID,
+  deleteDocument,
+  listDocuments,
+  uploadDocument,
+} from "#/lib/api";
 import { COPY } from "#/lib/copy";
-import { ATTACHMENT_MAX_UPLOAD_BYTES, ATTACHMENT_MAX_UPLOAD_LABEL } from "#/lib/upload";
+import {
+  ATTACHMENT_MAX_UPLOAD_BYTES,
+  ATTACHMENT_MAX_UPLOAD_LABEL,
+} from "#/lib/upload";
 import { describeError } from "#/lib/errors";
 import { notify } from "#/lib/notify";
-import { ComposerAttachment, MessageBubble } from "#/modules/chat/message-bubble";
+import {
+  ComposerAttachment,
+  MessageBubble,
+} from "#/modules/chat/message-bubble";
 import { MentionPopover } from "#/modules/brd/mention-popover";
 
 export type MentionRequest = { id: number; name: string };
@@ -77,19 +93,37 @@ function readStoredComposerContext(sessionId: string): SessionUpload[] {
       if (!item || typeof item !== "object") return [];
       const { documentId, name } = item as Partial<StoredComposerItem>;
       if (typeof documentId !== "string" || typeof name !== "string") return [];
-      return [{ key: `stored-${documentId}`, name, isImage: false, status: "ready", documentId }];
+      return [
+        {
+          key: `stored-${documentId}`,
+          name,
+          isImage: false,
+          status: "ready",
+          documentId,
+        },
+      ];
     });
   } catch {
     return [];
   }
 }
 
-function writeStoredComposerContext(sessionId: string, uploads: SessionUpload[]): void {
+function writeStoredComposerContext(
+  sessionId: string,
+  uploads: SessionUpload[],
+): void {
   try {
     const items: StoredComposerItem[] = uploads
       .filter((item) => item.status === "ready" && item.documentId)
-      .map((item) => ({ documentId: item.documentId as string, name: item.name }));
-    if (items.length) sessionStorage.setItem(composerStorageKey(sessionId), JSON.stringify(items));
+      .map((item) => ({
+        documentId: item.documentId as string,
+        name: item.name,
+      }));
+    if (items.length)
+      sessionStorage.setItem(
+        composerStorageKey(sessionId),
+        JSON.stringify(items),
+      );
     else sessionStorage.removeItem(composerStorageKey(sessionId));
   } catch {
     // Storage can be unavailable (private mode); chips then live in memory only.
@@ -133,15 +167,20 @@ export function AnviaChat({
   // Dokumen yang dihapus dari sidebar juga membersihkan chip yang menunjuknya.
   const sessionDocumentsQuery = useQuery({
     queryKey: ["session", sessionId, "documents"],
-    queryFn: () => listDocuments(sessionId).then((response) => response.documents),
+    queryFn: () =>
+      listDocuments(sessionId).then((response) => response.documents),
   });
+
   const sessionDocuments = sessionDocumentsQuery.data;
+
   useEffect(() => {
     if (!sessionDocumentsQuery.isSuccess || !sessionDocuments) return;
     const ids = new Set(sessionDocuments.map((document) => document.id));
     setUploads((prev) => {
       const next = prev.filter(
-        (item) => item.status !== "ready" || (item.documentId && ids.has(item.documentId)),
+        (item) =>
+          item.status !== "ready" ||
+          (item.documentId && ids.has(item.documentId)),
       );
       return next.length === prev.length ? prev : next;
     });
@@ -158,7 +197,9 @@ export function AnviaChat({
   }, []);
 
   const refreshSessionDocuments = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ["session", sessionId, "documents"] });
+    void queryClient.invalidateQueries({
+      queryKey: ["session", sessionId, "documents"],
+    });
   }, [queryClient, sessionId]);
 
   const attachFiles = useCallback(
@@ -166,7 +207,10 @@ export function AnviaChat({
       setUploadError(null);
       for (const file of Array.from(files)) {
         if (file.size > ATTACHMENT_MAX_UPLOAD_BYTES) {
-          const message = COPY.errors.attachmentTooLarge(file.name, ATTACHMENT_MAX_UPLOAD_LABEL);
+          const message = COPY.errors.attachmentTooLarge(
+            file.name,
+            ATTACHMENT_MAX_UPLOAD_LABEL,
+          );
           setUploadError(message);
           notify.error(message);
           continue;
@@ -234,11 +278,14 @@ export function AnviaChat({
           const attachedFiles = files.map((item) => item.name);
           const attachedDocumentIds = files.map((item) => item.id);
           const requestMetadata =
-            (context.request as { metadata?: Record<string, unknown> }).metadata ?? {};
+            (context.request as { metadata?: Record<string, unknown> })
+              .metadata ?? {};
           const metadata = {
             ...requestMetadata,
             ...(brdDocumentId ? { phase: "QA", brdDocumentId } : {}),
-            ...(attachedFiles.length ? { attachedFiles, attachedDocumentIds } : {}),
+            ...(attachedFiles.length
+              ? { attachedFiles, attachedDocumentIds }
+              : {}),
           };
           // The request now carries the context; the composer queue starts fresh.
           if (files.length) clearComposerContext();
@@ -271,7 +318,9 @@ export function AnviaChat({
   const brdActive = Boolean(brdDocumentId);
 
   const addMention = useCallback((item: MentionItem) => {
-    setMentions((prev) => (prev.some((entry) => entry.id === item.id) ? prev : [...prev, item]));
+    setMentions((prev) =>
+      prev.some((entry) => entry.id === item.id) ? prev : [...prev, item],
+    );
   }, []);
   const removeMention = useCallback((id: string) => {
     setMentions((prev) => prev.filter((entry) => entry.id !== id));
@@ -363,7 +412,9 @@ export function AnviaChat({
                 </div>
               </ThreadPrimitive.Empty>
 
-              <ThreadPrimitive.Messages>{() => <MessageBubble />}</ThreadPrimitive.Messages>
+              <ThreadPrimitive.Messages>
+                {() => <MessageBubble />}
+              </ThreadPrimitive.Messages>
 
               <StreamingIndicator />
 
@@ -419,11 +470,17 @@ export function AnviaChat({
                     ) : (
                       <FileText size={12} className="shrink-0 text-slate-400" />
                     )}
-                    <span className="max-w-32 truncate font-mono" title={item.name}>
+                    <span
+                      className="max-w-32 truncate font-mono"
+                      title={item.name}
+                    >
                       {item.name}
                     </span>
                     {item.status === "uploading" ? (
-                      <LoaderCircle size={11} className="animate-spin text-slate-400" />
+                      <LoaderCircle
+                        size={11}
+                        className="animate-spin text-slate-400"
+                      />
                     ) : (
                       <button
                         type="button"
@@ -439,9 +496,13 @@ export function AnviaChat({
               </div>
             )}
 
-            {mentions.length > 0 && <MentionChips mentions={mentions} onRemove={removeMention} />}
+            {mentions.length > 0 && (
+              <MentionChips mentions={mentions} onRemove={removeMention} />
+            )}
 
-            {uploadError && <p className="mb-2 text-xs text-rose-600">{uploadError}</p>}
+            {uploadError && (
+              <p className="mb-2 text-xs text-rose-600">{uploadError}</p>
+            )}
 
             <div className="relative">
               {mentionOpen && (
@@ -490,7 +551,9 @@ export function AnviaChat({
                 <ComposerPrimitive.TextareaInput
                   className="max-h-40 min-h-8 w-full resize-none border-0 bg-transparent px-1 py-1.5 text-xs leading-5 text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100"
                   placeholder={
-                    brdActive ? COPY.chat.composerPlaceholderBrd : COPY.chat.composerPlaceholder
+                    brdActive
+                      ? COPY.chat.composerPlaceholderBrd
+                      : COPY.chat.composerPlaceholder
                   }
                 />
 
@@ -498,7 +561,10 @@ export function AnviaChat({
               </div>
             </div>
 
-            <MentionInjector request={mentionRequest ?? null} onConsumed={onMentionConsumed} />
+            <MentionInjector
+              request={mentionRequest ?? null}
+              onConsumed={onMentionConsumed}
+            />
           </ComposerPrimitive.Root>
         </ThreadPrimitive.Root>
       </ChatProvider>
@@ -557,7 +623,11 @@ function MentionChips({
             aria-label={`Hapus mention ${item.name}`}
             onClick={() => {
               composer.setInput(
-                composer.input.split(`@${item.name}`).join("").replace(/ {2,}/g, " ").trimStart(),
+                composer.input
+                  .split(`@${item.name}`)
+                  .join("")
+                  .replace(/ {2,}/g, " ")
+                  .trimStart(),
               );
               onRemove(item.id);
             }}
