@@ -78,6 +78,60 @@ describe("applyOperations", () => {
     expect(result.updatedMarkdown).toContain("## 2. Kebutuhan fungsional");
   });
 
+  it("updates a sub-section body without touching sibling sub-sections", () => {
+    const withSubsections = `# BRD
+
+## 1. Detail Proses
+### 1.1 Checkout
+Alur checkout lama.
+
+### 1.2 Pembayaran
+Alur pembayaran lama.
+
+## 2. Lain
+Tetap.
+`;
+    const result = applyOperations(withSubsections, [
+      { op: "update_section", sectionTitle: "Pembayaran", content: "Alur pembayaran baru dengan retry." },
+    ]);
+    expect(result.applied).toBe(1);
+    expect(result.updatedMarkdown).toContain("### 1.1 Checkout");
+    expect(result.updatedMarkdown).toContain("Alur checkout lama.");
+    expect(result.updatedMarkdown).toContain("Alur pembayaran baru dengan retry.");
+    expect(result.updatedMarkdown).not.toContain("Alur pembayaran lama.");
+  });
+
+  it("patches an exact text snippet with replace_text", () => {
+    const result = applyOperations(BRD, [
+      {
+        op: "replace_text",
+        find: "Sistem harus menampilkan status pengajuan.",
+        content: "Sistem harus menampilkan status pengajuan beserta riwayat persetujuan.",
+      },
+    ]);
+    expect(result.applied).toBe(1);
+    expect(result.updatedMarkdown).toContain("beserta riwayat persetujuan");
+    expect(result.updatedMarkdown).not.toContain("Sistem harus menampilkan status pengajuan.\n");
+    expect(result.changeSummary).toContain("potongan teks");
+  });
+
+  it("reports a gap when replace_text does not find the snippet", () => {
+    const result = applyOperations(BRD, [
+      { op: "replace_text", find: "teks yang tidak ada", content: "x" },
+    ]);
+    expect(result.applied).toBe(0);
+    expect(result.gaps[0]).toContain("tidak ditemukan");
+  });
+
+  it("asks for more context when replace_text matches more than once", () => {
+    const duplicated = "# BRD\n\n## 1. A\nSLA 99%.\n\n## 2. B\nSLA 99%.\n";
+    const result = applyOperations(duplicated, [
+      { op: "replace_text", find: "SLA 99%.", content: "SLA 99.9%." },
+    ]);
+    expect(result.applied).toBe(0);
+    expect(result.gaps[0]).toContain("lebih dari sekali");
+  });
+
   it("never collapses blank lines inside fenced code blocks", () => {
     const withFence = `# BRD
 

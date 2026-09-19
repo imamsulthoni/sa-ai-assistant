@@ -11,6 +11,7 @@ import {
 import { Button } from "#/components/base/button";
 import { Textarea } from "#/components/base/input";
 import { COPY } from "#/lib/copy";
+import type { TemplateSummary } from "#/lib/api";
 import {
   ATTACHMENT_MAX_UPLOAD_BYTES,
   ATTACHMENT_MAX_UPLOAD_LABEL,
@@ -28,6 +29,10 @@ type NewBrdPanelProps = {
   onOpenTemplateManager?: () => void;
   onModeChange?: (mode: NewBrdMode) => void;
   initialStory?: string;
+  /** Template siap pakai; dropdown muncul bila lebih dari satu. */
+  templates?: TemplateSummary[];
+  selectedTemplateId?: string | null;
+  onTemplateChange?: (id: string) => void;
 };
 
 export type NewBrdMode = "story" | "upload";
@@ -42,7 +47,13 @@ export function NewBrdPanel({
   onOpenTemplateManager,
   onModeChange,
   initialStory,
+  templates = [],
+  selectedTemplateId,
+  onTemplateChange,
 }: NewBrdPanelProps) {
+  const selectableTemplates = templates.filter(
+    (item) => item.status === "READY" && item.hasStructure,
+  );
   const [mode, setModeState] = useState<NewBrdMode>("story");
   const setMode = (next: NewBrdMode) => {
     setModeState(next);
@@ -171,6 +182,29 @@ export function NewBrdPanel({
               {COPY.newBrd.formTitle}
             </span>
           </div>
+
+          {selectableTemplates.length > 1 && onTemplateChange && (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+                {COPY.newBrd.templatePicker}
+              </span>
+              <select
+                value={selectedTemplateId ?? ""}
+                disabled={busy}
+                onChange={(event) => onTemplateChange(event.target.value)}
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-900 transition-colors focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                {selectableTemplates.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title} ({item.sectionCount} section)
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-[11px] text-slate-400">
+                {COPY.newBrd.templatePickerHint}
+              </span>
+            </label>
+          )}
 
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">

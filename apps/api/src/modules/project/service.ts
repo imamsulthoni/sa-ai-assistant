@@ -17,6 +17,7 @@ export type ProjectSummary = {
   name: string;
   description: string | null;
   templateId: string | null;
+  templateTitle: string | null;
   isDefault: boolean;
   sessionCount: number;
   documentCount: number;
@@ -57,13 +58,14 @@ type ProjectRow = {
   }>;
 };
 
-function toSummary(row: ProjectRow): ProjectSummary {
+function toSummary(row: ProjectRow, templateTitle: string | null): ProjectSummary {
   const brd = row.brds[0];
   return {
     id: row.id,
     name: row.name,
     description: row.description,
     templateId: row.templateId,
+    templateTitle,
     isDefault: row.isDefault,
     sessionCount: row._count.sessions,
     documentCount: row._count.documents,
@@ -81,13 +83,37 @@ function toSummary(row: ProjectRow): ProjectSummary {
   };
 }
 
+/** Judul template untuk sekumpulan id (batch, tanpa relasi Prisma baru). */
+async function templateTitles(
+  userId: string,
+  templateIds: Array<string | null>,
+): Promise<Map<string, string>> {
+  const unique = [...new Set(templateIds.filter((id): id is string => Boolean(id)))];
+  if (!unique.length) return new Map();
+  const documents = await prisma.document.findMany({
+    where: { id: { in: unique }, userId, isTemplate: true },
+    select: { id: true, title: true },
+  });
+  return new Map(documents.map((document) => [document.id, document.title]));
+}
+
+async function summariesWithTitles(
+  userId: string,
+  rows: ProjectRow[],
+): Promise<ProjectSummary[]> {
+  const titles = await templateTitles(userId, rows.map((row) => row.templateId));
+  return rows.map((row) =>
+    toSummary(row, row.templateId ? (titles.get(row.templateId) ?? null) : null),
+  );
+}
+
 export async function listProjects(userId: string): Promise<ProjectSummary[]> {
   const rows = await prisma.project.findMany({
     where: { userId },
     orderBy: [{ isDefault: "asc" }, { updatedAt: "desc" }],
     include: projectInclude,
   });
-  return rows.map(toSummary);
+  return summariesWithTitles(userId, rows);
 }
 
 export async function getProject(
@@ -98,7 +124,9 @@ export async function getProject(
     where: { id: projectId, userId },
     include: projectInclude,
   });
-  return row ? toSummary(row) : null;
+  if (!row) return null;
+  const [summary] = await summariesWithTitles(userId, [row]);
+  return summary;
 }
 
 /** Template project hanya boleh menunjuk dokumen template milik user yang sama. */
@@ -128,7 +156,8 @@ export async function createProject(
     },
     include: projectInclude,
   });
-  return toSummary(row);
+  const [summary] = await summariesWithTitles(userId, [row]);
+  return summary;
 }
 
 export async function updateProject(
@@ -153,7 +182,8 @@ export async function updateProject(
     },
     include: projectInclude,
   });
-  return toSummary(row);
+  const [summary] = await summariesWithTitles(userId, [row]);
+  return summary;
 }
 
 /**
@@ -197,14 +227,18 @@ export async function ensureDefaultProject(userId: string): Promise<ProjectSumma
     where: { userId, isDefault: true },
     include: projectInclude,
   });
-  if (existing) return toSummary(existing);
+  if (existing) {
+    const [summary] = await summariesWithTitles(userId, [existing]);
+    return summary;
+  }
 
   try {
     const row = await prisma.project.create({
       data: { userId, name: DEFAULT_PROJECT_NAME, isDefault: true },
       include: projectInclude,
     });
-    return toSummary(row);
+    const [summary] = await summariesWithTitles(userId, [row]);
+    return summary;
   } catch {
     // Balapan dua request pertama: pakai project yang sudah dibuat pihak lain.
     const raced = await prisma.project.findFirst({
@@ -212,6 +246,7 @@ export async function ensureDefaultProject(userId: string): Promise<ProjectSumma
       include: projectInclude,
     });
     if (!raced) throw new Error("Failed to provision the default project");
-    return toSummary(raced);
+    const [summary] = await summariesWithTitles(userId, [raced]);
+    return summary;
   }
 }

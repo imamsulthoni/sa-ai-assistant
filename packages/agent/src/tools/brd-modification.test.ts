@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyChange, modifyBrdTool } from "./brd-modification.js";
+import { applyChange, createModifyBrdTool, modifyBrdTool } from "./brd-modification.js";
 
 const BRD = `# BRD
 
@@ -56,5 +56,42 @@ describe("modifyBrdTool", () => {
     expect(output.applied).toBe(0);
     expect(output.updatedMarkdown).toBeNull();
     expect(output.gaps[0]).toContain("BR-999");
+  });
+});
+
+describe("createModifyBrdTool", () => {
+  it("resolves the active BRD server-side when the agent omits the document", async () => {
+    const tool = createModifyBrdTool({
+      getActiveBrd: () => ({ contentMarkdown: BRD, versions: [] }),
+    });
+
+    const output = await tool.call({
+      operations: [
+        {
+          op: "update_section",
+          sectionTitle: "Kebutuhan fungsional",
+          content: "Bagian fungsional yang diperkaya.",
+        },
+      ],
+      changeRequest: "",
+      referenceContext: "",
+    });
+
+    expect(output.applied).toBe(1);
+    expect(output.updatedMarkdown).toContain("Bagian fungsional yang diperkaya.");
+  });
+
+  it("reports a gap when there is no active BRD to resolve", async () => {
+    const tool = createModifyBrdTool({ getActiveBrd: () => null });
+
+    const output = await tool.call({
+      operations: [],
+      changeRequest: "perdalam section apapun",
+      referenceContext: "",
+    });
+
+    expect(output.applied).toBe(0);
+    expect(output.updatedMarkdown).toBeNull();
+    expect(output.gaps[0]).toContain("BRD aktif");
   });
 });

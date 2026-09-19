@@ -9,6 +9,7 @@ import type {
   SessionSummary,
   Settings,
   SettingsResponse,
+  TemplateSummary,
 } from "./types.js";
 
 export type {
@@ -22,6 +23,7 @@ export type {
   SessionSummary,
   Settings,
   SettingsResponse,
+  TemplateSummary,
 } from "./types.js";
 
 /** Error HTTP dengan status + kode error server (mis. brd_exists). */
@@ -313,6 +315,17 @@ export function createManualTemplate(input: {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export function listTemplates(): Promise<{
+  activeTemplateId: string | null;
+  templates: TemplateSummary[];
+}> {
+  return request("/settings/templates");
+}
+
+export function deleteTemplate(id: string): Promise<{ ok: boolean }> {
+  return request(`/settings/template/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 export function getTemplate(

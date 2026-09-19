@@ -11,6 +11,8 @@ import { createModelRouter, type ModelRouterOptions } from "./provider/model-rou
 import { createTavilyProvider } from "./provider/tavily.js";
 import {
   answerBrdQuestionTool,
+  createAnswerBrdQuestionTool,
+  createModifyBrdTool,
   draftBrdTool,
   elicitClarificationsTool,
   createActiveBrdTool,
@@ -84,11 +86,19 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
         modelId: options.modelId,
       });
 
+  // Dengan adapter konteks, tool baca/ubah BRD mengambil dokumen aktif
+  // server-side sehingga model tidak perlu menyalin BRD ke argumen tool.
+  const modifyTool = options.contextAdapters
+    ? createModifyBrdTool(options.contextAdapters)
+    : modifyBrdTool;
+  const answerTool = options.contextAdapters
+    ? createAnswerBrdQuestionTool(options.contextAdapters)
+    : answerBrdQuestionTool;
   const allTools = [
     draftBrdTool,
     elicitClarificationsTool,
-    modifyBrdTool,
-    answerBrdQuestionTool,
+    modifyTool,
+    answerTool,
     ...(options.contextAdapters
       ? [
           createSearchContextTool(options.contextAdapters),
@@ -114,7 +124,9 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
     name: "System Analyst AI Assistant",
     description: "Drafts and reviews BRDs and grounded specifications.",
     model,
-    instructions: `${SYSTEM_ANALYST_INSTRUCTIONS}\n\n${BRD_OUTPUT_GUIDANCE}\n\n${phaseInstructions}${options.templateInstruction ? `\n\n${options.templateInstruction}` : ""}${options.systemPrompt ? `\n\nAdditional user instructions:\n${options.systemPrompt}` : ""}`,
+    // QA tidak menulis BRD dari nol: panduan struktur lengkap dilewati agar
+    // prompt lebih ringkas dan fokus pada operasi dokumen.
+    instructions: `${SYSTEM_ANALYST_INSTRUCTIONS}${options.phase === "QA" ? "" : `\n\n${BRD_OUTPUT_GUIDANCE}`}\n\n${phaseInstructions}${options.templateInstruction ? `\n\n${options.templateInstruction}` : ""}${options.systemPrompt ? `\n\nAdditional user instructions:\n${options.systemPrompt}` : ""}`,
     tools: options.allowedTools
       ? allTools.filter((tool) => options.allowedTools?.includes(tool.name))
       : allTools,
@@ -127,7 +139,8 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
           primaryTrace: options.tracingBy,
         }
       : undefined,
-    maxTurns: 8,
+    // QA satu putaran baca + satu operasi; batasi loop agar tidak lambat.
+    maxTurns: options.phase === "QA" ? 6 : 8,
   });
 }
 

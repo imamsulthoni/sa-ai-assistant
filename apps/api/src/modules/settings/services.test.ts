@@ -1,86 +1,106 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
-  document: { findFirst: vi.fn() },
-  userSetting: { findUnique: vi.fn() },
+  document: { findMany: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
+  userSetting: { findUnique: vi.fn(), updateMany: vi.fn() },
+  $transaction: vi.fn(async (operations: unknown[]) => Promise.all(operations)),
+}));
+
+const documentMock = vi.hoisted(() => ({
+  deleteDocument: vi.fn(),
+  deleteDocumentVectors: vi.fn(),
 }));
 
 vi.mock("../../lib/prisma.js", () => ({ prisma: prismaMock }));
+vi.mock("../document/services.js", () => ({
+  deleteDocument: documentMock.deleteDocument,
+  deleteDocumentVectors: documentMock.deleteDocumentVectors,
+  documentUrl: () => "",
+  uploadDocument: vi.fn(),
+}));
+vi.mock("../../lib/queue.js", () => ({
+  documentQueue: { add: vi.fn() },
+  templateQueue: { add: vi.fn() },
+  retryPolicies: { ingestion: {}, template: {} },
+}));
+vi.mock("../../lib/crypto.js", () => ({
+  encryptSecret: (value: string) => value,
+  decryptSecret: (value: string) => value,
+}));
 
-import { getCurrentTemplate } from "./services.js";
-
-const inFlightTemplate = {
-  id: "t-in-flight",
-  title: "standar-brd.pdf",
-  status: "PROCESSING",
-  templateStructure: null,
-  error: null,
-};
-
-const activeTemplate = {
-  id: "t-active",
-  title: "standar-lama.pdf",
-  status: "READY",
-  templateStructure: { sections: [] },
-  error: null,
-};
+import { deleteTemplate, listTemplates } from "./services.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("getCurrentTemplate", () => {
-  it("lets an in-flight template beat the active one", async () => {
-    prismaMock.document.findFirst.mockResolvedValueOnce(inFlightTemplate);
-    prismaMock.userSetting.findUnique.mockResolvedValueOnce({ activeTemplateId: "t-active" });
+describe("listTemplates", () => {
+  it("maps every template and marks the active one", async () => {
+    prismaMock.document.findMany.mockResolvedValueOnce([
+      {
+        id: "tpl-1",
+        title: "Template A",
+        status: "READY",
+        templateStructure: { sections: [{ id: "a" }, { id: "b" }] },
+        error: null,
+        updatedAt: new Date("2026-09-19T00:00:00.000Z"),
+      },
+      {
+        id: "tpl-2",
+        title: "Template B",
+        status: "PROCESSING",
+        templateStructure: null,
+        error: null,
+        updatedAt: new Date("2026-09-18T00:00:00.000Z"),
+      },
+    ]);
+    prismaMock.userSetting.findUnique.mockResolvedValueOnce({ activeTemplateId: "tpl-1" });
 
-    await expect(getCurrentTemplate("user-1")).resolves.toEqual({
-      document: inFlightTemplate,
-      activeTemplateId: "t-active",
+    const result = await listTemplates("user-1");
+
+    expect(result.activeTemplateId).toBe("tpl-1");
+    expect(result.templates).toHaveLength(2);
+    expect(result.templates[0]).toMatchObject({
+      id: "tpl-1",
+      hasStructure: true,
+      sectionCount: 2,
     });
-    expect(prismaMock.document.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          userId: "user-1",
-          isTemplate: true,
-          status: { in: ["UPLOADING", "PROCESSING", "PENDING_CONFIRMATION"] },
-        }),
-        orderBy: { updatedAt: "desc" },
-      }),
-    );
+    expect(result.templates[1]).toMatchObject({
+      id: "tpl-2",
+      hasStructure: false,
+      sectionCount: 0,
+    });
+  });
+});
+
+describe("deleteTemplate", () => {
+  it("deletes a template and clears the active pointer when needed", async () => {
+    prismaMock.document.findFirst.mockResolvedValueOnce({
+      id: "tpl-1",
+      objectKey: "key-1",
+    });
+    documentMock.deleteDocumentVectors.mockResolvedValue(undefined);
+    documentMock.deleteDocument.mockResolvedValue(undefined);
+    prismaMock.userSetting.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.document.delete.mockResolvedValue({});
+
+    await expect(deleteTemplate("user-1", "tpl-1")).resolves.toBe(true);
+
+    expect(documentMock.deleteDocumentVectors).toHaveBeenCalledWith("tpl-1");
+    expect(documentMock.deleteDocument).toHaveBeenCalledWith("key-1");
+    expect(prismaMock.userSetting.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", activeTemplateId: "tpl-1" },
+      data: { activeTemplateId: null },
+    });
+    expect(prismaMock.document.delete).toHaveBeenCalledWith({ where: { id: "tpl-1" } });
   });
 
-  it("falls back to the active template when nothing is in flight", async () => {
-    prismaMock.document.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(activeTemplate);
-    prismaMock.userSetting.findUnique.mockResolvedValueOnce({ activeTemplateId: "t-active" });
-
-    await expect(getCurrentTemplate("user-1")).resolves.toEqual({
-      document: activeTemplate,
-      activeTemplateId: "t-active",
-    });
-    expect(prismaMock.document.findFirst).toHaveBeenLastCalledWith(
-      expect.objectContaining({ where: { id: "t-active", userId: "user-1", isTemplate: true } }),
-    );
-  });
-
-  it("returns null document and activeTemplateId when there is neither an in-flight nor an active template", async () => {
+  it("does nothing when the template is not owned by the user", async () => {
     prismaMock.document.findFirst.mockResolvedValueOnce(null);
-    prismaMock.userSetting.findUnique.mockResolvedValueOnce(null);
 
-    await expect(getCurrentTemplate("user-1")).resolves.toEqual({
-      document: null,
-      activeTemplateId: null,
-    });
-  });
+    await expect(deleteTemplate("user-1", "tpl-x")).resolves.toBe(false);
 
-  it("does not query documents when the user has no active template", async () => {
-    prismaMock.document.findFirst.mockResolvedValueOnce(null);
-    prismaMock.userSetting.findUnique.mockResolvedValueOnce({ activeTemplateId: null });
-
-    await expect(getCurrentTemplate("user-1")).resolves.toEqual({
-      document: null,
-      activeTemplateId: null,
-    });
-    expect(prismaMock.document.findFirst).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(documentMock.deleteDocument).not.toHaveBeenCalled();
   });
 });

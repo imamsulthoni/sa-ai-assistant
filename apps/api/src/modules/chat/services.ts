@@ -116,7 +116,24 @@ async function adaptersFor(
   };
 }
 
-/** Template efektif: template project menang, fallback ke setting user. */
+const READY_TEMPLATE_SELECT = {
+  id: true,
+  templateStructure: true,
+  updatedAt: true,
+} as const;
+
+async function readyTemplate(userId: string, templateId: string | null | undefined) {
+  if (!templateId) return null;
+  return prisma.document.findFirst({
+    where: { id: templateId, userId, isTemplate: true, status: "READY" },
+    select: READY_TEMPLATE_SELECT,
+  });
+}
+
+/**
+ * Template efektif: pilihan project menang; kalau pilihan itu sudah tidak ada
+ * (dihapus/tidak READY), fallback ke template aktif user.
+ */
 async function templateIdFor(userId: string, projectId?: string): Promise<string | null> {
   const [project, settings] = await Promise.all([
     projectId
@@ -130,7 +147,13 @@ async function templateIdFor(userId: string, projectId?: string): Promise<string
       select: { activeTemplateId: true },
     }),
   ]);
-  return project?.templateId ?? settings?.activeTemplateId ?? null;
+  const candidates = [project?.templateId, settings?.activeTemplateId].filter(
+    (id): id is string => Boolean(id),
+  );
+  for (const candidate of candidates) {
+    if (await readyTemplate(userId, candidate)) return candidate;
+  }
+  return null;
 }
 
 export async function activeTemplateFor(

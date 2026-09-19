@@ -47,7 +47,11 @@ export function useProjects() {
   });
 
   const createProject = useCallback(
-    async (input: { name: string; description?: string | null }) => {
+    async (input: {
+      name: string;
+      description?: string | null;
+      templateId?: string | null;
+    }) => {
       setActionError(null);
       return createMutation.mutateAsync(input);
     },

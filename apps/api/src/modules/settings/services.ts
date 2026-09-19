@@ -120,6 +120,91 @@ export async function getTemplate(userId: string, id: string) {
  * dikembalikan terpisah agar klien bisa tahu apakah user sudah punya template
  * aktif (dipakai untuk gating pembuatan BRD).
  */
+export type TemplateSummary = {
+  id: string;
+  title: string;
+  status: string;
+  hasStructure: boolean;
+  sectionCount: number;
+  error: string | null;
+  updatedAt: string;
+};
+
+/** Semua template milik user + id template yang sedang aktif. */
+export async function listTemplates(userId: string): Promise<{
+  activeTemplateId: string | null;
+  templates: TemplateSummary[];
+}> {
+  const [documents, settings] = await Promise.all([
+    prisma.document.findMany({
+      where: { userId, isTemplate: true },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        templateStructure: true,
+        error: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.userSetting.findUnique({
+      where: { userId },
+      select: { activeTemplateId: true },
+    }),
+  ]);
+  return {
+    activeTemplateId: settings?.activeTemplateId ?? null,
+    templates: documents.map((document) => {
+      const structure = document.templateStructure as { sections?: unknown[] } | null;
+      return {
+        id: document.id,
+        title: document.title,
+        status: document.status,
+        hasStructure: Boolean(document.templateStructure),
+        sectionCount: Array.isArray(structure?.sections) ? structure.sections.length : 0,
+        error: document.error,
+        updatedAt: document.updatedAt.toISOString(),
+      };
+    }),
+  };
+}
+
+/**
+ * Hapus satu template. Bila template itu sedang aktif, `activeTemplateId`
+ * dikosongkan supaya project yang menunjuknya jatuh ke fallback resolver.
+ */
+export async function deleteTemplate(userId: string, templateId: string): Promise<boolean> {
+  const template = await prisma.document.findFirst({
+    where: { id: templateId, userId, isTemplate: true },
+    select: { id: true, objectKey: true },
+  });
+  if (!template) return false;
+
+  // Best-effort: template manual tidak punya objek R2/vektor, dan koleksi
+  // Qdrant bisa saja belum ada — penghapusan tetap boleh lanjut.
+  await deleteDocumentVectors(template.id).catch((error: unknown) =>
+    console.warn("Failed to delete template vectors", {
+      documentId: template.id,
+      error: error instanceof Error ? error.message : error,
+    }),
+  );
+  await deleteDocument(template.objectKey).catch((error: unknown) =>
+    console.warn("Failed to delete template object", {
+      objectKey: template.objectKey,
+      error: error instanceof Error ? error.message : error,
+    }),
+  );
+  await prisma.$transaction([
+    prisma.userSetting.updateMany({
+      where: { userId, activeTemplateId: template.id },
+      data: { activeTemplateId: null },
+    }),
+    prisma.document.delete({ where: { id: template.id } }),
+  ]);
+  return true;
+}
+
 export async function getCurrentTemplate(userId: string) {
   const settings = await prisma.userSetting.findUnique({
     where: { userId },
@@ -220,30 +305,11 @@ export async function resetActiveTemplate(userId: string) {
     select: { activeTemplateId: true },
   });
   if (!settings?.activeTemplateId) return false;
-  const template = await prisma.document.findFirst({
-    where: { id: settings.activeTemplateId, userId, isTemplate: true },
-  });
-  if (!template) {
+  const deleted = await deleteTemplate(userId, settings.activeTemplateId);
+  if (!deleted) {
+    // Template aktif sudah tidak ada; bersihkan pointer-nya.
     await prisma.userSetting.update({ where: { userId }, data: { activeTemplateId: null } });
     return false;
   }
-  // Best-effort: template manual tidak punya objek R2/vektor, dan koleksi
-  // Qdrant bisa saja belum ada — reset tetap boleh lanjut.
-  await deleteDocumentVectors(template.id).catch((error: unknown) =>
-    console.warn("Failed to delete template vectors", {
-      documentId: template.id,
-      error: error instanceof Error ? error.message : error,
-    }),
-  );
-  await deleteDocument(template.objectKey).catch((error: unknown) =>
-    console.warn("Failed to delete template object", {
-      objectKey: template.objectKey,
-      error: error instanceof Error ? error.message : error,
-    }),
-  );
-  await prisma.$transaction([
-    prisma.userSetting.update({ where: { userId }, data: { activeTemplateId: null } }),
-    prisma.document.delete({ where: { id: template.id } }),
-  ]);
   return true;
 }

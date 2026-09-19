@@ -142,6 +142,9 @@ export const COPY = {
     namePlaceholder: "mis. Pengajuan Cuti",
     descriptionLabel: "Deskripsi (opsional)",
     descriptionPlaceholder: "Konteks singkat project ini",
+    templateLabel: "Template struktur BRD",
+    templateDefault: "Template aktif (default)",
+    templateHint: "Kosongkan untuk memakai template aktif; bisa diubah saat menyusun BRD.",
     create: "Buat Project",
     cancel: "Batal",
     gridView: "Tampilan grid",
@@ -257,6 +260,9 @@ export const COPY = {
       "Mengekstrak teks dan mengindeks dokumen. PDF hasil scan bisa memakan waktu lebih lama.",
     templateRequired:
       "Template struktur BRD belum diatur, jadi pembuatan BRD dari user story belum bisa dimulai.",
+    templatePicker: "Template struktur BRD",
+    templatePickerHint:
+      "Struktur section BRD mengikuti template ini dan tersimpan untuk project ini.",
     templateBadge: "Template BRD belum diatur — klik untuk mengaturnya dulu.",
     manageTemplate: "Atur template",
   },

@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import {
-  Code,
+  CheckCircle2,
   Cpu,
   FileText,
   KeyRound,
@@ -13,41 +12,33 @@ import {
   Pencil,
   RotateCcw,
   Save,
-  Settings as SettingsIcon,
   Sliders,
   Sun,
   Trash2,
   Upload,
-  X,
 } from "lucide-react";
 import { cn } from "#/lib/utils";
 import { Alert } from "#/components/base/alert";
+import { Badge } from "#/components/base/badge";
 import { Button } from "#/components/base/button";
 import { Input } from "#/components/base/input";
 import { Modal } from "#/components/base/modal";
 import {
   createManualTemplate,
-  getCurrentTemplate,
   getTemplate,
-  resetTemplate,
   updateTemplateStructure,
   uploadTemplate,
-  type DocumentSummary,
   type Settings,
+  type TemplateSummary,
 } from "#/lib/api";
 import { describeError } from "#/lib/errors";
 import { notify } from "#/lib/notify";
+import { relativeTime } from "#/lib/time";
 import { useSettings } from "#/modules/settings/hooks/use-settings";
-import { CURRENT_TEMPLATE_QUERY_KEY } from "#/modules/settings/hooks/use-current-template";
+import { useTemplates } from "#/modules/settings/hooks/use-templates";
 import { TemplateBuilder } from "#/modules/settings/template-builder";
-import { TemplateStructureView } from "#/modules/settings/template-structure-view";
 
 export type SettingsTab = "theme" | "prompt" | "model" | "template";
-
-type TemplateStatus = DocumentSummary & {
-  templateStructure?: unknown;
-  error: string | null;
-};
 
 const TRANSIENT_STATUSES = new Set(["UPLOADING", "PROCESSING"]);
 
@@ -80,19 +71,6 @@ function applyTheme(theme: string | undefined) {
 
 function messageOf(error: unknown): string {
   return describeError(error);
-}
-
-/** Dialog mandiri dengan tombol pemicu (dipakai halaman landing). */
-export function SettingsDialog({ initialTab }: { initialTab?: SettingsTab }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
-        <SettingsIcon size={13} /> Pengaturan
-      </Button>
-      <SettingsModal open={open} onClose={() => setOpen(false)} initialTab={initialTab} />
-    </>
-  );
 }
 
 /** Modal pengaturan terkendali (dipakai workspace). */
@@ -191,22 +169,28 @@ export function SettingsContent({
     save,
     refresh,
   } = useSettings();
-  const queryClient = useQueryClient();
-  const refreshHeaderTemplate = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: CURRENT_TEMPLATE_QUERY_KEY });
-  }, [queryClient]);
   const [form, setForm] = useState<Partial<Settings>>({});
-  const [template, setTemplate] = useState<TemplateStatus | null>(null);
   const [uploading, setUploading] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [showRawStructure, setShowRawStructure] = useState(false);
-  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
-  const [resetBusy, setResetBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<TemplateSummary | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [builderMode, setBuilderMode] = useState<"create" | "edit" | null>(null);
+  const [builderEditId, setBuilderEditId] = useState<string | null>(null);
+  const [builderInitial, setBuilderInitial] = useState<unknown>(null);
   const [structureBusy, setStructureBusy] = useState(false);
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [clearApiKey, setClearApiKey] = useState(false);
+  const {
+    templates,
+    activeTemplateId,
+    loading: templatesLoading,
+    error: templatesError,
+    refresh: refreshTemplates,
+    setActive: setActiveTemplate,
+    remove: removeTemplate,
+    busy: templateBusy,
+  } = useTemplates();
 
   useEffect(() => {
     if (settings) setForm(settings);
@@ -222,46 +206,15 @@ export function SettingsContent({
     applyTheme(form.theme ?? settings?.theme);
   }, [form.theme, settings?.theme]);
 
-  // Bumped by every explicit action so a late poll/hydrate response can never
-  // overwrite a fresher server state (e.g. after approve).
-  const templateEpoch = useRef(0);
+  const isTemplateTransient = templates.some((item) => TRANSIENT_STATUSES.has(item.status));
 
-  const loadCurrentTemplate = useCallback(async () => {
-    const epoch = ++templateEpoch.current;
-    try {
-      const response = await getCurrentTemplate();
-      if (epoch !== templateEpoch.current) return;
-      setTemplate(response.document as TemplateStatus | null);
-    } catch {
-      // Hydration failures surface through the next explicit action.
-    }
-  }, []);
-
+  // Selama masih ada ekstraksi berjalan, daftar disegarkan berkala sampai
+  // statusnya selesai.
   useEffect(() => {
-    void loadCurrentTemplate();
-  }, [loadCurrentTemplate]);
-
-  useEffect(() => {
-    if (!template || !TRANSIENT_STATUSES.has(template.status)) return;
-    const epoch = templateEpoch.current;
-    const timer = window.setInterval(() => {
-      void getTemplate(template.id).then(
-        (response) => {
-          if (epoch !== templateEpoch.current) return;
-          const next = response.document as TemplateStatus;
-          setTemplate(next);
-          // Ekstraksi selesai = template otomatis aktif; segarkan header/sidebar.
-          if (!TRANSIENT_STATUSES.has(next.status)) refreshHeaderTemplate();
-        },
-        () => undefined,
-      );
-    }, 2000);
+    if (!isTemplateTransient) return;
+    const timer = window.setInterval(() => refreshTemplates(), 2000);
     return () => window.clearInterval(timer);
-  }, [template, refreshHeaderTemplate]);
-
-  useEffect(() => {
-    setShowRawStructure(false);
-  }, [template?.id]);
+  }, [isTemplateTransient, refreshTemplates]);
 
   if (loading) {
     return (
@@ -310,9 +263,8 @@ export function SettingsContent({
     setUploading(true);
     setTemplateError(null);
     try {
-      const response = await uploadTemplate(file);
-      templateEpoch.current += 1;
-      setTemplate(response.document as TemplateStatus);
+      await uploadTemplate(file);
+      refreshTemplates();
       notify.success("Template diunggah. Struktur sedang diekstrak…");
     } catch (caught) {
       const message = messageOf(caught);
@@ -323,22 +275,46 @@ export function SettingsContent({
     }
   };
 
-  const onResetTemplate = async () => {
-    setResetBusy(true);
+  const openBuilderEdit = async (id: string) => {
     setTemplateError(null);
     try {
-      await resetTemplate();
-      await refresh();
-      await loadCurrentTemplate();
-      refreshHeaderTemplate();
-      notify.info("Template aktif direset.");
-      setResetConfirmOpen(false);
+      const response = await getTemplate(id);
+      setBuilderEditId(id);
+      setBuilderInitial(response.document.templateStructure ?? null);
+      setBuilderMode("edit");
+    } catch (caught) {
+      const message = messageOf(caught);
+      setTemplateError(message);
+      notify.error(message);
+    }
+  };
+
+  const onSetActiveTemplate = async (id: string) => {
+    setTemplateError(null);
+    try {
+      await setActiveTemplate(id);
+      notify.success("Template aktif diperbarui. Project tanpa pilihan template memakai template ini.");
+    } catch (caught) {
+      const message = messageOf(caught);
+      setTemplateError(message);
+      notify.error(message);
+    }
+  };
+
+  const onDeleteTemplate = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    setTemplateError(null);
+    try {
+      await removeTemplate(deleteTarget.id);
+      notify.info(`Template "${deleteTarget.title}" dihapus.`);
+      setDeleteTarget(null);
     } catch (caught) {
       const message = messageOf(caught);
       setTemplateError(message);
       notify.error(message);
     } finally {
-      setResetBusy(false);
+      setDeleteBusy(false);
     }
   };
 
@@ -348,17 +324,17 @@ export function SettingsContent({
   }) => {
     setStructureBusy(true);
     setTemplateError(null);
-    const editing = builderMode === "edit" && template !== null;
+    const editingId = builderMode === "edit" ? builderEditId : null;
     try {
-      const response = editing
-        ? await updateTemplateStructure(template.id, values.templateStructure)
-        : await createManualTemplate(values);
-      templateEpoch.current += 1;
-      setTemplate(response.document as TemplateStatus);
-      refreshHeaderTemplate();
+      if (editingId) {
+        await updateTemplateStructure(editingId, values.templateStructure);
+      } else {
+        await createManualTemplate(values);
+      }
+      refreshTemplates();
       setBuilderMode(null);
       notify.success(
-        editing
+        editingId
           ? "Struktur template diperbarui."
           : "Template manual dibuat dan langsung diaktifkan.",
       );
@@ -372,8 +348,7 @@ export function SettingsContent({
   };
 
   const theme = form.theme ?? settings?.theme ?? "system";
-  // Unggahan diblokir selama unggah berjalan dan selama struktur diekstrak.
-  const isTemplateTransient = template != null && TRANSIENT_STATUSES.has(template.status);
+  // Unggahan diblokir selama unggah berjalan dan selama ada ekstraksi berjalan.
   const uploadLocked = uploading || isTemplateTransient;
 
   return (
@@ -649,182 +624,226 @@ export function SettingsContent({
       {tab === "template" &&
         (builderMode ? (
           <TemplateBuilder
-            initialStructure={builderMode === "edit" ? template?.templateStructure : undefined}
+            initialStructure={builderMode === "edit" ? builderInitial : undefined}
             busy={structureBusy}
             onCancel={() => setBuilderMode(null)}
             onSave={onSaveManualTemplate}
           />
         ) : (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-xs font-semibold tracking-wider text-slate-900 uppercase dark:text-slate-100">
-                Template Struktur Acuan BRD
-              </h3>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                Unggah standar perusahaan atau susun struktur manual; template langsung
-                diaktifkan.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={uploadLocked}
-                onClick={() => setBuilderMode("create")}
-              >
-                <ListTree size={13} /> Susun manual
-              </Button>
-              <label
-                aria-disabled={uploadLocked}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors dark:border-slate-700 dark:text-slate-200",
-                  uploadLocked
-                    ? "cursor-not-allowed opacity-60"
-                    : "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800",
-                )}
-              >
-                {uploadLocked ? (
-                  <LoaderCircle size={13} className="animate-spin" />
-                ) : (
-                  <Upload size={13} />
-                )}
-                {uploading
-                  ? "Mengunggah…"
-                  : isTemplateTransient
-                    ? "Mengekstrak…"
-                    : "Unggah template"}
-                <input
-                  type="file"
-                  accept=".md,.pdf,.docx"
-                  disabled={uploadLocked}
-                  className="sr-only"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void onUpload(file);
-                    event.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
-          </div>
-
-          {templateError && <Alert tone="destructive">{templateError}</Alert>}
-
-          {template ? (
-            <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/40">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    {template.title}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                    Status: {template.status}
-                  </p>
-                  {template.error && (
-                    <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
-                      {template.error}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {Boolean(template.templateStructure) && !isTemplateTransient && (
-                    <Button size="sm" variant="outline" onClick={() => setBuilderMode("edit")}>
-                      <Pencil size={12} /> Edit struktur
-                    </Button>
-                  )}
-                  {/* Reset disembunyikan selama ekstraksi agar tidak menghapus proses berjalan. */}
-                  {!isTemplateTransient && (
-                    <Button size="sm" variant="outline" onClick={() => setResetConfirmOpen(true)}>
-                      <X size={12} /> Reset template
-                    </Button>
-                  )}
-                </div>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-semibold tracking-wider text-slate-900 uppercase dark:text-slate-100">
+                  Template Struktur Acuan BRD
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Kelola beberapa template sekaligus. Template <strong>aktif</strong> otomatis
+                  dipakai project yang belum memilih template sendiri.
+                </p>
               </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={uploadLocked}
+                  onClick={() => {
+                    setBuilderEditId(null);
+                    setBuilderInitial(null);
+                    setBuilderMode("create");
+                  }}
+                >
+                  <ListTree size={13} /> Susun manual
+                </Button>
+                <label
+                  aria-disabled={uploadLocked}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors dark:border-slate-700 dark:text-slate-200",
+                    uploadLocked
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800",
+                  )}
+                >
+                  {uploadLocked ? (
+                    <LoaderCircle size={13} className="animate-spin" />
+                  ) : (
+                    <Upload size={13} />
+                  )}
+                  {uploading
+                    ? "Mengunggah…"
+                    : isTemplateTransient
+                      ? "Mengekstrak…"
+                      : "Unggah template"}
+                  <input
+                    type="file"
+                    accept=".md,.pdf,.docx"
+                    disabled={uploadLocked}
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void onUpload(file);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
 
-              {template.templateStructure ? (
-                <div className="mt-3 space-y-3">
-                  <TemplateStructureView structure={template.templateStructure} />
-                  <div className="border-t border-slate-200 pt-3 dark:border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => setShowRawStructure((open) => !open)}
-                      className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            {(templateError || templatesError) && (
+              <Alert tone="destructive">{templateError ?? templatesError}</Alert>
+            )}
+
+            {templatesLoading ? (
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 p-4 text-xs text-slate-500 dark:border-slate-800">
+                <LoaderCircle size={13} className="animate-spin" /> Memuat template…
+              </div>
+            ) : templates.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center dark:border-slate-700">
+                <Sliders size={18} className="mx-auto mb-1.5 text-slate-400" />
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Belum ada template
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-400">
+                  Unggah dokumen standar BRD, atau susun strukturnya sendiri secara manual.
+                </p>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {templates.map((item) => {
+                  const active = item.id === activeTemplateId;
+                  const transient = TRANSIENT_STATUSES.has(item.status);
+                  return (
+                    <li
+                      key={item.id}
+                      className={cn(
+                        "rounded-lg border bg-white p-3.5 dark:bg-slate-900",
+                        active
+                          ? "border-emerald-300 ring-1 ring-emerald-200 dark:border-emerald-800 dark:ring-emerald-900"
+                          : "border-slate-200 dark:border-slate-800",
+                      )}
                     >
-                      <Code size={11} /> {showRawStructure ? "Sembunyikan JSON" : "Lihat JSON"}
-                    </button>
-                    {showRawStructure && (
-                      <pre className="mt-2 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white p-3 font-mono text-[11px] dark:border-slate-800 dark:bg-slate-950">
-                        {JSON.stringify(template.templateStructure, null, 2)}
-                      </pre>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                isTemplateTransient && (
-                  <div className="mt-3 space-y-2">
-                    <p className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                      <LoaderCircle size={11} className="animate-spin" /> Mengekstrak struktur…
-                      halaman ini menyegarkan otomatis.
-                    </p>
-                    <p className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
-                      Proses ekstraksi memakan waktu yang agak lama, mohon tunggu sampai
-                      selesai (jangan tutup halaman).
-                    </p>
-                  </div>
-                )
-              )}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center dark:border-slate-700">
-              <Sliders size={18} className="mx-auto mb-1.5 text-slate-400" />
-              <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                Belum ada template aktif
-              </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">
-                Unggah dokumen standar BRD, atau susun strukturnya sendiri secara manual.
-              </p>
-            </div>
-          )}
-        </div>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+                              {item.title}
+                            </p>
+                            {active && (
+                              <Badge tone="success" className="rounded-full">
+                                Aktif
+                              </Badge>
+                            )}
+                            {transient && (
+                              <Badge tone="info" className="rounded-full">
+                                Diproses
+                              </Badge>
+                            )}
+                            {item.status === "FAILED" && (
+                              <Badge tone="danger" className="rounded-full">
+                                Gagal
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                            {item.hasStructure
+                              ? `${item.sectionCount} section`
+                              : "Belum ada struktur"}
+                            {" · "}
+                            {relativeTime(item.updatedAt)}
+                            {active && " · dipakai project tanpa pilihan template"}
+                          </p>
+                          {item.error && (
+                            <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
+                              {item.error}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {!active && item.status === "READY" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={templateBusy}
+                              onClick={() => void onSetActiveTemplate(item.id)}
+                            >
+                              <CheckCircle2 size={12} /> Jadikan aktif
+                            </Button>
+                          )}
+                          {item.hasStructure && !transient && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={templateBusy}
+                              onClick={() => void openBuilderEdit(item.id)}
+                            >
+                              <Pencil size={12} /> Edit struktur
+                            </Button>
+                          )}
+                          {!transient && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950"
+                              disabled={templateBusy}
+                              onClick={() => setDeleteTarget(item)}
+                            >
+                              <Trash2 size={12} /> Hapus
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {transient && !item.hasStructure && (
+                        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+                          Proses ekstraksi memakan waktu yang agak lama, mohon tunggu sampai
+                          selesai (jangan tutup halaman).
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         ))}
 
       <Modal
-        open={resetConfirmOpen}
+        open={deleteTarget !== null}
         onClose={() => {
-          if (!resetBusy) setResetConfirmOpen(false);
+          if (!deleteBusy) setDeleteTarget(null);
         }}
         size="sm"
         className="z-[70]"
-        title="Reset template aktif?"
+        title="Hapus template?"
         footer={
           <>
             <Button
               variant="outline"
               size="sm"
-              disabled={resetBusy}
-              onClick={() => setResetConfirmOpen(false)}
+              disabled={deleteBusy}
+              onClick={() => setDeleteTarget(null)}
             >
               Batal
             </Button>
             <Button
               variant="danger"
               size="sm"
-              disabled={resetBusy}
-              onClick={() => void onResetTemplate()}
+              disabled={deleteBusy}
+              onClick={() => void onDeleteTemplate()}
             >
-              <RotateCcw size={12} /> {resetBusy ? "Mereset…" : "Reset template"}
+              <Trash2 size={12} /> {deleteBusy ? "Menghapus…" : "Hapus template"}
             </Button>
           </>
         }
       >
         <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-          Template BRD aktif beserta berkas referensi dan struktur hasil ekstraksinya akan dihapus
-          permanen. Tindakan ini tidak bisa dibatalkan.
+          Template beserta berkas referensi dan struktur hasil ekstraksinya akan dihapus permanen.
+          {deleteTarget?.id === activeTemplateId
+            ? " Karena ini template aktif, project yang memakainya akan memakai template aktif berikutnya bila tersedia."
+            : ""}
         </p>
-        {template && (
+        {deleteTarget && (
           <p className="mt-2.5 truncate rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-200">
-            {template.title}
+            {deleteTarget.title}
           </p>
         )}
       </Modal>

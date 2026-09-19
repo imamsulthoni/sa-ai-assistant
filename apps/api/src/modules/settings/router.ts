@@ -10,11 +10,13 @@ import {
 import {
   approveTemplate,
   createManualTemplate,
+  deleteTemplate,
   enqueueTemplateProcess,
   getCurrentTemplate,
   getSettings,
   getTemplate,
   hasServerApiKey,
+  listTemplates,
   modelDefaults,
   patchSettings,
   patchTemplateStructure,
@@ -71,6 +73,11 @@ export const settingsModule = new Hono()
       templateStructure: normalized,
     });
     return c.json({ document }, 201);
+  })
+  .get("/templates", async (c) => c.json(await listTemplates(user(c))))
+  .delete("/template/:id", async (c) => {
+    const deleted = await deleteTemplate(user(c), c.req.param("id"));
+    return deleted ? c.json({ ok: true }) : c.json({ error: "Template not found" }, 404);
   })
   // Registered before "/template/:id" so the literal path is not swallowed.
   .get("/template", async (c) => c.json(await getCurrentTemplate(user(c))))

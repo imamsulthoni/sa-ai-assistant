@@ -25,6 +25,14 @@ export const BrdOperationSchema = z.discriminatedUnion("op", [
     sectionTitle: z.string().min(1),
     content: z.string().min(1),
   }),
+  // Patch presisi tanpa harus mengenal id FR/BR atau menulis ulang section:
+  // ganti potongan teks yang benar-benar ada di BRD.
+  z.object({
+    op: z.literal("replace_text"),
+    find: z.string().min(1),
+    content: z.string().min(1),
+    occurrence: z.number().int().positive().optional(),
+  }),
 ]);
 
 export type BrdOperation = z.infer<typeof BrdOperationSchema>;
@@ -52,7 +60,8 @@ export type ApplyOperationsResult = {
 };
 
 const REQUIREMENT_HEADING = /^###\s+((?:FR|BR)-\d+)\s*$/i;
-const SECTION_HEADING = /^##\s+(.*)$/;
+/** Heading section (##) maupun sub-section (###) supaya template custom tanpa FR/BR tetap bisa ditarget. */
+const SECTION_HEADING = /^(#{2,3})\s+(.*)$/;
 
 type Block = { start: number; end: number };
 
@@ -72,23 +81,36 @@ function findRequirementBlock(lines: string[], requirementId: string): Block | n
   return null;
 }
 
-function sectionName(line: string): string | null {
+function sectionInfo(line: string): { level: number; name: string } | null {
   const match = SECTION_HEADING.exec(line);
   if (!match) return null;
-  return match[1]
-    .replace(/^\d+\.\s*/, "")
-    .trim()
-    .toLowerCase();
+  return {
+    level: match[1].length,
+    name: match[2]
+      .replace(/^\d+(?:\.\d+)*\.?\s*/, "")
+      .trim()
+      .toLowerCase(),
+  };
 }
 
+/**
+ * Cari blok section berdasarkan judul (nomor heading diabaikan). Mendukung
+ * `##` dan `###`; blok berakhir di heading berikutnya dengan level sama atau
+ * lebih tinggi sehingga sub-section lain tidak ikut tertimpa.
+ */
 function findSectionBlock(lines: string[], sectionTitle: string): Block | null {
   const needle = sectionTitle.trim().toLowerCase();
   for (let index = 0; index < lines.length; index += 1) {
-    const name = sectionName(lines[index]);
-    if (name === null) continue;
-    if (name.includes(needle) || needle.includes(name)) {
+    const info = sectionInfo(lines[index]);
+    if (!info) continue;
+    if (info.name.includes(needle) || needle.includes(info.name)) {
       let end = index + 1;
-      while (end < lines.length && !SECTION_HEADING.test(lines[end])) end += 1;
+      while (end < lines.length) {
+        if (/^#\s+/.test(lines[end])) break;
+        const next = sectionInfo(lines[end]);
+        if (next && next.level <= info.level) break;
+        end += 1;
+      }
       return { start: index, end };
     }
   }
@@ -113,10 +135,15 @@ function nextRequirementId(lines: string[], prefix: "FR" | "BR"): string {
 function sectionForPrefix(lines: string[], prefix: "FR" | "BR"): Block | null {
   const keywords = prefix === "FR" ? /functional|fungsional/i : /business|bisnis|aturan/i;
   for (let index = 0; index < lines.length; index += 1) {
-    const name = sectionName(lines[index]);
-    if (name === null || !keywords.test(name)) continue;
+    const info = sectionInfo(lines[index]);
+    if (!info || info.level !== 2 || !keywords.test(info.name)) continue;
     let end = index + 1;
-    while (end < lines.length && !SECTION_HEADING.test(lines[end])) end += 1;
+    while (end < lines.length) {
+      if (/^#\s+/.test(lines[end])) break;
+      const next = sectionInfo(lines[end]);
+      if (next && next.level <= 2) break;
+      end += 1;
+    }
     return { start: index, end };
   }
   return null;
@@ -153,6 +180,7 @@ function operationSummary(counts: {
   updated: string[];
   removed: string[];
   sections: string[];
+  texts: number;
 }): string {
   const parts: string[] = [];
   if (counts.updated.length) parts.push(`${counts.updated.join(", ")} diperbarui`);
@@ -161,7 +189,13 @@ function operationSummary(counts: {
   if (counts.sections.length) {
     parts.push(`section ${counts.sections.map((title) => `"${title}"`).join(", ")} diperbarui`);
   }
+  if (counts.texts) parts.push(`${counts.texts} potongan teks diperbarui`);
   return parts.length ? `${parts.join("; ")}.` : "Tidak ada perubahan.";
+}
+
+function truncate(value: string, max = 60): string {
+  const compact = value.replace(/\s+/g, " ").trim();
+  return compact.length > max ? `${compact.slice(0, max - 1)}…` : compact;
 }
 
 export function applyOperations(
@@ -176,6 +210,7 @@ export function applyOperations(
     updated: [] as string[],
     removed: [] as string[],
     sections: [] as string[],
+    texts: 0,
   };
   let applied = 0;
 
@@ -216,6 +251,41 @@ export function applyOperations(
       }
       lines.splice(block.start + 1, block.end - block.start - 1, "", operation.content.trim());
       counts.sections.push(operation.sectionTitle);
+      applied += 1;
+      continue;
+    }
+
+    if (operation.op === "replace_text") {
+      const markdown = lines.join("\n");
+      let foundAt = -1;
+      if (operation.occurrence && operation.occurrence > 1) {
+        let searchFrom = 0;
+        for (let count = 0; count < operation.occurrence; count += 1) {
+          foundAt = markdown.indexOf(operation.find, searchFrom);
+          if (foundAt === -1) break;
+          searchFrom = foundAt + operation.find.length;
+        }
+      } else {
+        foundAt = markdown.indexOf(operation.find);
+        if (foundAt !== -1) {
+          const next = markdown.indexOf(operation.find, foundAt + operation.find.length);
+          if (next !== -1 && operation.occurrence === undefined) {
+            gaps.push(
+              `Teks "${truncate(operation.find)}" muncul lebih dari sekali; perjelas konteks atau isi occurrence.`,
+            );
+            continue;
+          }
+        }
+      }
+      if (foundAt === -1) {
+        gaps.push(`Teks "${truncate(operation.find)}" tidak ditemukan pada BRD.`);
+        continue;
+      }
+      const updated =
+        markdown.slice(0, foundAt) + operation.content.trim() + markdown.slice(foundAt + operation.find.length);
+      lines.length = 0;
+      lines.push(...splitLines(updated));
+      counts.texts += 1;
       applied += 1;
       continue;
     }

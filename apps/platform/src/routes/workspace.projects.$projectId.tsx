@@ -17,6 +17,7 @@ import {
   type SettingsTab,
 } from "#/modules/settings/settings-page";
 import { useCurrentTemplate } from "#/modules/settings/hooks/use-current-template";
+import { useTemplates } from "#/modules/settings/hooks/use-templates";
 import { useSessions } from "#/modules/chat/hooks/use-sessions";
 import { useDocuments } from "#/modules/chat/hooks/use-documents";
 import { useBrds } from "#/modules/brd/hooks/use-brds";
@@ -40,6 +41,7 @@ import {
   clarifyBrd,
   importPendingBrd,
   submitClarification,
+  updateProject,
   uploadDocument,
   type BrdDocument,
   type DocumentSummary,
@@ -153,7 +155,30 @@ function ProjectWorkspace() {
   } = useBrdFlow(projectId, activeId);
   const brdSelect = brdState.select;
   const brdRefresh = brdState.refresh;
-  const { template, hasTemplate } = useCurrentTemplate();
+  const { template: userTemplate } = useCurrentTemplate();
+  const { templates, activeTemplateId } = useTemplates();
+
+  // Template efektif project: pilihan project (jika masih valid) menang,
+  // fallback ke template aktif user — sama dengan resolver di server.
+  const projectTemplateValid =
+    Boolean(project?.templateId) &&
+    templates.some((item) => item.id === project?.templateId && item.status === "READY");
+  const effectiveTemplateId = projectTemplateValid
+    ? (project?.templateId ?? null)
+    : (activeTemplateId ?? null);
+  const templateLabel =
+    (projectTemplateValid ? project?.templateTitle : null) ??
+    templates.find((item) => item.id === effectiveTemplateId)?.title ??
+    userTemplate?.title ??
+    null;
+  const hasTemplate = Boolean(effectiveTemplateId);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+
+  // Inisialisasi pilihan template saat project berganti.
+  useEffect(() => {
+    setSelectedTemplateId(project?.templateId ?? activeTemplateId ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
 
   const refreshDocuments = useCallback(() => {
     if (!activeId) return;
@@ -408,6 +433,13 @@ function ProjectWorkspace() {
       const sessionAtStart = activeId;
       setFlowError(null);
       try {
+        // Simpan pilihan template project lebih dulu supaya klarifikasi &
+        // generate memakai struktur yang dipilih user.
+        if (selectedTemplateId && selectedTemplateId !== project?.templateId) {
+          await updateProject(projectId, { templateId: selectedTemplateId });
+          void queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+          void queryClient.invalidateQueries({ queryKey: ["projects"] });
+        }
         if (file) {
           const uploaded = await uploadDocument(activeId, file);
           refreshDocuments();
@@ -450,7 +482,16 @@ function ProjectWorkspace() {
         setPhase("EMPTY_SESSION");
       }
     },
-    [activeId, runGeneration, refreshDocuments, refreshFlow],
+    [
+      activeId,
+      project?.templateId,
+      projectId,
+      queryClient,
+      runGeneration,
+      refreshDocuments,
+      refreshFlow,
+      selectedTemplateId,
+    ],
   );
 
   // Lanjutkan klarifikasi yang terputus begitu flow-nya selesai dimuat.
@@ -595,7 +636,6 @@ function ProjectWorkspace() {
     setDocumentsOpen(false);
   }, []);
 
-  const templateLabel = template?.title ?? null;
   // Project dengan BRD tidak boleh generate/import lagi; arahkan ke project baru.
   const brdLocked = Boolean(project?.brd) && !brdState.active;
   // Sesi baru ditahan selama alur pembuatan BRD berjalan.
@@ -830,6 +870,9 @@ function ProjectWorkspace() {
               onOpenTemplateManager={() => openSettings("template")}
               onModeChange={setNewBrdMode}
               initialStory={userStory}
+              templates={templates}
+              selectedTemplateId={selectedTemplateId}
+              onTemplateChange={setSelectedTemplateId}
             />
           )}
         </div>

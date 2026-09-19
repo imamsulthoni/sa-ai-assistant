@@ -24,11 +24,22 @@ export type SessionSummary = {
   flow?: SessionFlowSummary | null;
 };
 
+export type TemplateSummary = {
+  id: string;
+  title: string;
+  status: "UPLOADING" | "PROCESSING" | "READY" | "PENDING_CONFIRMATION" | "FAILED";
+  hasStructure: boolean;
+  sectionCount: number;
+  error: string | null;
+  updatedAt: string;
+};
+
 export type ProjectSummary = {
   id: string;
   name: string;
   description: string | null;
   templateId: string | null;
+  templateTitle: string | null;
   isDefault: boolean;
   sessionCount: number;
   documentCount: number;
