@@ -4,7 +4,11 @@ import { prisma } from "../../lib/prisma.js";
 /** A crashed generation claim is stealable after this window. */
 export const GENERATION_LOCK_TTL_MS = 5 * 60_000;
 
-export type BrdFlowContext = { userId: string; sessionId: string };
+/**
+ * Alur BRD dimiliki project: semua sesi dalam project yang sama berbagi
+ * checkpoint klarifikasi, lock generasi, dan pointer import yang sama.
+ */
+export type BrdFlowContext = { userId: string; projectId: string; sessionId?: string };
 
 export type BrdFlowCheckpoint = {
   phase: "CLARIFYING" | "GENERATING" | null;
@@ -14,11 +18,6 @@ export type BrdFlowCheckpoint = {
   answers: Record<string, string>;
   pendingImportDocumentId: string | null;
 };
-
-const key = (context: BrdFlowContext) => ({
-  userId: context.userId,
-  sessionId: context.sessionId,
-});
 
 function asQuestions(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
@@ -31,7 +30,7 @@ function asAnswers(value: unknown): Record<string, string> {
 
 export async function getBrdFlow(context: BrdFlowContext): Promise<BrdFlowCheckpoint | null> {
   const flow = await prisma.brdFlowState.findUnique({
-    where: { userId_sessionId: key(context) },
+    where: { projectId: context.projectId },
   });
   if (!flow) return null;
   return {
@@ -58,6 +57,8 @@ async function writeClarifyCheckpoint(
   },
 ): Promise<void> {
   const fields = {
+    userId: context.userId,
+    ...(context.sessionId ? { sessionId: context.sessionId } : {}),
     phase: "CLARIFYING" as const,
     userStory: data.userStory,
     round: data.round,
@@ -66,7 +67,7 @@ async function writeClarifyCheckpoint(
   };
   const updated = await prisma.brdFlowState.updateMany({
     where: {
-      ...key(context),
+      projectId: context.projectId,
       NOT: {
         phase: "GENERATING",
         generatingSince: { gt: new Date(Date.now() - GENERATION_LOCK_TTL_MS) },
@@ -80,16 +81,18 @@ async function writeClarifyCheckpoint(
   if (updated.count > 0) return;
 
   const existing = await prisma.brdFlowState.findUnique({
-    where: { userId_sessionId: key(context) },
+    where: { projectId: context.projectId },
     select: { id: true },
   });
   if (existing) return; // a fresh generation owns this flow; leave it untouched
 
   await prisma.brdFlowState.create({
-    data:
-      data.questions === undefined
-        ? { ...key(context), ...fields }
-        : { ...key(context), ...fields, questions: data.questions as Prisma.InputJsonValue },
+    data: {
+      projectId: context.projectId,
+      ...(data.questions === undefined
+        ? fields
+        : { ...fields, questions: data.questions as Prisma.InputJsonValue }),
+    },
   });
 }
 
@@ -120,15 +123,19 @@ export async function ensureBrdFlow(
   context: BrdFlowContext,
   input: { userStory?: string; round?: number; answers?: Record<string, string> },
 ): Promise<void> {
+  const projectId = context.projectId;
   await prisma.brdFlowState.upsert({
-    where: { userId_sessionId: key(context) },
+    where: { projectId },
     create: {
-      ...key(context),
+      projectId,
+      userId: context.userId,
+      sessionId: context.sessionId,
       userStory: input.userStory ?? null,
       round: input.round ?? 1,
       answers: (input.answers ?? {}) as Prisma.InputJsonValue,
     },
     update: {
+      ...(context.sessionId ? { sessionId: context.sessionId } : {}),
       ...(input.userStory !== undefined ? { userStory: input.userStory } : {}),
       ...(input.round !== undefined ? { round: input.round } : {}),
       ...(input.answers !== undefined ? { answers: input.answers as Prisma.InputJsonValue } : {}),
@@ -140,7 +147,7 @@ export async function ensureBrdFlow(
 export async function claimGeneration(context: BrdFlowContext): Promise<boolean> {
   const claimed = await prisma.brdFlowState.updateMany({
     where: {
-      ...key(context),
+      projectId: context.projectId,
       OR: [
         { generatingSince: null },
         { generatingSince: { lt: new Date(Date.now() - GENERATION_LOCK_TTL_MS) } },
@@ -153,13 +160,13 @@ export async function claimGeneration(context: BrdFlowContext): Promise<boolean>
 
 export async function releaseGeneration(context: BrdFlowContext): Promise<void> {
   await prisma.brdFlowState.updateMany({
-    where: key(context),
+    where: { projectId: context.projectId },
     data: { generatingSince: null },
   });
 }
 
 export async function deleteBrdFlow(context: BrdFlowContext): Promise<void> {
-  await prisma.brdFlowState.deleteMany({ where: key(context) });
+  await prisma.brdFlowState.deleteMany({ where: { projectId: context.projectId } });
 }
 
 export async function markPendingImport(
@@ -167,15 +174,23 @@ export async function markPendingImport(
   documentId: string,
 ): Promise<void> {
   await prisma.brdFlowState.upsert({
-    where: { userId_sessionId: key(context) },
-    create: { ...key(context), pendingImportDocumentId: documentId },
-    update: { pendingImportDocumentId: documentId },
+    where: { projectId: context.projectId },
+    create: {
+      projectId: context.projectId,
+      userId: context.userId,
+      sessionId: context.sessionId,
+      pendingImportDocumentId: documentId,
+    },
+    update: {
+      ...(context.sessionId ? { sessionId: context.sessionId } : {}),
+      pendingImportDocumentId: documentId,
+    },
   });
 }
 
 export async function clearPendingImport(context: BrdFlowContext): Promise<void> {
   await prisma.brdFlowState.updateMany({
-    where: key(context),
+    where: { projectId: context.projectId },
     data: { pendingImportDocumentId: null },
   });
 }
@@ -186,7 +201,7 @@ export async function claimPendingImport(
   documentId: string,
 ): Promise<boolean> {
   const claimed = await prisma.brdFlowState.updateMany({
-    where: { ...key(context), pendingImportDocumentId: documentId },
+    where: { projectId: context.projectId, pendingImportDocumentId: documentId },
     data: { pendingImportDocumentId: null },
   });
   return claimed.count > 0;
@@ -197,7 +212,7 @@ export async function restorePendingImport(
   documentId: string,
 ): Promise<void> {
   await prisma.brdFlowState.updateMany({
-    where: key(context),
+    where: { projectId: context.projectId },
     data: { pendingImportDocumentId: documentId },
   });
 }

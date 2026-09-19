@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, FileText, Layers, Pencil, Plus, Sliders, Trash, X } from "lucide-react";
+import { ArrowLeft, Clock, FileText, Layers, Pencil, Plus, Sliders, Trash, X } from "lucide-react";
 import { cn } from "#/lib/utils";
 import type { SessionSummary } from "#/lib/api";
 import { Badge, type BadgeTone } from "#/components/base/badge";
@@ -43,6 +43,11 @@ type SessionSidebarProps = {
   templateName?: string | null;
   activeBadge?: ActiveSessionBadge | null;
   onOpenSettings: (tab?: SettingsTab) => void;
+  projectName?: string | null;
+  onBackToProjects?: () => void;
+  /** Sesi baru hanya boleh dibuat setelah project punya BRD. */
+  newDisabled?: boolean;
+  newDisabledHint?: string;
 };
 
 export function SessionSidebar({
@@ -57,6 +62,10 @@ export function SessionSidebar({
   templateName,
   activeBadge,
   onOpenSettings,
+  projectName,
+  onBackToProjects,
+  newDisabled = false,
+  newDisabledHint,
 }: SessionSidebarProps) {
   const closeMobile = useCloseMobileSidebar();
   const [renameTarget, setRenameTarget] = useState<SessionSummary | null>(null);
@@ -65,13 +74,26 @@ export function SessionSidebar({
   return (
     <div className="flex h-full w-64 flex-col border-r border-slate-800 bg-slate-900 text-slate-200 select-none">
       <div className="flex items-center justify-between border-b border-slate-800 px-3.5 py-2.5">
-        <div className="min-w-0">
-          <span className="block text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-            Workspace
-          </span>
-          <h2 className="max-w-[180px] truncate text-xs font-bold text-white">
-            {COPY.sidebar.workspaceName}
-          </h2>
+        <div className="flex min-w-0 items-center gap-1.5">
+          {onBackToProjects && (
+            <button
+              type="button"
+              onClick={onBackToProjects}
+              title={COPY.projects.backToProjects}
+              aria-label={COPY.projects.backToProjects}
+              className="grid size-6 shrink-0 cursor-pointer place-items-center rounded text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            >
+              <ArrowLeft size={14} />
+            </button>
+          )}
+          <div className="min-w-0">
+            <span className="block text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+              {projectName ? COPY.sidebar.projectLabel : "Workspace"}
+            </span>
+            <h2 className="max-w-[180px] truncate text-xs font-bold text-white">
+              {projectName ?? COPY.sidebar.workspaceName}
+            </h2>
+          </div>
         </div>
         {closeMobile && (
           <Button
@@ -90,12 +112,18 @@ export function SessionSidebar({
         <button
           type="button"
           onClick={onNew}
-          disabled={disabled}
-          className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-xs transition-colors hover:bg-white disabled:cursor-default disabled:opacity-50"
+          disabled={disabled || newDisabled}
+          title={newDisabled ? (newDisabledHint ?? COPY.sidebar.newChatLocked) : undefined}
+          className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-xs transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus size={14} />
           <span>{COPY.sidebar.newChat}</span>
         </button>
+        {newDisabled && (
+          <p className="mt-1.5 text-center text-[10px] leading-4 text-slate-400">
+            {newDisabledHint ?? COPY.sidebar.newChatLocked}
+          </p>
+        )}
       </div>
 
       <div className="flex-1 space-y-1 overflow-y-auto p-1.5">

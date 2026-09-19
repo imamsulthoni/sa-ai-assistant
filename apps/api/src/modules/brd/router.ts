@@ -11,6 +11,8 @@ import {
   BrdSubmitClarificationSchema,
   BrdVersionCreateSchema,
 } from "../../lib/api-contract.js";
+import { getProject } from "../project/service.js";
+import { sessionProjectId } from "../session/service.js";
 import { bodyOf, filename } from "./utils.js";
 import { renderBrdPdf } from "./pdf.js";
 import {
@@ -19,8 +21,8 @@ import {
   changeBrdStatus,
   clarifyFlow,
   createBrd,
-  deleteBrd,
   diffBrdVersions,
+  findBrdByProject,
   getBrd,
   getBrdForExport,
   importBrdFromDocument,
@@ -38,14 +40,26 @@ const owner = (c: { req: { header(name: string): string | undefined } }) =>
 const session = (c: { req: { header(name: string): string | undefined } }) =>
   c.req.header(CONVERSATION_ID_HEADER)?.trim();
 
+async function projectForSession(
+  userId: string,
+  sessionId: string | undefined,
+): Promise<string | null> {
+  if (!sessionId) return null;
+  return sessionProjectId(userId, sessionId);
+}
+
 export const brdModule = new Hono()
   .post("/clarify", async (c) => {
     const parsed = BrdClarifySchema.safeParse(await bodyOf(c));
     const sessionId = session(c);
     if (!parsed.success || !sessionId)
       return c.json({ error: "Invalid clarification payload or missing conversation id" }, 400);
+    const projectId = await projectForSession(owner(c), sessionId);
+    if (!projectId) return c.json({ error: "Session is not attached to a project" }, 400);
     try {
-      return c.json(await clarifyFlow({ userId: owner(c), sessionId }, parsed.data));
+      return c.json(
+        await clarifyFlow({ userId: owner(c), projectId, sessionId }, parsed.data),
+      );
     } catch (error) {
       return c.json(
         { error: error instanceof Error ? error.message : "Unable to clarify BRD" },
@@ -58,8 +72,12 @@ export const brdModule = new Hono()
     const sessionId = session(c);
     if (!parsed.success || !sessionId)
       return c.json({ error: "Invalid clarification submission or missing conversation id" }, 400);
+    const projectId = await projectForSession(owner(c), sessionId);
+    if (!projectId) return c.json({ error: "Session is not attached to a project" }, 400);
     try {
-      return c.json(await submitClarificationFlow({ userId: owner(c), sessionId }, parsed.data));
+      return c.json(
+        await submitClarificationFlow({ userId: owner(c), projectId, sessionId }, parsed.data),
+      );
     } catch (error) {
       return c.json(
         { error: error instanceof Error ? error.message : "Unable to submit clarification" },
@@ -69,14 +87,22 @@ export const brdModule = new Hono()
   })
   // Registered before the "/:id" routes so the literal path wins.
   .get("/flow", async (c) => {
+    const userId = owner(c);
+    const queryProjectId = c.req.query("projectId")?.trim();
     const sessionId = c.req.query("sessionId")?.trim() || session(c);
-    if (!sessionId) return c.json({ error: "A conversation id is required" }, 400);
-    return c.json({ flow: await getBrdFlow({ userId: owner(c), sessionId }) });
+    const projectId = queryProjectId
+      ? (await getProject(userId, queryProjectId))?.id
+      : await projectForSession(userId, sessionId);
+    if (!projectId) return c.json({ error: "A project id is required" }, 400);
+    return c.json({ flow: await getBrdFlow({ userId, projectId, sessionId }) });
   })
   .post("/flow/pending-import", async (c) => {
+    const userId = owner(c);
     const sessionId = session(c);
     if (!sessionId) return c.json({ error: "A conversation id is required" }, 400);
-    const result = await importPendingBrd(owner(c), sessionId);
+    const projectId = await projectForSession(userId, sessionId);
+    if (!projectId) return c.json({ error: "Session is not attached to a project" }, 400);
+    const result = await importPendingBrd(userId, projectId, sessionId);
     if (result.ok) return c.json({ brd: result.brd });
     if (result.reason === "not_found") return c.json({ error: "No pending import" }, 404);
     if (result.reason === "in_progress")
@@ -84,9 +110,12 @@ export const brdModule = new Hono()
     return c.json({ error: `Dokumen belum siap (${result.status})`, status: result.status }, 409);
   })
   .delete("/flow/pending-import", async (c) => {
+    const userId = owner(c);
     const sessionId = session(c);
     if (!sessionId) return c.json({ error: "A conversation id is required" }, 400);
-    await clearPendingImport({ userId: owner(c), sessionId });
+    const projectId = await projectForSession(userId, sessionId);
+    if (!projectId) return c.json({ error: "Session is not attached to a project" }, 400);
+    await clearPendingImport({ userId, projectId, sessionId });
     return c.json({ ok: true });
   })
   .post("/:id/approve-modification", async (c) => {
@@ -113,20 +142,53 @@ export const brdModule = new Hono()
     const parsed = BrdCreateSchema.safeParse(await bodyOf(c));
     if (!parsed.success)
       return c.json({ error: "Invalid BRD payload", issues: parsed.error.issues }, 400);
-    return c.json({ brd: await createBrd(owner(c), parsed.data) }, 201);
+    const userId = owner(c);
+    const project = await getProject(userId, parsed.data.projectId);
+    if (!project) return c.json({ error: "Project not found" }, 404);
+    const existing = await findBrdByProject(userId, project.id);
+    if (existing) {
+      return c.json(
+        { error: "Project already has a BRD", code: "brd_exists", brd: existing },
+        409,
+      );
+    }
+    if (parsed.data.sessionId) {
+      const sessionProject = await projectForSession(userId, parsed.data.sessionId);
+      if (sessionProject !== project.id) {
+        return c.json({ error: "Session does not belong to this project" }, 400);
+      }
+    }
+    return c.json({ brd: await createBrd(userId, parsed.data) }, 201);
   })
   .post("/import", async (c) => {
     const parsed = BrdImportSchema.safeParse(await bodyOf(c));
-    if (!parsed.success)
+    if (!parsed.success) {
       return c.json({ error: "Invalid BRD import payload", issues: parsed.error.issues }, 400);
-    const brd = await importBrdFromDocument(owner(c), parsed.data);
+    }
+    const userId = owner(c);
+    const project = await getProject(userId, parsed.data.projectId);
+    if (!project) return c.json({ error: "Project not found" }, 404);
+    const existing = await findBrdByProject(userId, project.id);
+    if (existing) {
+      return c.json(
+        { error: "Project already has a BRD", code: "brd_exists", brd: existing },
+        409,
+      );
+    }
+    const brd = await importBrdFromDocument(userId, parsed.data);
     return brd
       ? c.json({ brd }, 201)
       : c.json({ error: "Document is not ready or has no extracted content" }, 404);
   })
-  .get("/", async (c) =>
-    c.json({ brds: await listBrds(owner(c), c.req.query("sessionId") ?? undefined) }),
-  )
+  .get("/", async (c) => {
+    const userId = owner(c);
+    const queryProjectId = c.req.query("projectId")?.trim();
+    const sessionId = c.req.query("sessionId")?.trim();
+    const projectId = queryProjectId
+      ? (await getProject(userId, queryProjectId))?.id
+      : await projectForSession(userId, sessionId);
+    return c.json({ brds: await listBrds(userId, projectId ?? undefined) });
+  })
   .get("/:id", async (c) => {
     const brd = await getBrd(owner(c), c.req.param("id"));
     return brd ? c.json({ brd }) : c.json({ error: "BRD not found" }, 404);
@@ -141,10 +203,7 @@ export const brdModule = new Hono()
     const updated = await updateBrd(owner(c), c.req.param("id"), input.data);
     return updated ? c.json({ brd: updated }) : c.json({ error: "BRD not found" }, 404);
   })
-  .delete("/:id", async (c) => {
-    const ok = await deleteBrd(owner(c), c.req.param("id"));
-    return ok ? c.json({ ok: true }) : c.json({ error: "BRD not found" }, 404);
-  })
+  // Tidak ada DELETE /:id: BRD hanya terhapus bersama project-nya.
   .post("/:id/versions", async (c) => {
     const parsed = BrdVersionCreateSchema.safeParse(await bodyOf(c));
     if (!parsed.success)

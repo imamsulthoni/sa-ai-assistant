@@ -1,4 +1,4 @@
-import { ArrowRight, Bot, Clock, FileText, RotateCcw, User } from "lucide-react";
+import { ArrowRight, Bot, Clock, Eye, FileText, RotateCcw, User } from "lucide-react";
 import { Badge } from "#/components/base/badge";
 import { Button } from "#/components/base/button";
 import type { BrdVersion } from "#/lib/api";
@@ -8,6 +8,8 @@ type VersionHistoryProps = {
   versions: BrdVersion[];
   currentVersion: number;
   compareFrom?: number | null;
+  previewVersion?: number | null;
+  onPreview: (version: number) => void;
   onOpen: (version: number) => void;
   onRestore: (version: number) => void;
   busy?: boolean;
@@ -17,6 +19,8 @@ export function VersionHistory({
   versions,
   currentVersion,
   compareFrom,
+  previewVersion,
+  onPreview,
   onOpen,
   onRestore,
   busy,
@@ -53,6 +57,7 @@ export function VersionHistory({
         {versions.map((version) => {
           const active = version.versionNumber === currentVersion;
           const compared = version.versionNumber === compareFrom;
+          const previewed = version.versionNumber === previewVersion;
           const fromAgent = version.createdBy === "AI_AGENT";
           return (
             <div key={version.id} className="relative pl-8">
@@ -68,9 +73,11 @@ export function VersionHistory({
                 className={`rounded-lg border p-3.5 transition-colors ${
                   active
                     ? "border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60"
-                    : compared
-                      ? "border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/30"
-                      : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                    : previewed
+                      ? "border-sky-300 bg-sky-50/60 dark:border-sky-800 dark:bg-sky-950/30"
+                      : compared
+                        ? "border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/30"
+                        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -111,18 +118,34 @@ export function VersionHistory({
                   </p>
                 )}
 
-                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 dark:border-slate-800">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
                   {active ? (
                     <span className="text-[11px] text-slate-400">Sedang ditampilkan</span>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => onOpen(version.versionNumber)}
-                      className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-sky-700 transition-colors hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300"
-                    >
-                      <FileText size={13} />
-                      Bandingkan <ArrowRight size={12} />
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {previewed ? (
+                        <span className="text-[11px] font-medium text-sky-700 dark:text-sky-400">
+                          Sedang dipratinjau
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onPreview(version.versionNumber)}
+                          className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-slate-700 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+                        >
+                          <Eye size={13} />
+                          Lihat isi versi ini
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onOpen(version.versionNumber)}
+                        className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-sky-700 transition-colors hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300"
+                      >
+                        <FileText size={13} />
+                        Bandingkan <ArrowRight size={12} />
+                      </button>
+                    </div>
                   )}
 
                   {!active && (

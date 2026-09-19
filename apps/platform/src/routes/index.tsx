@@ -50,8 +50,8 @@ const FEATURES = [
   },
   {
     icon: AtSign,
-    title: "Konteks dari file sesi",
-    body: "Sebut file dengan @ atau lampirkan dokumen — isinya (termasuk OCR gambar) menjadi sumber jawaban agen.",
+    title: "Konteks dari file project",
+    body: "Sebut file dengan @ atau lampirkan dokumen — isinya (termasuk OCR gambar) menjadi sumber jawaban agen di seluruh sesi project.",
   },
   {
     icon: ShieldCheck,
@@ -62,8 +62,8 @@ const FEATURES = [
 
 const STEPS = [
   [
-    "Buka workspace",
-    "Mulai percakapan baru dari sidebar, lalu pilih mau generate dari user story atau impor BRD lama.",
+    "Buat project",
+    "Satu project menampung satu BRD. Di dalamnya buat sesi percakapan, lalu pilih mau generate dari user story atau impor BRD lama.",
   ],
   [
     "Jelaskan kebutuhan",

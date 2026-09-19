@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "#/lib/utils";
 import { Button } from "#/components/base/button";
@@ -10,6 +11,11 @@ const SIZES = {
   xl: "max-w-4xl",
   "2xl": "max-w-5xl",
 } as const;
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+const TRANSITION_MS = 200;
 
 export type ModalProps = {
   open: boolean;
@@ -24,8 +30,10 @@ export type ModalProps = {
 };
 
 /**
- * Modal berbasis elemen <dialog> native: Esc dan focus trap ditangani browser,
- * tanpa dependensi tambahan.
+ * Modal berbasis portal (bukan `<dialog>` native) supaya toast Sonner tetap
+ * tampil di atas modal — elemen `<dialog>` native berada di top layer browser
+ * yang selalu menang atas z-index apa pun. Esc, klik backdrop, dan focus trap
+ * dasar ditangani manual, dengan transisi buka/tutup yang halus.
  */
 export function Modal({
   open,
@@ -38,72 +46,125 @@ export function Modal({
   className,
   bodyClassName,
 }: ModalProps) {
-  const ref = useRef<HTMLDialogElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(open);
+  const [visible, setVisible] = useState(false);
 
+  // Tetap ter-mount selama animasi keluar, lalu dilepas.
   useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    else if (!open && dialog.open) dialog.close();
+    if (open) {
+      setMounted(true);
+      const frame = window.requestAnimationFrame(() => setVisible(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+    setVisible(false);
+    const timer = window.setTimeout(() => setMounted(false), TRANSITION_MS);
+    return () => window.clearTimeout(timer);
   }, [open]);
 
   useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    const handleCancel = (event: Event) => {
+    if (!mounted || !open) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      // Hanya modal paling atas yang menutup, supaya Esc tidak menutup
+      // modal induk sekaligus saat ada konfirmasi bertingkat.
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs.length && dialogs[dialogs.length - 1] !== panelRef.current) return;
       event.preventDefault();
       onClose();
     };
-    dialog.addEventListener("cancel", handleCancel);
-    return () => dialog.removeEventListener("cancel", handleCancel);
-  }, [onClose]);
+    document.addEventListener("keydown", handleKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    // Fokuskan elemen pertama yang bisa diinteraksi (kecuali ada autoFocus).
+    if (!panelRef.current?.contains(document.activeElement)) {
+      panelRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    }
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mounted, open, onClose]);
 
-  return (
-    <dialog
-      ref={ref}
-      aria-label={typeof title === "string" ? title : undefined}
-      onClick={(event) => {
-        if (event.target === ref.current) onClose();
-      }}
+  const trapFocus = (event: React.KeyboardEvent) => {
+    if (event.key !== "Tab") return;
+    const nodes = panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE);
+    if (!nodes?.length) return;
+    const list = Array.from(nodes);
+    const first = list[0];
+    const last = list[list.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
       className={cn(
-        "m-auto w-[calc(100vw-1.5rem)] rounded-lg border border-slate-200 bg-white p-0 text-slate-800 shadow-2xl outline-none",
-        "dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100",
-        "backdrop:bg-slate-900/60 open:flex open:max-h-[92dvh] open:flex-col",
-        SIZES[size],
-        className,
+        "fixed inset-0 z-50 flex items-center justify-center p-3 transition-opacity duration-200 ease-out",
+        visible ? "opacity-100" : "pointer-events-none opacity-0",
       )}
     >
-      {(title || description) && (
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
-          <div className="min-w-0">
-            {title && (
-              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h2>
-            )}
-            {description && (
-              <p className="mt-0.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-                {description}
-              </p>
-            )}
+      <div
+        aria-hidden="true"
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+      />
+
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={typeof title === "string" ? title : undefined}
+        onKeyDown={trapFocus}
+        className={cn(
+          "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white p-0 text-slate-800 shadow-2xl outline-none",
+          "transition-all duration-200 ease-out",
+          visible ? "scale-100 opacity-100" : "scale-95 opacity-0",
+          "dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100",
+          SIZES[size],
+          className,
+        )}
+      >
+        {(title || description) && (
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
+            <div className="min-w-0">
+              {title && (
+                <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+              )}
+              {description && (
+                <p className="mt-0.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+                  {description}
+                </p>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onClose}
+              aria-label="Tutup dialog"
+              className="shrink-0 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+            >
+              <X size={15} />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onClose}
-            aria-label="Tutup dialog"
-            className="shrink-0 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-          >
-            <X size={15} />
-          </Button>
-        </div>
-      )}
+        )}
 
-      <div className={cn("min-h-0 flex-1 overflow-y-auto p-4", bodyClassName)}>{children}</div>
+        <div className={cn("min-h-0 flex-1 overflow-y-auto p-4", bodyClassName)}>{children}</div>
 
-      {footer && (
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950">
-          {footer}
-        </div>
-      )}
-    </dialog>
+        {footer && (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
   );
 }

@@ -4,6 +4,7 @@ import type {
   ClarificationQuestion,
   DocumentSummary,
   MessagesResponse,
+  ProjectSummary,
   SearchResult,
   SessionSummary,
   Settings,
@@ -16,11 +17,25 @@ export type {
   ClarificationQuestion,
   DocumentSummary,
   MessagesResponse,
+  ProjectSummary,
   SearchResult,
   SessionSummary,
   Settings,
   SettingsResponse,
 } from "./types.js";
+
+/** Error HTTP dengan status + kode error server (mis. brd_exists). */
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(message: string, status: number, code?: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 export const DEMO_USER_ID = "demo-user";
@@ -52,17 +67,60 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch {
       detail = await response.text();
     }
-    throw new Error(`Request to ${path} failed (${response.status})`, { cause: detail });
+    const code =
+      detail && typeof detail === "object" && "code" in detail
+        ? String((detail as { code?: unknown }).code)
+        : undefined;
+    throw new ApiError(
+      `Request to ${path} failed (${response.status})`,
+      response.status,
+      code,
+      { cause: detail },
+    );
   }
 
   return (await response.json()) as T;
 }
 
-export function listSessions(): Promise<SessionsResponse> {
-  return request("/sessions");
+type ProjectResponse = { project: ProjectSummary };
+type ProjectsResponse = { projects: ProjectSummary[] };
+
+export function listProjects(): Promise<ProjectsResponse> {
+  return request("/projects");
 }
 
-export function createSession(input: { projectId?: string } = {}): Promise<SessionResponse> {
+export function createProject(input: {
+  name: string;
+  description?: string | null;
+  templateId?: string | null;
+}): Promise<ProjectResponse> {
+  return request("/projects", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function getProject(id: string): Promise<ProjectResponse> {
+  return request(`/projects/${encodeURIComponent(id)}`);
+}
+
+export function updateProject(
+  id: string,
+  input: { name?: string; description?: string | null; templateId?: string | null },
+): Promise<ProjectResponse> {
+  return request(`/projects/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteProject(id: string): Promise<{ ok: boolean }> {
+  return request(`/projects/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function listSessions(projectId?: string): Promise<SessionsResponse> {
+  const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+  return request(`/sessions${query}`);
+}
+
+export function createSession(input: { title?: string; projectId: string }): Promise<SessionResponse> {
   return request("/sessions", { method: "POST", body: JSON.stringify(input) });
 }
 
@@ -81,8 +139,12 @@ export function getSessionMessages(id: string): Promise<MessagesResponse> {
   return request(`/sessions/${encodeURIComponent(id)}/messages`);
 }
 
-export function listDocuments(sessionId: string): Promise<{ documents: DocumentSummary[] }> {
-  return request("/documents", {
+export function listDocuments(
+  sessionId: string,
+  options: { scope?: "session" } = {},
+): Promise<{ documents: DocumentSummary[] }> {
+  const query = options.scope === "session" ? "?scope=session" : "";
+  return request(`/documents${query}`, {
     headers: { "x-conversation-id": sessionId },
   });
 }
@@ -118,13 +180,14 @@ export function deleteDocument(sessionId: string, id: string): Promise<{ ok: boo
   });
 }
 
-export function listBrds(sessionId: string): Promise<{ brds: BrdDocument[] }> {
-  return request(`/brd?sessionId=${encodeURIComponent(sessionId)}`);
+export function listBrds(projectId: string): Promise<{ brds: BrdDocument[] }> {
+  return request(`/brd?projectId=${encodeURIComponent(projectId)}`);
 }
 
 export function importBrd(input: {
-  sessionId: string;
+  projectId: string;
   documentId: string;
+  sessionId?: string;
   title?: string;
 }): Promise<{ brd: BrdDocument }> {
   return request("/brd/import", { method: "POST", body: JSON.stringify(input) });
@@ -135,7 +198,8 @@ export function getBrd(id: string): Promise<{ brd: BrdDocument }> {
 }
 
 export function createBrd(input: {
-  sessionId: string;
+  projectId: string;
+  sessionId?: string;
   title: string;
   contentMarkdown: string;
   changeSummary?: string;
@@ -241,6 +305,16 @@ export function uploadTemplate(file: File): Promise<{ document: DocumentSummary 
   return request("/settings/template", { method: "POST", body });
 }
 
+export function createManualTemplate(input: {
+  title: string;
+  templateStructure: unknown;
+}): Promise<{ document: DocumentSummary }> {
+  return request("/settings/template/manual", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export function getTemplate(
   id: string,
 ): Promise<{ document: DocumentSummary & { templateStructure?: unknown; error: string | null } }> {
@@ -279,11 +353,12 @@ export function resetTemplate(): Promise<{ ok: boolean }> {
 export function search(
   query: string,
   type?: "brd" | "document",
-  sessionId?: string,
+  filters: { projectId?: string; sessionId?: string } = {},
 ): Promise<{ results: SearchResult[] }> {
   const params = new URLSearchParams({ q: query });
   if (type) params.set("type", type);
-  if (sessionId) params.set("sessionId", sessionId);
+  if (filters.projectId) params.set("projectId", filters.projectId);
+  if (filters.sessionId) params.set("sessionId", filters.sessionId);
   return request(`/search?${params}`);
 }
 
@@ -296,8 +371,8 @@ export type BrdFlowSnapshot = {
   pendingImportDocumentId: string | null;
 };
 
-export function getBrdFlow(sessionId: string): Promise<{ flow: BrdFlowSnapshot | null }> {
-  return request(`/brd/flow?sessionId=${encodeURIComponent(sessionId)}`);
+export function getBrdFlow(projectId: string): Promise<{ flow: BrdFlowSnapshot | null }> {
+  return request(`/brd/flow?projectId=${encodeURIComponent(projectId)}`);
 }
 
 export function importPendingBrd(sessionId: string): Promise<{ brd: BrdDocument }> {

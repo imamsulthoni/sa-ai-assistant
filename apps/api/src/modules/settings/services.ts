@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "../../lib/prisma.js";
 import type { SettingsPatchInput } from "../../lib/api-contract.js";
 import { encryptSecret } from "../../lib/crypto.js";
@@ -146,6 +147,37 @@ export async function getCurrentTemplate(userId: string) {
   return { document, activeTemplateId: document ? activeTemplateId : null };
 }
 
+/**
+ * Template yang disusun manual (tanpa dokumen unggahan): langsung READY dan
+ * aktif. `objectKey` sintetis tetap diisi karena kolomnya unik dan wajib,
+ * tetapi tidak ada objek R2 yang perlu dibersihkan.
+ */
+export async function createManualTemplate(
+  userId: string,
+  input: { title: string; templateStructure: object },
+) {
+  const document = await prisma.document.create({
+    data: {
+      userId,
+      title: input.title,
+      fileType: "MARKDOWN",
+      storageUrl: "",
+      objectKey: `manual-template-${randomUUID()}.json`,
+      fileSize: 0,
+      isTemplate: true,
+      status: "READY",
+      templateStructure: input.templateStructure,
+    },
+    select: TEMPLATE_SELECT,
+  });
+  await prisma.userSetting.upsert({
+    where: { userId },
+    create: { userId, activeTemplateId: document.id },
+    update: { activeTemplateId: document.id },
+  });
+  return document;
+}
+
 export async function patchTemplateStructure(
   userId: string,
   templateId: string,
@@ -195,8 +227,20 @@ export async function resetActiveTemplate(userId: string) {
     await prisma.userSetting.update({ where: { userId }, data: { activeTemplateId: null } });
     return false;
   }
-  await deleteDocumentVectors(template.id);
-  await deleteDocument(template.objectKey);
+  // Best-effort: template manual tidak punya objek R2/vektor, dan koleksi
+  // Qdrant bisa saja belum ada — reset tetap boleh lanjut.
+  await deleteDocumentVectors(template.id).catch((error: unknown) =>
+    console.warn("Failed to delete template vectors", {
+      documentId: template.id,
+      error: error instanceof Error ? error.message : error,
+    }),
+  );
+  await deleteDocument(template.objectKey).catch((error: unknown) =>
+    console.warn("Failed to delete template object", {
+      objectKey: template.objectKey,
+      error: error instanceof Error ? error.message : error,
+    }),
+  );
   await prisma.$transaction([
     prisma.userSetting.update({ where: { userId }, data: { activeTemplateId: null } }),
     prisma.document.delete({ where: { id: template.id } }),

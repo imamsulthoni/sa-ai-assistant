@@ -186,6 +186,7 @@ export async function processDocument(job: Job<DocumentIngestionJob>) {
         documentId: document.id,
         documentName: document.title,
         userId: document.userId,
+        projectId: document.projectId,
         sessionId: document.sessionId,
         pageNumber: page.pageNumber,
         metadata: JSON.stringify(page.metadata),

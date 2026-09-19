@@ -70,12 +70,12 @@ export const COPY = {
     reviewDiff: "Review Perbedaan Klausul (Diff)",
     agentWorking: "Generating...",
     composerPlaceholderBrd:
-      "Tanyakan tentang BRD… (tip: @ untuk menyebut file sesi)",
+      "Tanyakan tentang BRD… (tip: @ untuk menyebut file project)",
     composerPlaceholder:
-      "Ceritakan user story Anda… (tip: @ untuk menyebut file sesi)",
+      "Ceritakan user story Anda… (tip: @ untuk menyebut file project)",
     attachTitle: (limit: string) =>
       `Lampirkan dokumen atau gambar (maks ${limit})`,
-    mentionTitle: "Sebut file di sesi ini (@)",
+    mentionTitle: "Sebut file di project ini (@)",
   },
   quickPrompts: [
     "Ringkas BRD ini",
@@ -84,7 +84,9 @@ export const COPY = {
     "Temukan risiko dan dependensi",
   ],
   sidebar: {
-    newChat: "Buat Sesi BRD Baru",
+    newChat: "Buat Sesi Chat Agent Baru",
+    newChatLocked: "Sesi chat agent baru bisa dibuat setelah BRD project selesai di-generate.",
+    projectLabel: "Project",
     conversations: "Daftar Sesi",
     noConversations: "Belum ada percakapan.",
     workspaceName: APP_NAME,
@@ -112,21 +114,59 @@ export const COPY = {
     deleteConfirm: "Hapus",
     deleteDocumentTitle: "Hapus dokumen?",
     deleteDocumentDescription: (title: string) =>
-      `Dokumen “${title}” akan dihapus permanen dari penyimpanan, basis data, dan indeks pencarian sesi ini. Tindakan ini tidak bisa dibatalkan.`,
+      `Dokumen “${title}” akan dihapus permanen dari penyimpanan, basis data, dan indeks pencarian project ini. Tindakan ini tidak bisa dibatalkan.`,
     deleteDocumentConfirm: "Hapus dokumen",
   },
   documents: {
-    title: "Dokumen Referensi Sesi",
+    title: "Dokumen Referensi Project",
     description: (count: number) =>
-      `${count} lampiran rujukan yang dapat di-mention (@) saat tanya jawab dengan AI Agent.`,
+      `${count} lampiran rujukan project yang dapat di-mention (@) saat tanya jawab dengan AI Agent.`,
     dropTitle: "Drag & Drop file referensi di sini",
     dropHint: (limit: string) =>
       `Mendukung format PDF, Word (.docx), Markdown (.md), TXT, dan gambar (maks ${limit})`,
     choose: "Pilih File Dokumen",
     uploading: "Memproses…",
     listTitle: (count: number) => `Daftar Lampiran Terindeks (${count})`,
-    empty: "Belum ada dokumen yang diunggah untuk sesi ini.",
+    empty: "Belum ada dokumen yang diunggah untuk project ini.",
     done: "Selesai",
+  },
+  projects: {
+    title: "Project",
+    subtitle:
+      "Setiap project memiliki satu BRD, dokumen referensi, dan seluruh sesi percakapannya sendiri.",
+    newProject: "Project Baru",
+    createTitle: "Buat Project Baru",
+    createDescription:
+      "Project menjadi rumah untuk satu BRD, dokumen referensi, dan seluruh sesi percakapan.",
+    nameLabel: "Nama project",
+    namePlaceholder: "mis. Pengajuan Cuti",
+    descriptionLabel: "Deskripsi (opsional)",
+    descriptionPlaceholder: "Konteks singkat project ini",
+    create: "Buat Project",
+    cancel: "Batal",
+    gridView: "Tampilan grid",
+    listView: "Tampilan list",
+    empty: "Belum ada project. Buat project pertama Anda untuk mulai menyusun BRD.",
+    loading: "Memuat project…",
+    backToProjects: "Kembali ke daftar project",
+    sessionCount: (count: number) => `${count} sesi`,
+    attachmentCount: (count: number) => `${count} file`,
+    brdBadge: (version: number) => `BRD v${version}.0`,
+    noBrd: "Belum ada BRD",
+    rename: "Ganti nama project",
+    renameTitle: "Ganti nama project",
+    renameDescription: "Beri nama project ini agar mudah dikenali.",
+    delete: "Hapus project",
+    deleteTitle: "Hapus project?",
+    deleteDescription: (name: string) =>
+      `Project “${name}” beserta BRD, dokumen, dan seluruh sesinya akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`,
+    deleteConfirm: "Hapus project",
+    defaultBadge: "Inbox",
+    newBrdLocked: "Project ini sudah punya BRD",
+    newBrdLockedBody:
+      "Satu project hanya memiliki satu BRD. Untuk menyusun BRD baru, buat project baru. Perubahan BRD yang ada dilakukan lewat obrolan QA di sesi mana pun.",
+    openBrd: "Buka BRD",
+    createAnother: "Buat Project Baru",
   },
   workspace: {
     noSession: "Belum ada percakapan dipilih",
@@ -143,10 +183,18 @@ export const COPY = {
     resizePanes: "Ubah lebar panel agen obrolan dan panel dokumen BRD",
     brdPaneValue: (share: number) => `Panel BRD ${share}%`,
     dismissImport: "Batalkan antrian impor",
+    previewOldVersion: (version: number, current: number) =>
+      `Pratinjau v${version}.0 — bukan versi aktif (v${current}.0).`,
+    previewVersionTab: (version: number) => `Preview v${version}.0`,
+    backToCurrent: "Kembali ke versi aktif",
+    compareWithCurrent: "Bandingkan dengan versi aktif",
   },
   flow: {
     clarifyTitle: "Menyiapkan Pertanyaan Klarifikasi",
+    judgeTitle: "Menilai Jawaban & Menyiapkan Pertanyaan Lanjutan",
     generatingTitle: "Menyusun Dokumen BRD",
+    longRunning:
+      "Proses ini memakan waktu yang agak lama (bisa 2–5 menit), mohon tunggu sampai selesai — jangan tutup halaman.",
     resumeTitle: "Penyusunan terputus",
     resumeBody:
       "Proses sebelumnya berhenti di tengah jalan. Jawaban Anda sudah tersimpan — lanjutkan untuk menyusun draf BRD.",
@@ -162,6 +210,9 @@ export const COPY = {
     subtitle:
       "Pilih salah satu opsi atau tulis jawaban sendiri. Jawaban ini menjadi konteks BRD Anda.",
     customPlaceholder: "Tulis jawaban sendiri…",
+    copyQuestions: "Salin pertanyaan",
+    copiedQuestions: "Pertanyaan disalin — tempel ke agen lain untuk dibantu menjawab.",
+    copyFailed: "Gagal menyalin pertanyaan. Salin manual dari layar.",
     requiredError: "Lengkapi pertanyaan wajib sebelum melanjutkan.",
     preparing: "Menyiapkan BRD…",
     submitRound1: "Lanjut ke Putaran 2",

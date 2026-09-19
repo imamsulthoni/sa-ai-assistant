@@ -4,7 +4,6 @@ import type { Message } from "@anvia/core/completion";
 import { messagesToUIMessages } from "@anvia/client";
 import type { UIMessage } from "@anvia/client";
 import { prisma } from "../../lib/prisma.js";
-import { deleteDocument, deleteDocumentVectors } from "../document/services.js";
 import { DEFAULT_TITLE, TITLE_MAX_LENGTH, titleFromContent } from "./utils.js";
 
 export type SessionBrdSummary = {
@@ -22,6 +21,8 @@ export type SessionFlowSummary = {
 export type SessionSummary = {
   id: string;
   title: string;
+  projectId: string | null;
+  projectName: string | null;
   createdAt: string;
   updatedAt: string;
   messageCount: number;
@@ -34,40 +35,39 @@ type SessionStatusMaps = {
   flows: Map<string, SessionFlowSummary>;
 };
 
-/** Ambil ringkasan BRD + flow per sesi untuk badge sidebar (satu query batch). */
-async function sessionStatusMaps(userId: string, sessionIds: string[]): Promise<SessionStatusMaps> {
+/** Ringkasan BRD + flow per project (satu query batch) untuk badge sidebar. */
+async function sessionStatusMaps(projectIds: string[]): Promise<SessionStatusMaps> {
   const brds = new Map<string, SessionBrdSummary>();
   const flows = new Map<string, SessionFlowSummary>();
-  if (sessionIds.length === 0) return { brds, flows };
+  const unique = [...new Set(projectIds.filter(Boolean))];
+  if (unique.length === 0) return { brds, flows };
 
   const brdRows = await prisma.brdDocument.findMany({
-    where: { userId, sessionId: { in: sessionIds } },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, sessionId: true, currentVersion: true, status: true },
-  });
-  const pendingRows = await prisma.brdDocument.findMany({
-    where: { userId, sessionId: { in: sessionIds }, pendingContentMarkdown: { not: null } },
-    select: { sessionId: true },
+    where: { projectId: { in: unique } },
+    select: {
+      id: true,
+      projectId: true,
+      currentVersion: true,
+      status: true,
+      pendingContentMarkdown: true,
+    },
   });
   const flowRows = await prisma.brdFlowState.findMany({
-    where: { userId, sessionId: { in: sessionIds } },
-    select: { sessionId: true, phase: true, round: true },
+    where: { projectId: { in: unique }, phase: { not: null } },
+    select: { projectId: true, phase: true, round: true },
   });
 
-  const pending = new Set(pendingRows.map((row) => row.sessionId));
   for (const row of brdRows) {
-    // orderBy updatedAt desc: entri pertama per sesi adalah BRD terbaru.
-    if (brds.has(row.sessionId)) continue;
-    brds.set(row.sessionId, {
+    brds.set(row.projectId, {
       id: row.id,
       currentVersion: row.currentVersion,
       status: row.status,
-      hasPendingModification: pending.has(row.sessionId),
+      hasPendingModification: Boolean(row.pendingContentMarkdown),
     });
   }
   for (const row of flowRows) {
     if (!row.phase) continue;
-    flows.set(row.sessionId, { phase: row.phase, round: row.round });
+    flows.set(row.projectId, { phase: row.phase, round: row.round });
   }
 
   return { brds, flows };
@@ -82,34 +82,68 @@ export function scopeKey(sessionId: string, userId: string): string {
 
 export { titleFromContent } from "./utils.js";
 
-export async function listSessions(userId: string): Promise<SessionSummary[]> {
-  const rows = await prisma.agentMemorySession.findMany({
-    where: { userId },
-    orderBy: { updatedAt: "desc" },
-    include: { _count: { select: { messages: true } } },
-  });
+type SessionRow = {
+  sessionId: string;
+  title: string | null;
+  projectId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
-  const { brds, flows } = await sessionStatusMaps(
-    userId,
-    rows.map((row) => row.sessionId),
-  );
+type SessionRowWithCount = SessionRow & {
+  _count?: { messages: number };
+  project?: { id: string; name: string } | null;
+};
 
-  return rows.map((row) => ({
+function toSessionSummary(
+  row: SessionRowWithCount,
+  messageCount: number,
+  maps: SessionStatusMaps,
+): SessionSummary {
+  return {
     id: row.sessionId,
     title: row.title ?? DEFAULT_TITLE,
+    projectId: row.projectId,
+    projectName: row.project?.name ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    messageCount: row._count.messages,
-    brd: brds.get(row.sessionId) ?? null,
-    flow: flows.get(row.sessionId) ?? null,
-  }));
+    messageCount,
+    brd: (row.projectId ? maps.brds.get(row.projectId) : null) ?? null,
+    flow: (row.projectId ? maps.flows.get(row.projectId) : null) ?? null,
+  };
+}
+
+export async function listSessions(userId: string, projectId?: string): Promise<SessionSummary[]> {
+  const rows = await prisma.agentMemorySession.findMany({
+    where: { userId, ...(projectId ? { projectId } : {}) },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      _count: { select: { messages: true } },
+      project: { select: { id: true, name: true } },
+    },
+  });
+
+  const { brds, flows } = await sessionStatusMaps(rows.map((row) => row.projectId ?? ""));
+  const maps = { brds, flows };
+
+  return rows.map((row) => toSessionSummary(row, row._count.messages, maps));
+}
+
+async function ownedProject(userId: string, projectId: string) {
+  return prisma.project.findFirst({
+    where: { id: projectId, userId },
+    select: { id: true, name: true },
+  });
 }
 
 export async function createSession(
   userId: string,
-  initialTitle?: string,
-  options: { projectId?: string } = {},
+  initialTitle: string | undefined,
+  projectId: string,
 ): Promise<SessionSummary> {
+  const project = await ownedProject(userId, projectId);
+  if (!project) throw new Error("Project not found");
+
   const sessionId = randomUUID();
   const title = initialTitle?.trim() || DEFAULT_TITLE;
   const key = scopeKey(sessionId, userId);
@@ -122,29 +156,35 @@ export async function createSession(
       sessionId,
       userId,
       title,
-      projectId: options.projectId,
+      projectId: project.id,
       metadata: { userId },
     },
   });
 
-  return {
-    id: row.sessionId,
-    title: row.title ?? DEFAULT_TITLE,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-    messageCount: 0,
-    brd: null,
-    flow: null,
-  };
+  return toSessionSummary(
+    { ...row, project: { id: project.id, name: project.name } },
+    0,
+    { brds: new Map(), flows: new Map() },
+  );
 }
 
 export async function updateSession(
   userId: string,
   sessionId: string,
-  input: { title?: string; projectId?: string | null },
+  input: { title?: string; projectId?: string },
 ): Promise<SessionSummary | null> {
-  const session = await prisma.agentMemorySession.findFirst({ where: { sessionId, userId } });
+  const session = await prisma.agentMemorySession.findFirst({
+    where: { sessionId, userId },
+    include: { project: { select: { id: true, name: true } } },
+  });
   if (!session) return null;
+
+  let project = session.project;
+  if (input.projectId !== undefined && input.projectId !== session.projectId) {
+    project = await ownedProject(userId, input.projectId);
+    if (!project) throw new Error("Project not found");
+  }
+
   const updated = await prisma.agentMemorySession.update({
     where: { id: session.id },
     data: {
@@ -155,16 +195,12 @@ export async function updateSession(
   const messageCount = await prisma.agentMemoryMessage.count({
     where: { memorySessionId: updated.id },
   });
-  const { brds, flows } = await sessionStatusMaps(userId, [updated.sessionId]);
-  return {
-    id: updated.sessionId,
-    title: updated.title ?? DEFAULT_TITLE,
-    createdAt: updated.createdAt.toISOString(),
-    updatedAt: updated.updatedAt.toISOString(),
+  const { brds, flows } = await sessionStatusMaps([updated.projectId ?? ""]);
+  return toSessionSummary(
+    { ...updated, project: project ?? null },
     messageCount,
-    brd: brds.get(updated.sessionId) ?? null,
-    flow: flows.get(updated.sessionId) ?? null,
-  };
+    { brds, flows },
+  );
 }
 
 export async function renameSession(
@@ -184,22 +220,33 @@ export async function renameSession(
 
   const updated = await prisma.agentMemorySession.findFirst({
     where: { sessionId, userId },
-    include: { _count: { select: { messages: true } } },
+    include: {
+      _count: { select: { messages: true } },
+      project: { select: { id: true, name: true } },
+    },
   });
 
   if (!updated) return null;
-  const { brds, flows } = await sessionStatusMaps(userId, [updated.sessionId]);
-  return {
-    id: updated.sessionId,
-    title: updated.title ?? DEFAULT_TITLE,
-    createdAt: updated.createdAt.toISOString(),
-    updatedAt: updated.updatedAt.toISOString(),
-    messageCount: updated._count.messages,
-    brd: brds.get(updated.sessionId) ?? null,
-    flow: flows.get(updated.sessionId) ?? null,
-  };
+  const { brds, flows } = await sessionStatusMaps([updated.projectId ?? ""]);
+  return toSessionSummary(updated, updated._count.messages, { brds, flows });
 }
 
+/** Project id milik sebuah sesi; null bila sesi tidak ada atau tanpa project. */
+export async function sessionProjectId(
+  userId: string,
+  sessionId: string,
+): Promise<string | null> {
+  const row = await prisma.agentMemorySession.findFirst({
+    where: { sessionId, userId },
+    select: { projectId: true },
+  });
+  return row?.projectId ?? null;
+}
+
+/**
+ * Menghapus satu sesi percakapan. Project beserta BRD dan dokumennya tidak
+ * tersentuh: sesi hanyalah unit percakapan, bukan pemilik knowledge base.
+ */
 export async function deleteSession(userId: string, sessionId: string): Promise<boolean> {
   const session = await prisma.agentMemorySession.findFirst({
     where: { sessionId, userId },
@@ -207,34 +254,7 @@ export async function deleteSession(userId: string, sessionId: string): Promise<
   });
   if (!session) return false;
 
-  const documents = await prisma.document.findMany({
-    where: { sessionId, userId },
-    select: { id: true, objectKey: true },
-  });
-
-  // Best-effort storage cleanup first: DB rows are removed afterwards, so a
-  // failed cleanup never loses the object keys needed to retry it.
-  await Promise.all(
-    documents.flatMap((document) => [
-      deleteDocumentVectors(document.id).catch((error: unknown) =>
-        console.warn("Failed to delete session document vectors", {
-          documentId: document.id,
-          error: error instanceof Error ? error.message : error,
-        }),
-      ),
-      deleteDocument(document.objectKey).catch((error: unknown) =>
-        console.warn("Failed to delete session document object", {
-          documentId: document.id,
-          error: error instanceof Error ? error.message : error,
-        }),
-      ),
-    ]),
-  );
-
   await prisma.$transaction([
-    prisma.document.deleteMany({ where: { sessionId, userId } }),
-    prisma.brdDocument.deleteMany({ where: { sessionId, userId } }),
-    prisma.brdFlowState.deleteMany({ where: { sessionId, userId } }),
     prisma.agentMemoryMessage.deleteMany({ where: { memorySessionId: session.id } }),
     prisma.agentMemorySession.delete({ where: { id: session.id } }),
   ]);

@@ -1,15 +1,21 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, LoaderCircle, Sparkles } from "lucide-react";
+import { CheckCircle2, Clock, LoaderCircle, Sparkles } from "lucide-react";
 import { Button } from "#/components/base/button";
 import { COPY } from "#/lib/copy";
 
-export type GenerationStage = "clarify" | "generate";
+export type GenerationStage = "clarify" | "judge" | "generate";
 
 const CLARIFY_STEPS = [
   "Menganalisis user story & problem statement",
   "Menyusun pertanyaan klarifikasi putaran 1",
   "Memeriksa celah informasi yang perlu dikonfirmasi",
   "Menyiapkan sesi tanya-jawab",
+];
+
+const JUDGE_STEPS = [
+  "Memeriksa kelengkapan jawaban putaran 1",
+  "Mengidentifikasi celah yang masih material",
+  "Menyiapkan pertanyaan klarifikasi putaran 2",
 ];
 
 const GENERATE_STEPS = [
@@ -20,6 +26,12 @@ const GENERATE_STEPS = [
 ];
 
 const STEP_INTERVAL_MS = 1200;
+
+function formatElapsed(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
 
 export function GeneratingView({
   templateName,
@@ -32,12 +44,22 @@ export function GeneratingView({
   resumable?: boolean;
   onResume?: () => void;
 }) {
-  const steps = stage === "clarify" ? CLARIFY_STEPS : GENERATE_STEPS;
+  const steps = stage === "clarify" ? CLARIFY_STEPS : stage === "judge" ? JUDGE_STEPS : GENERATE_STEPS;
   const [stepIndex, setStepIndex] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     setStepIndex(0);
   }, [stage]);
+
+  useEffect(() => {
+    if (resumable) return;
+    setElapsed(0);
+    const timer = window.setInterval(() => {
+      setElapsed((value) => value + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resumable, stage]);
 
   useEffect(() => {
     if (resumable) return;
@@ -46,6 +68,15 @@ export function GeneratingView({
     }, STEP_INTERVAL_MS);
     return () => window.clearInterval(timer);
   }, [resumable, steps.length]);
+
+  const longRunning = !resumable && (stage === "generate" || stage === "judge");
+  const title = resumable
+    ? COPY.flow.resumeTitle
+    : stage === "clarify"
+      ? COPY.flow.clarifyTitle
+      : stage === "judge"
+        ? COPY.flow.judgeTitle
+        : COPY.flow.generatingTitle;
 
   return (
     <div className="flex flex-1 items-center justify-center p-4">
@@ -56,13 +87,7 @@ export function GeneratingView({
         </div>
 
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-            {resumable
-              ? COPY.flow.resumeTitle
-              : stage === "clarify"
-                ? COPY.flow.clarifyTitle
-                : COPY.flow.generatingTitle}
-          </h3>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h3>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
             {resumable ? (
               COPY.flow.resumeBody
@@ -72,6 +97,11 @@ export function GeneratingView({
               </>
             )}
           </p>
+          {!resumable && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 font-mono text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              <Clock size={11} /> Berjalan {formatElapsed(elapsed)}
+            </p>
+          )}
         </div>
 
         {resumable ? (
@@ -113,6 +143,12 @@ export function GeneratingView({
               );
             })}
           </div>
+        )}
+
+        {longRunning && (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+            {COPY.flow.longRunning}
+          </p>
         )}
       </div>
     </div>

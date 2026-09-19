@@ -13,16 +13,21 @@ import { describeError } from "#/lib/errors";
 
 const STORAGE_KEY = "sa.activeSession";
 
+function storageKey(projectId: string): string {
+  return `${STORAGE_KEY}.${projectId}`;
+}
+
 function messageOf(error: unknown): string {
   return describeError(error);
 }
 
 type UseSessionsOptions = {
+  projectId: string;
   sessionId?: string | null;
   onNavigate?: (id: string) => void;
 };
 
-export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) {
+export function useSessions({ projectId, sessionId, onNavigate }: UseSessionsOptions) {
   const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
@@ -35,10 +40,10 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
     (id: string) => {
       activeRef.current = id;
       setActiveId(id);
-      localStorage.setItem(STORAGE_KEY, id);
+      localStorage.setItem(storageKey(projectId), id);
       onNavigate?.(id);
     },
-    [onNavigate],
+    [onNavigate, projectId],
   );
 
   // The anvia chat agent bootstraps from its own transport; the initial message
@@ -62,11 +67,11 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
   );
 
   const sessionsQuery = useQuery({
-    queryKey: ["sessions"],
+    queryKey: ["sessions", projectId],
     queryFn: async () => {
-      let sessions = (await listSessions()).sessions;
+      let sessions = (await listSessions(projectId)).sessions;
       if (sessions.length === 0) {
-        sessions = [(await apiCreateSession()).session];
+        sessions = [(await apiCreateSession({ projectId })).session];
       }
       return sessions;
     },
@@ -83,10 +88,16 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
 
   // Pick the preferred session once the list is known: URL search > last used > first.
   useEffect(() => {
+    activeRef.current = null;
+    setActiveId(null);
+    setInitialMessages([]);
+  }, [projectId]);
+
+  useEffect(() => {
     if (sessions.length === 0) return;
     const current = activeRef.current;
     if (current && sessions.some((item) => item.id === current)) return;
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(storageKey(projectId));
     const preferred =
       sessionId && sessions.some((item) => item.id === sessionId)
         ? sessionId
@@ -94,7 +105,7 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
           ? saved
           : sessions[0].id;
     void activate(preferred);
-  }, [sessions, sessionId, activate]);
+  }, [sessions, sessionId, activate, projectId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -104,9 +115,10 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
   }, [sessionId, activate]);
 
   const createMutation = useMutation({
-    mutationFn: () => apiCreateSession(),
+    mutationFn: () => apiCreateSession({ projectId }),
     onSuccess: async ({ session }) => {
-      void queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["sessions", projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
       await activate(session.id);
     },
     onError: (caught) => setActionError(messageOf(caught)),
@@ -115,7 +127,7 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
   const newSession = useCallback(async () => {
     setActionError(null);
     await createMutation.mutateAsync();
-  }, [createMutation, activate]);
+  }, [createMutation]);
 
   const openSession = useCallback(
     (id: string) => {
@@ -128,7 +140,7 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
   const renameMutation = useMutation({
     mutationFn: ({ id, title }: { id: string; title: string }) => apiRenameSession(id, title),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["sessions", projectId] });
     },
     onError: (caught) => setActionError(messageOf(caught)),
   });
@@ -144,7 +156,8 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiDeleteSession(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      void queryClient.invalidateQueries({ queryKey: ["sessions", projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
     onError: (caught) => setActionError(messageOf(caught)),
   });
@@ -152,6 +165,11 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
   const deleteSession = useCallback(
     async (id: string) => {
       setActionError(null);
+      if (id === activeRef.current) {
+        activeRef.current = null;
+        setActiveId(null);
+        setInitialMessages([]);
+      }
       await deleteMutation.mutateAsync(id);
     },
     [deleteMutation],
@@ -159,11 +177,11 @@ export function useSessions({ sessionId, onNavigate }: UseSessionsOptions = {}) 
 
   const refreshAfterRun = useCallback(async () => {
     try {
-      await queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      await queryClient.invalidateQueries({ queryKey: ["sessions", projectId] });
     } catch {
       // ignore transient refresh errors; the list is best-effort here
     }
-  }, [queryClient]);
+  }, [queryClient, projectId]);
 
   return {
     sessions,

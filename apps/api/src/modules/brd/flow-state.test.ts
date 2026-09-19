@@ -21,7 +21,7 @@ import {
   saveClarifyCheckpoint,
 } from "./flow-state.js";
 
-const context = { userId: "user-1", sessionId: "session-1" };
+const context = { userId: "user-1", projectId: "project-1", sessionId: "session-1" };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -68,8 +68,7 @@ describe("saveClarifyCheckpoint", () => {
     expect(prismaMock.brdFlowState.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          userId: "user-1",
-          sessionId: "session-1",
+          projectId: "project-1",
           NOT: {
             phase: "GENERATING",
             generatingSince: { gt: expect.any(Date) },
@@ -108,6 +107,7 @@ describe("saveClarifyCheckpoint", () => {
     expect(prismaMock.brdFlowState.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: "user-1",
+        projectId: "project-1",
         sessionId: "session-1",
         phase: "CLARIFYING",
       }),
@@ -127,7 +127,7 @@ describe("markClarifyStarted", () => {
 
     expect(prismaMock.brdFlowState.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ userId: "user-1", sessionId: "session-1" }),
+        where: expect.objectContaining({ projectId: "project-1" }),
         data: expect.objectContaining({
           phase: "CLARIFYING",
           userStory: "cerita",
@@ -150,6 +150,7 @@ describe("markClarifyStarted", () => {
     expect(prismaMock.brdFlowState.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: "user-1",
+        projectId: "project-1",
         sessionId: "session-1",
         phase: "CLARIFYING",
         userStory: "cerita",
@@ -197,7 +198,7 @@ describe("claimPendingImport", () => {
 
     await expect(claimPendingImport(context, "doc-1")).resolves.toBe(true);
     expect(prismaMock.brdFlowState.updateMany).toHaveBeenCalledWith({
-      where: { userId: "user-1", sessionId: "session-1", pendingImportDocumentId: "doc-1" },
+      where: { projectId: "project-1", pendingImportDocumentId: "doc-1" },
       data: { pendingImportDocumentId: null },
     });
   });

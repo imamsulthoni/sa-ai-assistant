@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AgentDemoRouteImport } from './routes/agent-demo'
 import { Route as MermaidDemoRouteImport } from './routes/mermaid-demo'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
+import { Route as WorkspaceIndexRouteImport } from './routes/workspace.index'
+import { Route as WorkspaceProjectsProjectIdRouteImport } from './routes/workspace.projects.$projectId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,39 +36,73 @@ const WorkspaceRoute = WorkspaceRouteImport.update({
   path: '/workspace',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspaceIndexRoute = WorkspaceIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceProjectsProjectIdRoute =
+  WorkspaceProjectsProjectIdRouteImport.update({
+    id: '/projects/$projectId',
+    path: '/projects/$projectId',
+    getParentRoute: () => WorkspaceRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agent-demo': typeof AgentDemoRoute
   '/mermaid-demo': typeof MermaidDemoRoute
-  '/workspace': typeof WorkspaceRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/': typeof WorkspaceIndexRoute
+  '/workspace/projects/$projectId': typeof WorkspaceProjectsProjectIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agent-demo': typeof AgentDemoRoute
   '/mermaid-demo': typeof MermaidDemoRoute
-  '/workspace': typeof WorkspaceRoute
+  '/workspace': typeof WorkspaceIndexRoute
+  '/workspace/projects/$projectId': typeof WorkspaceProjectsProjectIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/agent-demo': typeof AgentDemoRoute
   '/mermaid-demo': typeof MermaidDemoRoute
-  '/workspace': typeof WorkspaceRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/': typeof WorkspaceIndexRoute
+  '/workspace/projects/$projectId': typeof WorkspaceProjectsProjectIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/agent-demo' | '/mermaid-demo' | '/workspace'
+  fullPaths:
+    | '/'
+    | '/agent-demo'
+    | '/mermaid-demo'
+    | '/workspace'
+    | '/workspace/'
+    | '/workspace/projects/$projectId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/agent-demo' | '/mermaid-demo' | '/workspace'
-  id: '__root__' | '/' | '/agent-demo' | '/mermaid-demo' | '/workspace'
+  to:
+    | '/'
+    | '/agent-demo'
+    | '/mermaid-demo'
+    | '/workspace'
+    | '/workspace/projects/$projectId'
+  id:
+    | '__root__'
+    | '/'
+    | '/agent-demo'
+    | '/mermaid-demo'
+    | '/workspace'
+    | '/workspace/'
+    | '/workspace/projects/$projectId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentDemoRoute: typeof AgentDemoRoute
   MermaidDemoRoute: typeof MermaidDemoRoute
-  WorkspaceRoute: typeof WorkspaceRoute
+  WorkspaceRoute: typeof WorkspaceRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -99,14 +135,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workspace/': {
+      id: '/workspace/'
+      path: '/'
+      fullPath: '/workspace/'
+      preLoaderRoute: typeof WorkspaceIndexRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/projects/$projectId': {
+      id: '/workspace/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/workspace/projects/$projectId'
+      preLoaderRoute: typeof WorkspaceProjectsProjectIdRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
   }
 }
+
+interface WorkspaceRouteChildren {
+  WorkspaceIndexRoute: typeof WorkspaceIndexRoute
+  WorkspaceProjectsProjectIdRoute: typeof WorkspaceProjectsProjectIdRoute
+}
+
+const WorkspaceRouteChildren: WorkspaceRouteChildren = {
+  WorkspaceIndexRoute: WorkspaceIndexRoute,
+  WorkspaceProjectsProjectIdRoute: WorkspaceProjectsProjectIdRoute,
+}
+
+const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
+  WorkspaceRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentDemoRoute: AgentDemoRoute,
   MermaidDemoRoute: MermaidDemoRoute,
-  WorkspaceRoute: WorkspaceRoute,
+  WorkspaceRoute: WorkspaceRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

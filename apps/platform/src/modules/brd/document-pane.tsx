@@ -25,7 +25,7 @@ import {
   updateBrdStatus,
   type BrdDocument,
 } from "#/lib/api";
-import { BRD_STATUS_ACTIONS, BRD_STATUS_LABEL } from "#/lib/copy";
+import { BRD_STATUS_ACTIONS, BRD_STATUS_LABEL, COPY } from "#/lib/copy";
 import { notify } from "#/lib/notify";
 import { BrdDiffView, type CompareTarget } from "./brd-diff-view";
 import { VersionHistory } from "./version-history";
@@ -72,16 +72,26 @@ export function DocumentPane({
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
   const [compareFrom, setCompareFrom] = useState<number | null>(null);
+  const [previewVersion, setPreviewVersion] = useState<number | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const versions = brd.versions ?? [];
   const pending = brd.pendingContentMarkdown;
   const current = brd.currentVersion;
-  const toc = useMemo(() => buildToc(content), [content]);
+  // Versi lama yang sedang dipratinjau menggantikan isi yang ditampilkan,
+  // sehingga TOC, pencarian, copy, dan raw ikut membaca versi tersebut.
+  const selectedVersion =
+    previewVersion !== null
+      ? (versions.find((version) => version.versionNumber === previewVersion) ?? null)
+      : null;
+  const displayContent = selectedVersion?.contentMarkdown ?? content;
+  const displayedVersion = selectedVersion?.versionNumber ?? current;
+  const toc = useMemo(() => buildToc(displayContent), [displayContent]);
   const statusActions = BRD_STATUS_ACTIONS[brd.status] ?? [];
 
   useEffect(() => {
     setCompareFrom(null);
+    setPreviewVersion(null);
     onClearDiff();
     setSearchQuery("");
   }, [brd.id, brd.currentVersion, onClearDiff]);
@@ -95,7 +105,7 @@ export function DocumentPane({
     const element = previewRef.current;
     if (!element || tab !== "preview") return;
     return highlightMatches(element, searchQuery);
-  }, [searchQuery, tab, content]);
+  }, [searchQuery, tab, displayContent]);
 
   const copyText = useCallback(async (text: string, label: string) => {
     try {
@@ -254,7 +264,11 @@ export function DocumentPane({
             <ListTree size={13} />
           </button>
 
-          <Button variant="outline" size="sm" onClick={() => void copyText(content, "doc")}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void copyText(displayContent, "doc")}
+          >
             {copied === "doc" ? (
               <Check size={13} className="text-emerald-600" />
             ) : (
@@ -275,7 +289,10 @@ export function DocumentPane({
 
       <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3.5 text-xs font-semibold dark:border-slate-800 dark:bg-slate-900">
         <TabButton active={tab === "preview"} onClick={() => setTab("preview")}>
-          <FileText size={12} /> Preview BRD
+          <FileText size={12} />
+          {selectedVersion
+            ? COPY.workspace.previewVersionTab(selectedVersion.versionNumber)
+            : "Preview BRD"}
         </TabButton>
         <TabButton active={tab === "diff"} onClick={() => setTab("diff")}>
           <SplitSquareVertical size={12} /> Review Diff
@@ -319,11 +336,36 @@ export function DocumentPane({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3.5 md:p-5">
           {tab === "preview" && (
-            <div
-              ref={previewRef}
-              className="mx-auto max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-xs md:p-8 dark:border-slate-800 dark:bg-slate-900"
-            >
-              <MarkdownContent source={content} />
+            <div className="mx-auto max-w-4xl space-y-3">
+              {selectedVersion && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-[11px] text-sky-900 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-200">
+                  <span className="font-medium">
+                    {COPY.workspace.previewOldVersion(selectedVersion.versionNumber, current)}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewVersion(null)}
+                      className="cursor-pointer font-semibold underline-offset-2 hover:underline"
+                    >
+                      {COPY.workspace.backToCurrent}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openVersion(selectedVersion.versionNumber)}
+                      className="cursor-pointer font-semibold underline-offset-2 hover:underline"
+                    >
+                      {COPY.workspace.compareWithCurrent}
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div
+                ref={previewRef}
+                className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs md:p-8 dark:border-slate-800 dark:bg-slate-900"
+              >
+                <MarkdownContent source={displayContent} />
+              </div>
             </div>
           )}
 
@@ -349,10 +391,17 @@ export function DocumentPane({
                 versions={versions}
                 currentVersion={current}
                 compareFrom={compareFrom}
+                previewVersion={previewVersion}
+                onPreview={(version) => {
+                  setPreviewVersion(version);
+                  setCompareFrom(null);
+                  setTab("preview");
+                }}
                 onOpen={openVersion}
                 onRestore={(version) => {
                   onRestore(version);
                   setCompareFrom(null);
+                  setPreviewVersion(null);
                   setTab("preview");
                 }}
                 busy={busy}
@@ -363,16 +412,16 @@ export function DocumentPane({
           {tab === "raw" && (
             <div className="mx-auto max-w-4xl overflow-x-auto rounded-lg border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-300">
               <div className="mb-2 flex items-center justify-between border-b border-slate-800 pb-2 text-slate-400">
-                <span className="text-[11px]">Markdown Source (v{current}.0)</span>
+                <span className="text-[11px]">Markdown Source (v{displayedVersion}.0)</span>
                 <button
                   type="button"
-                  onClick={() => void copyText(content, "raw")}
+                  onClick={() => void copyText(displayContent, "raw")}
                   className="cursor-pointer rounded bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300 transition-colors hover:bg-slate-700"
                 >
                   {copied === "raw" ? "Tersalin!" : "Copy Code"}
                 </button>
               </div>
-              <pre className="leading-relaxed whitespace-pre-wrap">{content}</pre>
+              <pre className="leading-relaxed whitespace-pre-wrap">{displayContent}</pre>
             </div>
           )}
         </div>

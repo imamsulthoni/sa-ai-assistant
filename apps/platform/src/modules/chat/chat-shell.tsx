@@ -1,7 +1,8 @@
 import { createContext, useContext, useState } from "react";
-import { Menu, Sparkles } from "lucide-react";
+import { Menu, PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react";
 import { Button } from "#/components/base/button";
 import { APP_NAME, APP_TAGLINE, COPY } from "#/lib/copy";
+import { cn } from "#/lib/utils";
 
 type ChatShellProps = {
   sidebar: React.ReactNode;
@@ -12,6 +13,16 @@ type ChatShellProps = {
 
 const CloseMobileSidebarContext = createContext<(() => void) | null>(null);
 
+const SIDEBAR_STORAGE_KEY = "sa.sidebarOpen";
+
+function readSidebarPreference(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_STORAGE_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
 /** Tombol tutup di sidebar mobile; null saat sidebar tampil di desktop. */
 export function useCloseMobileSidebar(): (() => void) | null {
   return useContext(CloseMobileSidebarContext);
@@ -19,11 +30,31 @@ export function useCloseMobileSidebar(): (() => void) | null {
 
 export function ChatShell({ sidebar, title, actions, children }: ChatShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(readSidebarPreference);
+
+  const toggleSidebar = () => {
+    setSidebarOpen((open) => {
+      const next = !open;
+      try {
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next));
+      } catch {
+        // Storage bisa tidak tersedia (private mode); preferensi cukup in-memory.
+      }
+      return next;
+    });
+  };
 
   return (
     <main className="flex h-dvh w-full overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
-      <aside className="hidden w-64 shrink-0 lg:block">
-        <div className="h-full">{sidebar}</div>
+      {/* Width dianimasikan, konten sidebar lebar tetap agar tidak terlipat saat transisi. */}
+      <aside
+        aria-hidden={!sidebarOpen}
+        className={cn(
+          "hidden shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out lg:block",
+          sidebarOpen ? "w-64" : "w-0",
+        )}
+      >
+        <div className="h-full w-64">{sidebar}</div>
       </aside>
 
       {mobileOpen && (
@@ -53,6 +84,17 @@ export function ChatShell({ sidebar, title, actions, children }: ChatShellProps)
               aria-label={COPY.shell.openMenu}
             >
               <Menu size={16} />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="hidden lg:inline-flex"
+              onClick={toggleSidebar}
+              aria-label={sidebarOpen ? COPY.shell.hideSidebar : COPY.shell.showSidebar}
+              title={sidebarOpen ? COPY.shell.hideSidebar : COPY.shell.showSidebar}
+            >
+              {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
             </Button>
 
             <div className="flex items-center gap-2">

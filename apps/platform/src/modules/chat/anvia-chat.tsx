@@ -49,6 +49,7 @@ export type PendingProposal = {
 
 type AnviaChatProps = {
   sessionId: string;
+  projectId: string;
   brdDocumentId?: string;
   initialMessages: UIMessage[];
   onRunEnded?: () => void;
@@ -132,6 +133,7 @@ function writeStoredComposerContext(
 
 export function AnviaChat({
   sessionId,
+  projectId,
   brdDocumentId,
   initialMessages,
   onRunEnded,
@@ -507,7 +509,7 @@ export function AnviaChat({
             <div className="relative">
               {mentionOpen && (
                 <MentionDock
-                  sessionId={sessionId}
+                  projectId={projectId}
                   query={mentionQuery}
                   onPicked={addMention}
                   onClose={() => setMentionOpen(false)}
@@ -642,12 +644,12 @@ function MentionChips({
 }
 
 function MentionDock({
-  sessionId,
+  projectId,
   query,
   onPicked,
   onClose,
 }: {
-  sessionId: string;
+  projectId: string;
   query: string;
   onPicked: (item: MentionItem) => void;
   onClose: () => void;
@@ -656,7 +658,7 @@ function MentionDock({
 
   return (
     <MentionPopover
-      sessionId={sessionId}
+      projectId={projectId}
       query={query}
       onClose={onClose}
       onPick={(result) => {

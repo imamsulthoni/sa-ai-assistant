@@ -4,14 +4,14 @@ import { AtSign, FileText, Search, X } from "lucide-react";
 import { search, type SearchResult } from "#/lib/api";
 
 type MentionPopoverProps = {
-  sessionId: string;
+  projectId: string;
   query?: string;
   onPick: (result: SearchResult) => void;
   onClose: () => void;
 };
 
 export function MentionPopover({
-  sessionId,
+  projectId,
   query: initialQuery = "",
   onPick,
   onClose,
@@ -24,8 +24,9 @@ export function MentionPopover({
 
   const trimmed = query.trim();
   const resultsQuery = useQuery({
-    queryKey: ["search", "session-files", trimmed, sessionId],
-    queryFn: () => search(trimmed, "document", sessionId).then((response) => response.results),
+    queryKey: ["search", "project-files", trimmed, projectId],
+    queryFn: () =>
+      search(trimmed, "document", { projectId }).then((response) => response.results),
     enabled: trimmed.length > 0,
     staleTime: 30_000,
   });
@@ -55,7 +56,7 @@ export function MentionPopover({
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Cari file di sesi ini…"
+            placeholder="Cari file di project ini…"
             className="min-w-0 flex-1 bg-transparent text-xs text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100"
           />
         </div>
@@ -76,7 +77,7 @@ export function MentionPopover({
         ))}
         {trimmed && results.length === 0 && (
           <p className="px-2 py-3 text-center text-[11px] text-slate-400">
-            Tidak ada file di sesi ini.
+            Tidak ada file di project ini.
           </p>
         )}
       </div>

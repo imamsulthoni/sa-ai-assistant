@@ -5,7 +5,7 @@ import { ArrowLeft, Bot, Plus, RotateCcw } from "lucide-react";
 import { Badge, type BadgeTone } from "#/components/base/badge";
 import { Button } from "#/components/base/button";
 import { AnviaChat } from "#/modules/chat/anvia-chat";
-import { createSession } from "#/lib/api";
+import { createProject, createSession, listProjects } from "#/lib/api";
 import { describeError } from "#/lib/errors";
 
 export const Route = createFileRoute("/agent-demo")({ component: AgentDemoPage });
@@ -28,6 +28,7 @@ const STATUS_TONE: Record<UseChatStatus, BadgeTone> = {
 
 function AgentDemoPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<UseChatStatus>("ready");
   const bootstrapped = useRef(false);
@@ -37,12 +38,23 @@ function AgentDemoPage() {
     setStatus("ready");
     setSessionId(null);
     try {
-      const response = await createSession();
+      // Sesi selalu terikat project; demo memakai project pertama atau membuatnya.
+      let targetProjectId = projectId;
+      if (!targetProjectId) {
+        const { projects } = await listProjects();
+        targetProjectId = projects[0]?.id ?? null;
+        if (!targetProjectId) {
+          const created = await createProject({ name: "Agent Demo" });
+          targetProjectId = created.project.id;
+        }
+        setProjectId(targetProjectId);
+      }
+      const response = await createSession({ projectId: targetProjectId });
       setSessionId(response.session.id);
     } catch (caught) {
       setError(describeError(caught));
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     if (bootstrapped.current) return;
@@ -90,10 +102,11 @@ function AgentDemoPage() {
       )}
 
       <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col border-x border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        {sessionId ? (
+        {sessionId && projectId ? (
           <AnviaChat
             key={sessionId}
             sessionId={sessionId}
+            projectId={projectId}
             initialMessages={[]}
             onStatusChange={setStatus}
           />

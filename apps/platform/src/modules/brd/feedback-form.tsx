@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { AlertCircle, ArrowRight, LoaderCircle } from "lucide-react";
+import { AlertCircle, ArrowRight, Check, Copy, LoaderCircle } from "lucide-react";
 import { cn } from "#/lib/utils";
 import { Button } from "#/components/base/button";
 import { Textarea } from "#/components/base/input";
 import { COPY } from "#/lib/copy";
+import { notify } from "#/lib/notify";
 
 export type ClarificationQuestion = {
   id: string;
@@ -38,6 +39,48 @@ export function FeedbackForm({
   });
   const [submitting, setSubmitting] = useState(false);
   const [showMissing, setShowMissing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyQuestions = async () => {
+    const lines = [
+      `Bantu saya menjawab pertanyaan klarifikasi BRD berikut (Putaran ${round}). Jawab singkat, spesifik, dan berurutan.`,
+      "",
+    ];
+    questions.forEach((question, index) => {
+      lines.push(`${index + 1}. ${question.question}`);
+      if (question.purpose) lines.push(`   Tujuan: ${question.purpose}`);
+      if (question.options?.length) lines.push(`   Opsi: ${question.options.join(" | ")}`);
+      lines.push("");
+    });
+    lines.push("Format jawaban:");
+    questions.forEach((_, index) => lines.push(`${index + 1}. `));
+    const text = lines.join("\n");
+
+    const markCopied = () => {
+      setCopied(true);
+      notify.success(COPY.clarify.copiedQuestions);
+      window.setTimeout(() => setCopied(false), 2500);
+    };
+
+    try {
+      await navigator.clipboard.writeText(text);
+      markCopied();
+    } catch {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        markCopied();
+      } catch {
+        notify.error(COPY.clarify.copyFailed);
+      }
+    }
+  };
 
   const answered = questions.filter((question) => answers[question.id]?.trim()).length;
   const missing = questions.find((question) => !answers[question.id]?.trim()) ?? null;
@@ -96,11 +139,17 @@ export function FeedbackForm({
           </h2>
         </div>
 
-        <div className="hidden w-24 shrink-0 overflow-hidden rounded-full bg-slate-200 sm:block dark:bg-slate-700">
-          <div
-            className="h-1.5 rounded-full bg-slate-800 transition-all duration-300 dark:bg-slate-200"
-            style={{ width: `${Math.min(round / 2, 1) * 100}%` }}
-          />
+        <div className="flex shrink-0 items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => void copyQuestions()}>
+            {copied ? <Check size={12} /> : <Copy size={12} />}
+            {COPY.clarify.copyQuestions}
+          </Button>
+          <div className="hidden w-24 shrink-0 overflow-hidden rounded-full bg-slate-200 sm:block dark:bg-slate-700">
+            <div
+              className="h-1.5 rounded-full bg-slate-800 transition-all duration-300 dark:bg-slate-200"
+              style={{ width: `${Math.min(round / 2, 1) * 100}%` }}
+            />
+          </div>
         </div>
       </div>
 

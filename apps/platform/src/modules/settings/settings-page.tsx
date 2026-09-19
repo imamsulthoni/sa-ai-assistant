@@ -6,9 +6,11 @@ import {
   FileText,
   KeyRound,
   Layers,
+  ListTree,
   LoaderCircle,
   Monitor,
   Moon,
+  Pencil,
   RotateCcw,
   Save,
   Settings as SettingsIcon,
@@ -24,9 +26,11 @@ import { Button } from "#/components/base/button";
 import { Input } from "#/components/base/input";
 import { Modal } from "#/components/base/modal";
 import {
+  createManualTemplate,
   getCurrentTemplate,
   getTemplate,
   resetTemplate,
+  updateTemplateStructure,
   uploadTemplate,
   type DocumentSummary,
   type Settings,
@@ -35,6 +39,7 @@ import { describeError } from "#/lib/errors";
 import { notify } from "#/lib/notify";
 import { useSettings } from "#/modules/settings/hooks/use-settings";
 import { CURRENT_TEMPLATE_QUERY_KEY } from "#/modules/settings/hooks/use-current-template";
+import { TemplateBuilder } from "#/modules/settings/template-builder";
 import { TemplateStructureView } from "#/modules/settings/template-structure-view";
 
 export type SettingsTab = "theme" | "prompt" | "model" | "template";
@@ -113,15 +118,15 @@ export function SettingsModal({
       size="2xl"
       title="Pengaturan Sistem & Model AI"
       description="Konfigurasi tema, prompt instruksi, model AI, dan template struktur BRD"
-      bodyClassName="p-0"
+      bodyClassName="flex min-h-0 flex-1 overflow-hidden p-0"
       footer={
         <span className="mr-auto text-[11px] text-slate-400">
           Perubahan konfigurasi tersimpan pada akun demo ini.
         </span>
       }
     >
-      <div className="flex flex-col md:flex-row">
-        <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50/60 p-2 md:w-56 md:flex-col md:border-r md:border-b-0 dark:border-slate-800 dark:bg-slate-950/30">
+      <div className="flex min-h-0 w-full flex-1 flex-col md:flex-row">
+        <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50/60 p-2 md:w-56 md:flex-col md:overflow-x-visible md:border-r md:border-b-0 dark:border-slate-800 dark:bg-slate-950/30">
           <TabButton active={tab === "theme"} onClick={() => setTab("theme")}>
             <Sun size={13} /> Tampilan &amp; Tema
           </TabButton>
@@ -136,8 +141,8 @@ export function SettingsModal({
           </TabButton>
         </nav>
 
-        <div className="min-w-0 flex-1 p-5">
-          <SettingsContent tab={tab} />
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-5">
+          <SettingsContent tab={tab} open={open} />
         </div>
       </div>
     </Modal>
@@ -169,7 +174,13 @@ function TabButton({
   );
 }
 
-export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
+export function SettingsContent({
+  tab = "theme",
+  open = true,
+}: {
+  tab?: SettingsTab;
+  open?: boolean;
+}) {
   const {
     settings,
     modelDefaults,
@@ -192,12 +203,20 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
   const [showRawStructure, setShowRawStructure] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
+  const [builderMode, setBuilderMode] = useState<"create" | "edit" | null>(null);
+  const [structureBusy, setStructureBusy] = useState(false);
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [clearApiKey, setClearApiKey] = useState(false);
 
   useEffect(() => {
     if (settings) setForm(settings);
   }, [settings]);
+
+  // Tutup builder saat modal ditutup supaya tidak ada form setengah terisi
+  // yang muncul kembali.
+  useEffect(() => {
+    if (!open) setBuilderMode(null);
+  }, [open]);
 
   useEffect(() => {
     applyTheme(form.theme ?? settings?.theme);
@@ -323,9 +342,39 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
     }
   };
 
+  const onSaveManualTemplate = async (values: {
+    title: string;
+    templateStructure: unknown;
+  }) => {
+    setStructureBusy(true);
+    setTemplateError(null);
+    const editing = builderMode === "edit" && template !== null;
+    try {
+      const response = editing
+        ? await updateTemplateStructure(template.id, values.templateStructure)
+        : await createManualTemplate(values);
+      templateEpoch.current += 1;
+      setTemplate(response.document as TemplateStatus);
+      refreshHeaderTemplate();
+      setBuilderMode(null);
+      notify.success(
+        editing
+          ? "Struktur template diperbarui."
+          : "Template manual dibuat dan langsung diaktifkan.",
+      );
+    } catch (caught) {
+      const message = messageOf(caught);
+      setTemplateError(message);
+      notify.error(message);
+    } finally {
+      setStructureBusy(false);
+    }
+  };
+
   const theme = form.theme ?? settings?.theme ?? "system";
   // Unggahan diblokir selama unggah berjalan dan selama struktur diekstrak.
-  const uploadLocked = uploading || (template != null && TRANSIENT_STATUSES.has(template.status));
+  const isTemplateTransient = template != null && TRANSIENT_STATUSES.has(template.status);
+  const uploadLocked = uploading || isTemplateTransient;
 
   return (
     <div className="space-y-4">
@@ -597,7 +646,15 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
         </div>
       )}
 
-      {tab === "template" && (
+      {tab === "template" &&
+        (builderMode ? (
+          <TemplateBuilder
+            initialStructure={builderMode === "edit" ? template?.templateStructure : undefined}
+            busy={structureBusy}
+            onCancel={() => setBuilderMode(null)}
+            onSave={onSaveManualTemplate}
+          />
+        ) : (
         <div className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -605,40 +662,51 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
                 Template Struktur Acuan BRD
               </h3>
               <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                Unggah standar perusahaan; struktur hasil ekstraksi otomatis diaktifkan.
+                Unggah standar perusahaan atau susun struktur manual; template langsung
+                diaktifkan.
               </p>
             </div>
-            <label
-              aria-disabled={uploadLocked}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors dark:border-slate-700 dark:text-slate-200",
-                uploadLocked
-                  ? "cursor-not-allowed opacity-60"
-                  : "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800",
-              )}
-            >
-              {uploadLocked ? (
-                <LoaderCircle size={13} className="animate-spin" />
-              ) : (
-                <Upload size={13} />
-              )}
-              {uploading
-                ? "Mengunggah…"
-                : template != null && TRANSIENT_STATUSES.has(template.status)
-                  ? "Mengekstrak…"
-                  : "Unggah template"}
-              <input
-                type="file"
-                accept=".md,.pdf,.docx"
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
                 disabled={uploadLocked}
-                className="sr-only"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void onUpload(file);
-                  event.target.value = "";
-                }}
-              />
-            </label>
+                onClick={() => setBuilderMode("create")}
+              >
+                <ListTree size={13} /> Susun manual
+              </Button>
+              <label
+                aria-disabled={uploadLocked}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors dark:border-slate-700 dark:text-slate-200",
+                  uploadLocked
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800",
+                )}
+              >
+                {uploadLocked ? (
+                  <LoaderCircle size={13} className="animate-spin" />
+                ) : (
+                  <Upload size={13} />
+                )}
+                {uploading
+                  ? "Mengunggah…"
+                  : isTemplateTransient
+                    ? "Mengekstrak…"
+                    : "Unggah template"}
+                <input
+                  type="file"
+                  accept=".md,.pdf,.docx"
+                  disabled={uploadLocked}
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void onUpload(file);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           {templateError && <Alert tone="destructive">{templateError}</Alert>}
@@ -660,9 +728,17 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <Button size="sm" variant="outline" onClick={() => setResetConfirmOpen(true)}>
-                    <X size={12} /> Reset template
-                  </Button>
+                  {Boolean(template.templateStructure) && !isTemplateTransient && (
+                    <Button size="sm" variant="outline" onClick={() => setBuilderMode("edit")}>
+                      <Pencil size={12} /> Edit struktur
+                    </Button>
+                  )}
+                  {/* Reset disembunyikan selama ekstraksi agar tidak menghapus proses berjalan. */}
+                  {!isTemplateTransient && (
+                    <Button size="sm" variant="outline" onClick={() => setResetConfirmOpen(true)}>
+                      <X size={12} /> Reset template
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -685,11 +761,17 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
                   </div>
                 </div>
               ) : (
-                TRANSIENT_STATUSES.has(template.status) && (
-                  <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                    <LoaderCircle size={11} className="animate-spin" /> Mengekstrak struktur…
-                    halaman ini menyegarkan otomatis.
-                  </p>
+                isTemplateTransient && (
+                  <div className="mt-3 space-y-2">
+                    <p className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      <LoaderCircle size={11} className="animate-spin" /> Mengekstrak struktur…
+                      halaman ini menyegarkan otomatis.
+                    </p>
+                    <p className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+                      Proses ekstraksi memakan waktu yang agak lama, mohon tunggu sampai
+                      selesai (jangan tutup halaman).
+                    </p>
+                  </div>
                 )
               )}
             </div>
@@ -700,12 +782,12 @@ export function SettingsContent({ tab = "theme" }: { tab?: SettingsTab }) {
                 Belum ada template aktif
               </p>
               <p className="mt-0.5 text-[11px] text-slate-400">
-                Unggah dokumen standar BRD untuk mengekstrak struktur wajibnya.
+                Unggah dokumen standar BRD, atau susun strukturnya sendiri secara manual.
               </p>
             </div>
           )}
         </div>
-      )}
+        ))}
 
       <Modal
         open={resetConfirmOpen}

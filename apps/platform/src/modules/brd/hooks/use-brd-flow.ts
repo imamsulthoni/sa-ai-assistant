@@ -7,29 +7,30 @@ function messageOf(error: unknown): string {
 }
 
 /**
- * Checkpoint clarify/generate per sesi dari server, dipakai untuk hydrate
+ * Checkpoint clarify/generate per project dari server, dipakai untuk hydrate
  * pertanyaan yang belum dijawab, menawarkan lanjutan generate, dan antrian impor.
+ * Semua sesi dalam project yang sama berbagi checkpoint ini.
  */
-export function useBrdFlow(sessionId: string | null) {
+export function useBrdFlow(projectId: string | null, sessionId: string | null) {
   const queryClient = useQueryClient();
 
   const flowQuery = useQuery({
-    queryKey: ["brd-flow", sessionId],
-    queryFn: () => getBrdFlow(sessionId ?? "").then((response) => response.flow),
-    enabled: sessionId !== null,
+    queryKey: ["brd-flow", projectId],
+    queryFn: () => getBrdFlow(projectId ?? "").then((response) => response.flow),
+    enabled: projectId !== null,
   });
 
   const refresh = useCallback(async () => {
-    if (!sessionId) return;
-    await queryClient.invalidateQueries({ queryKey: ["brd-flow", sessionId] });
-  }, [queryClient, sessionId]);
+    if (!projectId) return;
+    await queryClient.invalidateQueries({ queryKey: ["brd-flow", projectId] });
+  }, [queryClient, projectId]);
 
   const dismissPendingImport = useCallback(async () => {
     if (!sessionId) return;
     await clearPendingImport(sessionId);
-    await queryClient.invalidateQueries({ queryKey: ["brd-flow", sessionId] });
+    await queryClient.invalidateQueries({ queryKey: ["brd-flow", projectId] });
     await queryClient.invalidateQueries({ queryKey: ["session", sessionId, "documents"] });
-  }, [queryClient, sessionId]);
+  }, [queryClient, projectId, sessionId]);
 
   return {
     flow: flowQuery.data ?? null,

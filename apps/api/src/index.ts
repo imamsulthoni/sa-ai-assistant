@@ -7,6 +7,7 @@ import { documentModule } from "./modules/document/router.js";
 import { brdModule } from "./modules/brd/router.js";
 import { settingsModule } from "./modules/settings/router.js";
 import { searchModule } from "./modules/search/router.js";
+import { projectModule } from "./modules/project/router.js";
 
 const allowedOrigins = (process.env.CORS_ORIGINS ?? "http://localhost:3000")
   .split(",")
@@ -24,6 +25,7 @@ const app = new Hono()
   )
   .route("/chat", chatModule)
   .route("/sessions", sessionModule)
+  .route("/projects", projectModule)
   .route("/documents", documentModule);
 
 app.route("/brd", brdModule).route("/settings", settingsModule).route("/search", searchModule);

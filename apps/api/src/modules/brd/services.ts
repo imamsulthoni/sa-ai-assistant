@@ -23,6 +23,7 @@ import {
   ClarificationOutputSchema,
   JudgeOutputSchema,
   extractBrdDocument,
+  renderTemplateScaffold,
   templateExemplarBlock,
   templateInstructionBlock,
 } from "@sa-ai-assistant/agent";
@@ -81,11 +82,19 @@ export async function withVersionRetry<T>(run: () => Promise<T>, attempts = 3): 
   throw lastError;
 }
 
+/** BRD aktif sebuah project (1:1); null bila project belum punya BRD. */
+export async function findBrdByProject(userId: string, projectId: string) {
+  return prisma.brdDocument.findFirst({ where: { userId, projectId } });
+}
+
 export async function createBrd(userId: string, input: BrdCreateInput) {
+  const existing = await findBrdByProject(userId, input.projectId);
+  if (existing) return existing;
   return prisma.brdDocument.create({
     data: {
       userId,
-      sessionId: input.sessionId,
+      projectId: input.projectId,
+      sessionId: input.sessionId ?? null,
       title: input.title,
       contentMarkdown: input.contentMarkdown,
       versions: {
@@ -105,7 +114,7 @@ export async function importBrdFromDocument(userId: string, input: BrdImportInpu
     where: {
       id: input.documentId,
       userId,
-      sessionId: input.sessionId,
+      projectId: input.projectId,
       status: { in: ["READY", "PENDING_CONFIRMATION"] },
     },
   });
@@ -124,6 +133,7 @@ export async function importBrdFromDocument(userId: string, input: BrdImportInpu
     .trim()
     .slice(0, 200);
   return createBrd(userId, {
+    projectId: input.projectId,
     sessionId: input.sessionId,
     title: input.title ?? (fallbackTitle || "Imported BRD"),
     contentMarkdown,
@@ -143,13 +153,11 @@ export type PendingImportResult =
  */
 export async function importPendingBrd(
   userId: string,
-  sessionId: string,
+  projectId: string,
+  sessionId?: string,
 ): Promise<PendingImportResult> {
-  const context = { userId, sessionId };
-  const existing = await prisma.brdDocument.findFirst({
-    where: context,
-    orderBy: { updatedAt: "desc" },
-  });
+  const context = { userId, projectId, sessionId };
+  const existing = await findBrdByProject(userId, projectId);
   const flow = await getBrdFlow(context);
   const documentId = flow?.pendingImportDocumentId ?? null;
 
@@ -160,7 +168,7 @@ export async function importPendingBrd(
   if (!documentId) return { ok: false, reason: "not_found" };
 
   const document = await prisma.document.findFirst({
-    where: { id: documentId, userId, sessionId },
+    where: { id: documentId, userId, projectId },
     select: { id: true, status: true },
   });
   if (!document) {
@@ -174,7 +182,7 @@ export async function importPendingBrd(
     return { ok: false, reason: "in_progress" };
   }
   try {
-    const brd = await importBrdFromDocument(userId, { sessionId, documentId });
+    const brd = await importBrdFromDocument(userId, { projectId, sessionId, documentId });
     if (!brd) {
       await restorePendingImport(context, documentId);
       return { ok: false, reason: "not_ready", status: document.status };
@@ -186,9 +194,9 @@ export async function importPendingBrd(
   }
 }
 
-export async function listBrds(userId: string, sessionId?: string) {
+export async function listBrds(userId: string, projectId?: string) {
   return prisma.brdDocument.findMany({
-    where: { userId, ...(sessionId ? { sessionId } : {}) },
+    where: { userId, ...(projectId ? { projectId } : {}) },
     orderBy: { updatedAt: "desc" },
   });
 }
@@ -462,10 +470,10 @@ type FlowInput = {
   round?: number;
   skip?: boolean;
 };
-type FlowContext = { userId: string; sessionId: string };
+type FlowContext = { userId: string; projectId: string; sessionId?: string };
 
-async function flowTemplateBlock(userId: string): Promise<string | null> {
-  const active = await activeTemplateFor(userId);
+async function flowTemplateBlock(userId: string, projectId: string): Promise<string | null> {
+  const active = await activeTemplateFor(userId, projectId);
   return active ? templateInstructionBlock(active.structure) : null;
 }
 
@@ -486,7 +494,7 @@ export async function collectAgent(
     prompt: { role: "user"; content: string };
     session?: { sessionId: string; userId: string; metadata: { userId: string } };
   } = { prompt: { role: "user", content: prompt } };
-  if (agent.memory !== undefined) {
+  if (agent.memory !== undefined && context.sessionId) {
     run.session = {
       sessionId: context.sessionId,
       userId: context.userId,
@@ -587,6 +595,61 @@ async function resolveClarificationOutput(
   return normalizeClarificationOutput(raw, round);
 }
 
+type BrdAudit = { missing: string[]; weak: string[] };
+
+function headingCount(markdown: string): number {
+  return (markdown.match(/^##\s+/gm) ?? []).length;
+}
+
+/** Kandidat dianggap BRD utuh bila punya heading `# BRD` atau minimal 3 section. */
+function isBrdLike(markdown: string): boolean {
+  return /(^|\n)#\s+BRD\b/i.test(markdown) || headingCount(markdown) >= 3;
+}
+
+export function hasMermaidFlowchart(markdown: string): boolean {
+  return /```mermaid[\s\S]*?```/i.test(markdown);
+}
+
+/**
+ * Peringkat kandidat BRD secara leksikografis: bentuk BRD utuh dulu, lalu
+ * section wajib yang hilang/tipis paling sedikit, lalu kelengkapan flowchart.
+ */
+function rankCandidate(markdown: string, issues: BrdAudit): [number, number, number] {
+  return [
+    isBrdLike(markdown) ? 0 : 1,
+    issues.missing.length + issues.weak.length,
+    hasMermaidFlowchart(markdown) ? 0 : 1,
+  ];
+}
+
+function isBetterRank(a: readonly number[], b: readonly number[]): boolean {
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) return a[index] < b[index];
+  }
+  return false;
+}
+
+/**
+ * Pilih markdown terbaik dari beberapa kandidat (teks jawaban vs argumen tool):
+ * pakai peringkat lalu fallback ke dokumen terpanjang.
+ */
+export function pickBestMarkdown(
+  candidates: string[],
+  audit: (markdown: string) => BrdAudit,
+): { markdown: string; issues: BrdAudit } | null {
+  const unique = [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
+  if (!unique.length) return null;
+  const scored = unique.map((markdown) => ({ markdown, issues: audit(markdown) }));
+  scored.sort((a, b) => {
+    const rankA = rankCandidate(a.markdown, a.issues);
+    const rankB = rankCandidate(b.markdown, b.issues);
+    if (isBetterRank(rankA, rankB)) return -1;
+    if (isBetterRank(rankB, rankA)) return 1;
+    return b.markdown.length - a.markdown.length;
+  });
+  return scored[0];
+}
+
 export async function clarifyFlow(context: FlowContext, input: FlowInput) {
   const round = Math.min(Math.max(input.round ?? 1, 1), 2);
   // Persist dulu supaya reload di tengah request tidak jatuh ke sesi kosong.
@@ -595,8 +658,8 @@ export async function clarifyFlow(context: FlowContext, input: FlowInput) {
     round,
     answers: input.answers ?? {},
   });
-  const templateBlock = await flowTemplateBlock(context.userId);
-  const agent = await agentFor(context.userId, context.sessionId, "CLARIFY");
+  const templateBlock = await flowTemplateBlock(context.userId, context.projectId);
+  const agent = await agentFor(context, "CLARIFY");
   const prompt = [
     `Round: ${round}`,
     `User story (data):\n${input.userStory}`,
@@ -645,10 +708,7 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
   const answers = input.answers ?? {};
 
   // Idempotent: a BRD produced earlier (even if the response was lost) always wins.
-  const existing = await prisma.brdDocument.findFirst({
-    where: { userId: context.userId, sessionId: context.sessionId },
-    orderBy: { updatedAt: "desc" },
-  });
+  const existing = await findBrdByProject(context.userId, context.projectId);
   if (existing) {
     await deleteBrdFlow(context);
     return {
@@ -661,12 +721,12 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
     };
   }
 
-  const contextText = await distillSessionContext(context.userId, context.sessionId);
-  const activeTemplate = await activeTemplateFor(context.userId);
+  const contextText = await distillSessionContext(context.userId, context.projectId);
+  const activeTemplate = await activeTemplateFor(context.userId, context.projectId);
   const templateBlock = activeTemplate ? templateInstructionBlock(activeTemplate.structure) : null;
   let sufficient = Boolean(input.skip) || round === 2;
   if (!sufficient) {
-    const judge = await agentFor(context.userId, context.sessionId, "JUDGE");
+    const judge = await agentFor(context, "JUDGE");
     const judged = await collectAgent(
       judge,
       `Return JSON only with sufficient, missing, and clarification_questions. You are judging round ${round}; do not generate a BRD. If round 1 has any material gap in actors, scope, workflow, validation, permissions, failure handling, integrations, or acceptance criteria, set sufficient=false and return follow-up questions in Indonesian. User story (data): ${input.userStory}\nAnswers (data): ${JSON.stringify(answers)}\nContext (data): ${contextText}${templateBlock ? `\n\nTEMPLATE AKTIF (nilai kecukupan terhadap section wajib template):\n${templateBlock}` : ""}`,
@@ -700,9 +760,28 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
   }
 
   try {
-    const agent = await agentFor(context.userId, context.sessionId, "GENERATE");
+    const agent = await agentFor(context, "GENERATE");
     const structure = activeTemplate?.structure ?? null;
     const exemplarBlock = activeTemplate ? templateExemplarBlock(activeTemplate.structure) : "";
+    const answerLines = Object.keys(answers).length
+      ? Object.entries(answers)
+          .map(([id, answer]) => `- ${id}: ${answer}`)
+          .join("\n")
+      : "- Tidak ada jawaban klarifikasi.";
+    // Kerangka dari template aktif supaya struktur final tidak bergeser ke
+    // skeleton bawaan agen; JSON-nya dipakai agen untuk argumen draft_brd.
+    const scaffoldBlock = activeTemplate
+      ? renderTemplateScaffold(activeTemplate.structure, {
+          userStory: input.userStory,
+          clarificationText: `\n${input.userStory}\n\n${answerLines}`,
+          assumptionsText: "- (tulis asumsi eksplisit bila ada)",
+          referenceText: contextText || "- Tidak ada konteks referensi.",
+          flowchart: "- (ganti dengan blok ```mermaid``` flowchart alur utama)",
+        })
+      : "";
+    const structureJsonBlock = activeTemplate
+      ? `STRUKTUR_TEMPLATE_JSON (data; salin objek ini apa adanya ke argumen templateStructure saat memanggil draft_brd):\n\`\`\`json\n${JSON.stringify(activeTemplate.structure)}\n\`\`\``
+      : "";
     const generatePrompt = [
       `User story (data): ${input.userStory}`,
       `Answers (data): ${JSON.stringify(answers)}`,
@@ -710,23 +789,41 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
       templateBlock
         ? `TEMPLATE AKTIF (WAJIB DIIKUTI - BRD final harus memuat semua section ini dengan urutan dan judul yang sama, isi setiap section secara lengkap):\n${templateBlock}`
         : "",
+      scaffoldBlock
+        ? `KERANGKA SECTION WAJIB (pertahankan heading, urutan, dan penomoran persis seperti ini; ganti placeholder "- (see ...)" dengan konten lengkap):\n${scaffoldBlock}`
+        : "",
+      structureJsonBlock,
       exemplarBlock,
       `Generate BRD lengkap berbahasa Indonesia dengan flowchart mermaid; gunakan draft_brd sebagai basis validasi, lalu tulis BRD final sebagai jawaban. force: ${input.skip || round === 2}`,
+      `Tulis BRD final LANGSUNG sebagai jawaban akhir: mulai dengan heading "# BRD — <judul>" lalu salin seluruh isi markdown BRD (semua section berurutan). Jangan menulis kalimat pembuka, penjelasan proses, atau ringkasan di luar markdown BRD.`,
+      `WAJIB: sertakan minimal satu blok berpagar \`\`\`mermaid berisi flowchart alur utama end-to-end di dalam BRD final.`,
     ]
       .filter(Boolean)
       .join("\n\n");
     const generated = await collectAgent(agent, generatePrompt, context);
     const tool = generated.toolResults.find((item) => item.toolName === "draft_brd");
     const value = tool?.output?.value as { markdown?: string; assumptions?: string[] } | undefined;
-    let markdown = extractBrdDocument(generated.text.trim() || value?.markdown || "");
-    if (!markdown) throw new Error("BRD generator returned no markdown");
 
     const audit = (text: string) => ({
       missing: missingRequiredSections(text, structure),
       weak: weakRequiredSections(text, structure),
     });
-    let issues = audit(markdown);
-    if (issues.missing.length || issues.weak.length) {
+    // Jawaban akhir kadang hanya berupa narasi pembuka sementara BRD lengkap
+    // ada di argumen tool draft_brd. Pilih kandidat paling layak, bukan asal
+    // memprioritaskan teks jawaban.
+    const picked = pickBestMarkdown(
+      [generated.text, value?.markdown ?? ""].map((raw) =>
+        raw.trim() ? extractBrdDocument(raw) : "",
+      ),
+      audit,
+    );
+    if (!picked) throw new Error("BRD generator returned no markdown");
+    let markdown = picked.markdown;
+    let issues = picked.issues;
+    const flowchartProblem = hasMermaidFlowchart(markdown)
+      ? ""
+      : "belum memuat blok ```mermaid flowchart alur utama";
+    if (issues.missing.length || issues.weak.length || flowchartProblem) {
       const problems = [
         issues.missing.length
           ? `belum memuat section wajib: ${issues.missing.join(", ")}`
@@ -734,6 +831,7 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
         issues.weak.length
           ? `section berikut isinya terlalu tipis dan harus diperdalam: ${issues.weak.join(", ")}`
           : "",
+        flowchartProblem,
       ]
         .filter(Boolean)
         .join("; ");
@@ -742,23 +840,31 @@ export async function submitClarificationFlow(context: FlowContext, input: FlowI
         `${generatePrompt}\n\nKOREKSI: BRD yang baru saja ditulis ${problems}. Tulis ulang seluruh BRD sekali lagi: lengkapi section yang hilang dan perdalam section yang tipis (jangan satu baris; sertakan detail perilaku, validasi, dan tabel/daftar yang relevan).`,
         context,
       );
-      const retryText = extractBrdDocument(retry.text);
-      if (retryText) {
-        const retryIssues = audit(retryText);
-        const before = issues.missing.length + issues.weak.length;
-        const after = retryIssues.missing.length + retryIssues.weak.length;
-        if (after < before) {
-          markdown = retryText;
-          issues = retryIssues;
+      const retryTool = retry.toolResults.find((item) => item.toolName === "draft_brd");
+      const retryValue = retryTool?.output?.value as { markdown?: string } | undefined;
+      const retryPicked = pickBestMarkdown(
+        [retry.text, retryValue?.markdown ?? ""].map((raw) =>
+          raw.trim() ? extractBrdDocument(raw) : "",
+        ),
+        audit,
+      );
+      if (retryPicked) {
+        const currentRank = rankCandidate(markdown, issues);
+        const retryRank = rankCandidate(retryPicked.markdown, retryPicked.issues);
+        if (isBetterRank(retryRank, currentRank)) {
+          markdown = retryPicked.markdown;
+          issues = retryPicked.issues;
         }
       }
-      if (issues.missing.length || issues.weak.length)
+      const stillMissing = issues.missing.length || issues.weak.length;
+      if (stillMissing || !hasMermaidFlowchart(markdown))
         console.warn(
-          `BRD still incomplete after retry: missing=[${issues.missing.join(", ")}] weak=[${issues.weak.join(", ")}]`,
+          `BRD still incomplete after retry: missing=[${issues.missing.join(", ")}] weak=[${issues.weak.join(", ")}] mermaid=${hasMermaidFlowchart(markdown)}`,
         );
     }
 
     const brd = await createBrd(context.userId, {
+      projectId: context.projectId,
       sessionId: context.sessionId,
       title: titleFromStory(input.userStory),
       contentMarkdown: markdown,

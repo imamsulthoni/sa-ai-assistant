@@ -6,7 +6,7 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function useBrds(sessionId: string | null) {
+export function useBrds(projectId: string | null) {
   const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [cachedActive, setCachedActive] = useState<BrdDocument | null>(null);
@@ -15,15 +15,15 @@ export function useBrds(sessionId: string | null) {
   const selectedRef = useRef<string | null>(null);
 
   const listQuery = useQuery({
-    queryKey: ["brds", sessionId],
-    queryFn: () => listBrds(sessionId ?? "").then((response) => response.brds),
-    enabled: sessionId !== null,
+    queryKey: ["brds", projectId],
+    queryFn: () => listBrds(projectId ?? "").then((response) => response.brds),
+    enabled: projectId !== null,
   });
   const brds = listQuery.data ?? [];
 
   useEffect(() => {
     setCachedActive(null);
-    if (!sessionId) {
+    if (!projectId) {
       selectedRef.current = null;
       setActiveId(null);
       return;
@@ -33,7 +33,7 @@ export function useBrds(sessionId: string | null) {
         ? selectedRef.current
         : (brds[0]?.id ?? null);
     setActiveId(preferred);
-  }, [sessionId, brds]);
+  }, [projectId, brds]);
 
   const activeQuery = useQuery({
     queryKey: ["brd", activeId],
@@ -57,9 +57,9 @@ export function useBrds(sessionId: string | null) {
     (id: string) => {
       selectedRef.current = id;
       setActiveId(id);
-      void queryClient.invalidateQueries({ queryKey: ["brds", sessionId] });
+      void queryClient.invalidateQueries({ queryKey: ["brds", projectId] });
     },
-    [queryClient, sessionId],
+    [queryClient, projectId],
   );
 
   const setActive = useCallback(
@@ -75,12 +75,12 @@ export function useBrds(sessionId: string | null) {
   );
 
   const refresh = useCallback(async () => {
-    if (!sessionId) return;
-    await queryClient.invalidateQueries({ queryKey: ["brds", sessionId] });
+    if (!projectId) return;
+    await queryClient.invalidateQueries({ queryKey: ["brds", projectId] });
     if (activeId) {
       await queryClient.invalidateQueries({ queryKey: ["brd", activeId] });
     }
-  }, [queryClient, sessionId, activeId]);
+  }, [queryClient, projectId, activeId]);
 
   return { brds, active, setActive, select, loading, error, refresh };
 }

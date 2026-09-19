@@ -11,6 +11,9 @@ function loadMermaid() {
 /**
  * Renders a mermaid code block into SVG. The library is loaded lazily so pages
  * without diagrams never pay for the chunk.
+ *
+ * Diagram dikonfigurasi compact (font 12px selaras `text-xs` BRD, spacing rapat,
+ * `useMaxWidth`) supaya muat di panel dokumen tanpa perlu scroll horizontal.
  */
 export function MermaidDiagram({ chart, className }: { chart: string; className?: string }) {
   const reactId = useId();
@@ -36,6 +39,21 @@ export function MermaidDiagram({ chart, className }: { chart: string; className?
           startOnLoad: false,
           securityLevel: "strict",
           theme: dark ? "dark" : "default",
+          fontFamily: "inherit",
+          themeVariables: {
+            fontSize: "12px",
+          },
+          flowchart: {
+            useMaxWidth: true,
+            htmlLabels: true,
+            curve: "basis",
+            padding: 6,
+            nodeSpacing: 26,
+            rankSpacing: 28,
+            wrappingWidth: 180,
+          },
+          sequence: { useMaxWidth: true },
+          gantt: { useMaxWidth: true },
         });
         const id = `mermaid-${reactId.replace(/[^a-zA-Z0-9]/g, "")}-${dark ? "d" : "l"}`;
         const result = await mermaid.render(id, chart);
@@ -82,7 +100,11 @@ export function MermaidDiagram({ chart, className }: { chart: string; className?
 
   return (
     <div
-      className={cn("my-3 overflow-auto rounded-xl border bg-card p-3", className)}
+      className={cn(
+        "mermaid-diagram my-3 overflow-hidden rounded-lg border bg-card p-2",
+        "[&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto [&_svg]:max-w-full",
+        className,
+      )}
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );

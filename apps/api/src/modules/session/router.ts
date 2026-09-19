@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
+import { ensureDefaultProject } from "../project/service.js";
 import {
   createSession,
   deleteSession,
@@ -17,7 +18,8 @@ function userIdFrom(c: { req: { header(name: string): string | undefined } }) {
 
 sessionModule.get("/", async (c) => {
   const userId = userIdFrom(c);
-  const sessions = await listSessions(userId);
+  const projectId = c.req.query("projectId")?.trim() || undefined;
+  const sessions = await listSessions(userId, projectId);
   return c.json({ sessions });
 });
 
@@ -27,10 +29,18 @@ sessionModule.post("/", async (c) => {
     title?: string;
     projectId?: string;
   } | null;
-  const session = await createSession(userId, body?.title, {
-    projectId: body?.projectId,
-  });
-  return c.json({ session }, 201);
+  const requested = body?.projectId?.trim();
+  try {
+    // Setiap sesi selalu terikat project; tanpa pilihan eksplisit pakai Inbox.
+    const projectId = requested || (await ensureDefaultProject(userId)).id;
+    const session = await createSession(userId, body?.title, projectId);
+    return c.json({ session }, 201);
+  } catch (error) {
+    return c.json(
+      { error: error instanceof Error ? error.message : "Session creation failed" },
+      400,
+    );
+  }
 });
 
 sessionModule.get("/:id/messages", async (c) => {
@@ -50,10 +60,14 @@ sessionModule.patch("/:id", async (c) => {
   if (!body || (!body.title?.trim() && body.projectId === undefined)) {
     return c.json({ error: "At least one session field is required" }, 400);
   }
+  if (body.projectId === null) {
+    return c.json({ error: "Every session requires a project" }, 400);
+  }
   try {
+    const projectId = body.projectId;
     const session =
-      body.projectId !== undefined
-        ? await updateSession(userId, sessionId, body)
+      projectId !== undefined
+        ? await updateSession(userId, sessionId, { title: body.title, projectId })
         : await renameSession(userId, sessionId, body.title ?? "");
     if (!session) return c.json({ error: "Session not found" }, 404);
     return c.json({ session });

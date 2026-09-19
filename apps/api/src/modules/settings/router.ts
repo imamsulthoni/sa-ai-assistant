@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { normalizeTemplateStructure } from "@sa-ai-assistant/agent";
 import { USER_ID_HEADER, CONVERSATION_ID_HEADER, resolveUserId } from "../../lib/identity.js";
-import { SettingsPatchSchema } from "../../lib/api-contract.js";
+import { SettingsPatchSchema, TemplateManualCreateSchema } from "../../lib/api-contract.js";
 import {
   MAX_DOCUMENT_SIZE,
   DOCUMENT_MIME_TYPES,
@@ -9,6 +9,7 @@ import {
 } from "../document/schema.js";
 import {
   approveTemplate,
+  createManualTemplate,
   enqueueTemplateProcess,
   getCurrentTemplate,
   getSettings,
@@ -56,6 +57,19 @@ export const settingsModule = new Hono()
     if (!(await enqueueTemplateProcess(document.id, document.objectKey))) {
       return c.json({ error: "Failed to enqueue template" }, 503);
     }
+    return c.json({ document }, 201);
+  })
+  .post("/template/manual", async (c) => {
+    const parsed = TemplateManualCreateSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json({ error: "Invalid manual template payload", issues: parsed.error.issues }, 400);
+    }
+    const normalized = normalizeTemplateStructure(parsed.data.templateStructure);
+    if (!normalized) return c.json({ error: "Invalid template structure" }, 400);
+    const document = await createManualTemplate(user(c), {
+      title: parsed.data.title,
+      templateStructure: normalized,
+    });
     return c.json({ document }, 201);
   })
   // Registered before "/template/:id" so the literal path is not swallowed.

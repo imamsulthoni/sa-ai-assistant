@@ -10,6 +10,7 @@
     "db:migrate": "pnpm with-env prisma migrate dev",
     "db:generate": "pnpm with-env prisma generate",
     "db:deploy": "pnpm with-env prisma migrate deploy",
+    "db:reset-data": "pnpm with-env tsx src/scripts/reset-data.ts",
     "db:studio": "pnpm with-env prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",

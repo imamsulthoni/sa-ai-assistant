@@ -48,7 +48,7 @@ async function embeddingModel() {
 
 async function adaptersFor(
   userId: string,
-  sessionId: string,
+  projectId: string,
   brdId?: string,
 ): Promise<AgentContextAdapters> {
   return {
@@ -60,7 +60,7 @@ async function adaptersFor(
         store: contextStore,
         filter: vectorFilter.and(
           vectorFilter.eq("userId", filters.userId ?? userId),
-          vectorFilter.eq("sessionId", filters.sessionId ?? sessionId),
+          vectorFilter.eq("projectId", projectId),
         ),
       });
       return results.map((result) => ({
@@ -83,21 +83,7 @@ async function adaptersFor(
       }));
     },
     getTemplateStructure: async () => {
-      const session = await prisma.agentMemorySession.findFirst({
-        where: { sessionId, userId },
-        select: { projectId: true },
-      });
-      const settings = await prisma.userSetting.findUnique({
-        where: { userId },
-        select: { activeTemplateId: true },
-      });
-      const project = session?.projectId
-        ? await prisma.project.findUnique({
-            where: { id: session.projectId },
-            select: { templateId: true },
-          })
-        : null;
-      const templateId = project?.templateId ?? settings?.activeTemplateId;
+      const templateId = await templateIdFor(userId, projectId);
       if (!templateId) return null;
       const template = await prisma.document.findFirst({
         where: { id: templateId, userId, isTemplate: true, status: "READY" },
@@ -109,7 +95,7 @@ async function adaptersFor(
       const brd = await prisma.brdDocument.findFirst({
         where: {
           userId,
-          sessionId,
+          projectId,
           ...((requestedId ?? brdId) ? { id: requestedId ?? brdId } : {}),
         },
         include: { versions: { orderBy: { versionNumber: "asc" } } },
@@ -130,18 +116,36 @@ async function adaptersFor(
   };
 }
 
+/** Template efektif: template project menang, fallback ke setting user. */
+async function templateIdFor(userId: string, projectId?: string): Promise<string | null> {
+  const [project, settings] = await Promise.all([
+    projectId
+      ? prisma.project.findFirst({
+          where: { id: projectId, userId },
+          select: { templateId: true },
+        })
+      : Promise.resolve(null),
+    prisma.userSetting.findUnique({
+      where: { userId },
+      select: { activeTemplateId: true },
+    }),
+  ]);
+  return project?.templateId ?? settings?.activeTemplateId ?? null;
+}
+
 export async function activeTemplateFor(
   userId: string,
+  projectId?: string,
 ): Promise<{
   templateId: string;
   updatedAt: string;
   structure: BrdTemplateStructure;
 } | null> {
-  const settings = await prisma.userSetting.findUnique({ where: { userId } });
-  if (!settings?.activeTemplateId) return null;
+  const templateId = await templateIdFor(userId, projectId);
+  if (!templateId) return null;
   const template = await prisma.document.findFirst({
     where: {
-      id: settings.activeTemplateId,
+      id: templateId,
       userId,
       isTemplate: true,
       status: "READY",
@@ -200,15 +204,16 @@ function modelRouterOptionsFor(
 }
 
 export async function agentFor(
-  userId: string,
-  sessionId: string,
+  context: { userId: string; projectId: string; sessionId?: string },
   phase: AgentPhase | undefined,
   brdId?: string,
 ) {
+  const { userId, projectId, sessionId } = context;
   const settings = await prisma.userSetting.findUnique({ where: { userId } });
-  const activeTemplate = await activeTemplateFor(userId);
+  const activeTemplate = await activeTemplateFor(userId, projectId);
   const fingerprint = agentFingerprint(
     userId,
+    projectId,
     sessionId,
     settings?.updatedAt?.toISOString(),
     phase,
@@ -216,14 +221,14 @@ export async function agentFor(
     activeTemplate?.templateId,
     activeTemplate?.updatedAt,
   );
-  const cacheKey = agentCacheKey(userId, sessionId);
+  const cacheKey = agentCacheKey(userId, sessionId ?? projectId);
   const cached = agentCache.get(cacheKey);
   if (cached?.fingerprint === fingerprint) return cached.agent;
   const agent = createSystemAnalystAgent({
     // Model routing mengikuti settings user; kosong = default env server.
     modelRouter: modelRouterOptionsFor(settings),
     phase,
-    contextAdapters: await adaptersFor(userId, sessionId, brdId),
+    contextAdapters: await adaptersFor(userId, projectId, brdId),
     allowedTools: allowedToolsForPhase(phase),
     systemPrompt: settings?.systemPrompt ?? undefined,
     tracingBy: "lens",
@@ -244,7 +249,7 @@ export async function agentFor(
 
 export async function distillSessionContext(
   userId: string,
-  sessionId: string,
+  projectId: string,
 ): Promise<string> {
   const results = await retrieveDocuments({
     query:
@@ -254,7 +259,7 @@ export async function distillSessionContext(
     store: contextStore,
     filter: vectorFilter.and(
       vectorFilter.eq("userId", userId),
-      vectorFilter.eq("sessionId", sessionId),
+      vectorFilter.eq("projectId", projectId),
     ),
   });
   return results
@@ -276,7 +281,7 @@ const MAX_ATTACHMENT_CONTEXT_CHARS = 6000;
  */
 export async function attachmentContextBlock(
   userId: string,
-  sessionId: string,
+  projectId: string,
   documentIds: string[],
 ): Promise<string> {
   const ids = [
@@ -285,7 +290,7 @@ export async function attachmentContextBlock(
   if (!ids.length) return "";
 
   const documents = await prisma.document.findMany({
-    where: { id: { in: ids }, userId, sessionId },
+    where: { id: { in: ids }, userId, projectId },
     select: { id: true, title: true, status: true },
   });
   if (!documents.length) return "";

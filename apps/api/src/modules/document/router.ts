@@ -11,19 +11,37 @@ import {
 import { deleteDocument, deleteDocumentVectors, documentUrl, uploadDocument } from "./services.js";
 import { documentFileType } from "./types.js";
 import { clearPendingImport, markPendingImport } from "../brd/flow-state.js";
+import { getProject } from "../project/service.js";
+import { sessionProjectId } from "../session/service.js";
 
 export const documentModule = new Hono()
   .get("/", async (c) => {
     const userId = resolveUserId(c.req.header(USER_ID_HEADER));
     const sessionId = c.req.header(CONVERSATION_ID_HEADER)?.trim();
+    const scope = c.req.query("scope")?.trim();
+    const queryProjectId = c.req.query("projectId")?.trim();
 
-    if (!sessionId) return c.json({ documents: [] });
+    // scope=session: hanya file yang diunggah dari percakapan ini.
+    if (scope === "session") {
+      if (!sessionId) return c.json({ documents: [] });
+      const documents = await prisma.document.findMany({
+        where: { userId, sessionId },
+        orderBy: { createdAt: "desc" },
+      });
+      return c.json({ documents });
+    }
+
+    const projectId = queryProjectId
+      ? (await getProject(userId, queryProjectId))?.id
+      : sessionId
+        ? await sessionProjectId(userId, sessionId)
+        : null;
+    if (!projectId) return c.json({ documents: [] });
 
     const documents = await prisma.document.findMany({
-      where: { userId, sessionId },
+      where: { userId, projectId },
       orderBy: { createdAt: "desc" },
     });
-
     return c.json({ documents });
   })
   .post("/", async (c) => {
@@ -31,6 +49,10 @@ export const documentModule = new Hono()
     const sessionId = c.req.header(CONVERSATION_ID_HEADER)?.trim();
     if (!sessionId) {
       return c.json({ error: "A conversation id is required" }, 400);
+    }
+    const projectId = await sessionProjectId(userId, sessionId);
+    if (!projectId) {
+      return c.json({ error: "Session is not attached to a project" }, 400);
     }
 
     const form = await c.req.formData();
@@ -55,6 +77,7 @@ export const documentModule = new Hono()
       data: {
         userId,
         sessionId,
+        projectId,
         title: file.name,
         fileType: documentFileType(file),
         storageUrl,
@@ -68,7 +91,7 @@ export const documentModule = new Hono()
     // Marked in the same request that creates the document, so an unmount
     // between upload and import can never lose the pending intent.
     if (brdImport) {
-      await markPendingImport({ userId, sessionId }, document.id);
+      await markPendingImport({ userId, projectId, sessionId }, document.id);
     }
 
     try {
@@ -79,7 +102,7 @@ export const documentModule = new Hono()
       );
     } catch (error) {
       if (brdImport) {
-        await clearPendingImport({ userId, sessionId }).catch(() => undefined);
+        await clearPendingImport({ userId, projectId, sessionId }).catch(() => undefined);
       }
       await prisma.document.update({
         where: { id: document.id },
@@ -98,9 +121,8 @@ export const documentModule = new Hono()
   })
   .get("/:id", async (c) => {
     const userId = resolveUserId(c.req.header(USER_ID_HEADER));
-    const sessionId = c.req.header(CONVERSATION_ID_HEADER)?.trim();
     const document = await prisma.document.findFirst({
-      where: { id: c.req.param("id"), userId, ...(sessionId ? { sessionId } : {}) },
+      where: { id: c.req.param("id"), userId },
       select: {
         id: true,
         title: true,

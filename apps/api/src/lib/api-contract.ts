@@ -3,15 +3,17 @@ import { z } from "zod";
 const isoDate = z.coerce.date();
 
 export const BrdCreateSchema = z.object({
-  sessionId: z.string().trim().min(1),
+  projectId: z.string().trim().min(1),
+  sessionId: z.string().trim().min(1).optional(),
   title: z.string().trim().min(1).max(200),
   contentMarkdown: z.string().min(1),
   changeSummary: z.string().trim().max(500).optional(),
 });
 
 export const BrdImportSchema = z.object({
-  sessionId: z.string().trim().min(1),
+  projectId: z.string().trim().min(1),
   documentId: z.string().trim().min(1),
+  sessionId: z.string().trim().min(1).optional(),
   title: z.string().trim().min(1).max(200).optional(),
 });
 
@@ -66,9 +68,16 @@ export const TemplateStructurePatchSchema = z.object({
 });
 export type TemplateStructurePatchInput = z.infer<typeof TemplateStructurePatchSchema>;
 
+export const TemplateManualCreateSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  templateStructure: z.unknown(),
+});
+export type TemplateManualCreateInput = z.infer<typeof TemplateManualCreateSchema>;
+
 export const SearchQuerySchema = z.object({
   q: z.string().trim().min(1).max(200),
   type: z.enum(["brd", "document"]).optional(),
+  projectId: z.string().trim().min(1).optional(),
   sessionId: z.string().trim().min(1).optional(),
   excludeSession: z.string().trim().min(1).optional(),
 });
@@ -98,6 +107,7 @@ export const SearchResponseSchema = z.object({
         type: z.enum(["brd", "document"]),
         id: z.string(),
         title: z.string(),
+        projectId: z.string().nullable(),
         sessionId: z.string().nullable(),
       })
       .passthrough(),

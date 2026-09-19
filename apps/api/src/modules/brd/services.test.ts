@@ -7,16 +7,96 @@ const prismaMock = vi.hoisted(() => ({
   agentMemoryMessage: { findMany: vi.fn(), findFirst: vi.fn(), createMany: vi.fn() },
   brdDocument: {
     findFirst: vi.fn(),
+    create: vi.fn(),
     update: vi.fn(),
   },
 }));
 
 vi.mock("../../lib/prisma.js", () => ({ prisma: prismaMock }));
 
-import { collectAgent, rejectBrdModification, stageBrdModification } from "./services.js";
+import {
+  collectAgent,
+  createBrd,
+  pickBestMarkdown,
+  rejectBrdModification,
+  stageBrdModification,
+} from "./services.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("pickBestMarkdown", () => {
+  const audit = (markdown: string) => ({
+    missing: markdown.includes("## Scope") ? [] : ["scope"],
+    weak: [],
+  });
+
+  it("prefers a complete BRD over a chatty preamble", () => {
+    const preamble = "Saya akan menyusun BRD lengkap untuk Anda. Mohon tunggu.";
+    const fullBrd = "# BRD — Cuti\n\n## Scope\n\nIsi lengkap.";
+
+    const picked = pickBestMarkdown([preamble, fullBrd], audit);
+
+    expect(picked?.markdown).toBe(fullBrd);
+    expect(picked?.issues.missing).toEqual([]);
+  });
+
+  it("falls back to the least-broken candidate when none is BRD-shaped", () => {
+    const empty = "Halo, saya siap membantu.";
+    const partial = "## Scope\n\nHanya bagian scope.";
+
+    const picked = pickBestMarkdown([empty, partial], audit);
+
+    expect(picked?.markdown).toBe(partial);
+  });
+
+  it("prefers a candidate that includes a mermaid flowchart when issues tie", () => {
+    const withoutDiagram = "# BRD — Cuti\n\n## Scope\n\nIsi lengkap.";
+    const withDiagram = `${withoutDiagram}\n\n\`\`\`mermaid\nflowchart TD\n  A[Mulai] --> B[Selesai]\n\`\`\``;
+
+    const picked = pickBestMarkdown([withoutDiagram, withDiagram], audit);
+
+    expect(picked?.markdown).toBe(withDiagram);
+  });
+
+  it("returns null when every candidate is blank", () => {
+    expect(pickBestMarkdown(["   ", ""], audit)).toBeNull();
+  });
+});
+
+describe("createBrd", () => {
+  it("returns the existing project BRD instead of creating a second one", async () => {
+    prismaMock.brdDocument.findFirst.mockResolvedValueOnce({ id: "brd-1", projectId: "p-1" });
+
+    const result = await createBrd("user-1", {
+      projectId: "p-1",
+      title: "BRD Cuti",
+      contentMarkdown: "# BRD",
+    });
+
+    expect(result).toMatchObject({ id: "brd-1" });
+    expect(prismaMock.brdDocument.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a BRD for a project that has none yet", async () => {
+    prismaMock.brdDocument.findFirst.mockResolvedValueOnce(null);
+    prismaMock.brdDocument.create.mockResolvedValueOnce({ id: "brd-new", projectId: "p-1" });
+
+    const result = await createBrd("user-1", {
+      projectId: "p-1",
+      sessionId: "s-1",
+      title: "BRD Cuti",
+      contentMarkdown: "# BRD",
+    });
+
+    expect(result).toMatchObject({ id: "brd-new" });
+    expect(prismaMock.brdDocument.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ projectId: "p-1", sessionId: "s-1" }),
+      }),
+    );
+  });
 });
 
 describe("stageBrdModification", () => {
@@ -83,7 +163,7 @@ describe("stageBrdModification", () => {
 });
 
 describe("collectAgent", () => {
-  const context = { userId: "user-1", sessionId: "session-1" };
+  const context = { userId: "user-1", projectId: "project-1", sessionId: "session-1" };
 
   function fakeAgent(events: unknown[]) {
     return {

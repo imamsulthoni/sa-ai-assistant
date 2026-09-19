@@ -15,11 +15,26 @@ export type SessionFlowSummary = {
 export type SessionSummary = {
   id: string;
   title: string;
+  projectId: string | null;
+  projectName: string | null;
   createdAt: string;
   updatedAt: string;
   messageCount: number;
   brd?: SessionBrdSummary | null;
   flow?: SessionFlowSummary | null;
+};
+
+export type ProjectSummary = {
+  id: string;
+  name: string;
+  description: string | null;
+  templateId: string | null;
+  isDefault: boolean;
+  sessionCount: number;
+  documentCount: number;
+  brd: SessionBrdSummary | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type DocumentSummary = {
@@ -29,6 +44,8 @@ export type DocumentSummary = {
   fileSize: number;
   status: "UPLOADING" | "PROCESSING" | "READY" | "PENDING_CONFIRMATION" | "FAILED";
   storageUrl: string;
+  projectId?: string | null;
+  sessionId?: string | null;
   createdAt: string;
   error: string | null;
 };
@@ -44,7 +61,8 @@ export type BrdVersion = {
 
 export type BrdDocument = {
   id: string;
-  sessionId: string;
+  projectId: string;
+  sessionId: string | null;
   title: string;
   currentVersion: number;
   contentMarkdown: string;
@@ -92,6 +110,7 @@ export type SearchResult = {
   type: "brd" | "document";
   id: string;
   title: string;
+  projectId: string | null;
   sessionId: string | null;
   status?: string;
   updatedAt: string;

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { createClientStreamResponse } from "@anvia/server";
 import { agentToClientStream, parseClientStreamRequest } from "@anvia/client";
 import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
-import { titleSessionFromFirstMessage } from "../session/service.js";
+import { sessionProjectId, titleSessionFromFirstMessage } from "../session/service.js";
 import { agentFor, attachmentContextBlock } from "./services.js";
 import { stageBrdModification } from "../brd/services.js";
 import type { FlowMetadata } from "./types.js";
@@ -38,6 +38,11 @@ chatModule.post("/", async (c) => {
     return c.json({ error: "A conversation id is required" }, 400);
   }
 
+  const projectId = await sessionProjectId(userId, sessionId);
+  if (!projectId) {
+    return c.json({ error: "Session is not attached to a project" }, 400);
+  }
+
   const latest = body.messages.at(-1);
 
   if (!latest || latest.role !== "user") {
@@ -48,7 +53,11 @@ chatModule.post("/", async (c) => {
 
   const metadata = body.metadata as FlowMetadata | undefined;
   const phase = metadata?.brdDocumentId ? "QA" : metadata?.phase;
-  const agent = await agentFor(userId, sessionId, phase, metadata?.brdDocumentId);
+  const agent = await agentFor(
+    { userId, projectId, sessionId },
+    phase,
+    metadata?.brdDocumentId,
+  );
 
   const attachedFiles = (metadata?.attachedFiles ?? [])
     .filter((name) => typeof name === "string" && name.trim())
@@ -57,7 +66,7 @@ chatModule.post("/", async (c) => {
     .filter((id) => typeof id === "string" && id.trim())
     .slice(0, 5);
   const attachmentBlock = attachedDocumentIds.length
-    ? await attachmentContextBlock(userId, sessionId, attachedDocumentIds)
+    ? await attachmentContextBlock(userId, projectId, attachedDocumentIds)
     : "";
   const fileInstruction = attachedFiles.length
     ? `[File sesi yang dilampirkan pada pesan ini: ${attachedFiles.join(", ")}. Panggil search_context untuk membaca isinya sebelum menjawab bila relevan.]`
