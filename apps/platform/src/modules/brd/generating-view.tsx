@@ -82,13 +82,13 @@ export function GeneratingView({
     <div className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4 text-center">
         <div className="relative mx-auto size-12">
-          <div className="absolute inset-0 animate-spin rounded-full border-2 border-slate-200 border-t-slate-900 dark:border-slate-800 dark:border-t-slate-100" />
-          <Sparkles className="absolute inset-0 m-auto size-4 animate-pulse text-slate-700 dark:text-slate-300" />
+          <div className="absolute inset-0 animate-spin rounded-full border-2 border-border border-t-primary" />
+          <Sparkles className="absolute inset-0 m-auto size-4 animate-pulse text-muted-foreground" />
         </div>
 
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h3>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          <h3 className="text-sm font-bold text-foreground">{title}</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {resumable ? (
               COPY.flow.resumeBody
             ) : (
@@ -98,7 +98,7 @@ export function GeneratingView({
             )}
           </p>
           {!resumable && (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 font-mono text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground">
               <Clock size={11} /> Berjalan {formatElapsed(elapsed)}
             </p>
           )}
@@ -109,7 +109,7 @@ export function GeneratingView({
             {COPY.flow.resumeAction}
           </Button>
         ) : (
-          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3.5 text-left text-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="space-y-2 rounded-lg border border-border bg-muted p-3.5 text-left text-xs">
             {steps.map((step, index) => {
               const done = index < stepIndex;
               const current = index === stepIndex;
@@ -118,23 +118,23 @@ export function GeneratingView({
                   {done ? (
                     <CheckCircle2
                       size={14}
-                      className="shrink-0 text-emerald-600 dark:text-emerald-400"
+                      className="shrink-0 text-success"
                     />
                   ) : current ? (
                     <LoaderCircle
                       size={14}
-                      className="shrink-0 animate-spin text-slate-800 dark:text-slate-200"
+                      className="shrink-0 animate-spin text-foreground"
                     />
                   ) : (
-                    <span className="size-3.5 shrink-0 rounded-full border border-slate-300 dark:border-slate-700" />
+                    <span className="size-3.5 shrink-0 rounded-full border border-border" />
                   )}
                   <span
                     className={
                       done
-                        ? "font-medium text-slate-700 dark:text-slate-300"
+                        ? "font-medium text-muted-foreground"
                         : current
-                          ? "font-semibold text-slate-900 dark:text-slate-100"
-                          : "text-slate-400 dark:text-slate-600"
+                          ? "font-semibold text-foreground"
+                          : "text-muted-foreground"
                     }
                   >
                     {step}
@@ -146,7 +146,7 @@ export function GeneratingView({
         )}
 
         {longRunning && (
-          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[11px] leading-relaxed text-warning">
             {COPY.flow.longRunning}
           </p>
         )}

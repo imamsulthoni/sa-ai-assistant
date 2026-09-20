@@ -1,0 +1,20 @@
+{
+  "system": "Technical Studio Architectural Workbench",
+  "theme": "dark",
+  "colors": {
+    "background": "#020617",
+    "surface": "#0f172a",
+    "border": "#1e293b",
+    "primary": "#4f46e5",
+    "success": "#10b981",
+    "warning": "#f59e0b",
+    "destructive": "#f43f5e",
+    "foreground": "#f8fafc",
+    "muted": "#94a3b8"
+  },
+  "fonts": {
+    "display": "Plus Jakarta Sans Variable",
+    "body": "Inter Variable",
+    "mono": "ui-monospace, monospace"
+  }
+}

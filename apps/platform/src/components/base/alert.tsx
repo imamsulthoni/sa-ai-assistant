@@ -4,11 +4,9 @@ import { cn } from "#/lib/utils";
 type Tone = "destructive" | "warning" | "info";
 
 const TONES: Record<Tone, string> = {
-  destructive:
-    "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-200",
-  warning:
-    "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-200",
-  info: "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-200",
+  destructive: "border-destructive/30 bg-destructive/10 text-destructive",
+  warning: "border-warning/30 bg-warning/10 text-warning",
+  info: "border-info/30 bg-info/10 text-info",
 };
 
 const ICONS: Record<Tone, typeof AlertCircle> = {

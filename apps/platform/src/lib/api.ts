@@ -1,30 +1,38 @@
 import type {
+  AdminUser,
   BrdDocument,
   BrdVersion,
   ClarificationQuestion,
   DocumentSummary,
   MessagesResponse,
   ProjectSummary,
+  PublicUser,
   SearchResult,
   SessionSummary,
   Settings,
   SettingsResponse,
   TemplateSummary,
+  UserRole,
 } from "./types.js";
 
 export type {
+  AdminUser,
   BrdDocument,
   BrdVersion,
   ClarificationQuestion,
   DocumentSummary,
   MessagesResponse,
   ProjectSummary,
+  PublicUser,
   SearchResult,
   SessionSummary,
   Settings,
   SettingsResponse,
   TemplateSummary,
+  UserRole,
 } from "./types.js";
+
+import { clearStoredSession, getStoredToken } from "./auth-storage.js";
 
 /** Error HTTP dengan status + kode error server (mis. brd_exists). */
 export class ApiError extends Error {
@@ -40,14 +48,17 @@ export class ApiError extends Error {
 }
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-export const DEMO_USER_ID = "demo-user";
 
 type SessionResponse = { session: SessionSummary };
 type SessionsResponse = { sessions: SessionSummary[] };
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("x-user-id", DEMO_USER_ID);
+  const token = getStoredToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   if (
     init.method &&
     init.method !== "GET" &&
@@ -73,6 +84,19 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       detail && typeof detail === "object" && "code" in detail
         ? String((detail as { code?: unknown }).code)
         : undefined;
+
+    // Jika 401 Unauthorized dan bukan permintaan login/register, bersihkan sesi dan redirect
+    if (
+      response.status === 401 &&
+      !path.startsWith("/auth/login") &&
+      !path.startsWith("/auth/register")
+    ) {
+      clearStoredSession();
+      if (typeof window !== "undefined" && window.location.pathname !== "/") {
+        window.location.assign("/");
+      }
+    }
+
     throw new ApiError(
       `Request to ${path} failed (${response.status})`,
       response.status,
@@ -275,8 +299,14 @@ export function filenameFromDisposition(disposition: string | null, fallback: st
 }
 
 export async function exportBrd(id: string, format: "markdown" | "pdf"): Promise<void> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE}/brd/${encodeURIComponent(id)}/export/${format}`, {
-    headers: { "x-user-id": DEMO_USER_ID },
+    headers,
   });
   if (!response.ok) throw new Error(`Export gagal (${response.status})`);
   const blob = await response.blob();
@@ -440,3 +470,94 @@ export function submitClarification(
     body: JSON.stringify(input),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Auth API
+// ---------------------------------------------------------------------------
+
+export function register(input: {
+  username: string;
+  email: string;
+  password: string;
+}): Promise<{ user: PublicUser; token: string }> {
+  return request("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function login(input: {
+  email: string;
+  password: string;
+}): Promise<{ user: PublicUser; token: string }> {
+  return request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getMe(): Promise<{ user: PublicUser }> {
+  return request("/auth/me");
+}
+
+// ---------------------------------------------------------------------------
+// Admin User Management API
+// ---------------------------------------------------------------------------
+
+export function listAdminUsers(filters?: {
+  search?: string;
+  role?: UserRole;
+}): Promise<{ users: AdminUser[] }> {
+  const params = new URLSearchParams();
+  if (filters?.search) params.set("search", filters.search);
+  if (filters?.role) params.set("role", filters.role);
+  const q = params.toString();
+  return request(`/admin/users${q ? `?${q}` : ""}`);
+}
+
+export function createAdminUser(input: {
+  username: string;
+  email: string;
+  password: string;
+  role: UserRole;
+}): Promise<{ user: AdminUser }> {
+  return request("/admin/users", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateAdminUser(
+  id: string,
+  input: {
+    username?: string;
+    email?: string;
+    role?: UserRole;
+  },
+): Promise<{ user: AdminUser }> {
+  return request(`/admin/users/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function resetAdminUserPassword(
+  id: string,
+  password: string,
+): Promise<{ ok: boolean }> {
+  return request(`/admin/users/${encodeURIComponent(id)}/password`, {
+    method: "POST",
+    body: JSON.stringify({ password }),
+  });
+}
+
+export function toggleAdminUserStatus(
+  id: string,
+  isActive: boolean,
+): Promise<{ user: AdminUser }> {
+  return request(`/admin/users/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ isActive }),
+  });
+}
+

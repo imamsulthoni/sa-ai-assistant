@@ -16,6 +16,19 @@ export const ContextChunkSchema = z.object({
 export type ContextFilter = z.infer<typeof ContextFilterSchema>;
 export type ContextChunk = z.infer<typeof ContextChunkSchema>;
 
+/** Metadata versi BRD — konten penuh sengaja tidak ikut agar hemat token. */
+export type ActiveBrdVersion = {
+  id: string;
+  versionNumber: number;
+  changeSummary: string | null;
+  createdBy: string;
+  createdAt: string;
+};
+
+export type BrdStagingResult =
+  | { ok: true }
+  | { ok: false; reason: "pending_exists" | "not_found" | "not_supported" };
+
 export interface AgentContextAdapters {
   searchContext?: (input: {
     query: string;
@@ -32,9 +45,17 @@ export interface AgentContextAdapters {
     sessionId?: string;
     brdId?: string;
   }) =>
-    | Promise<{ contentMarkdown: string; versions: readonly unknown[] } | null>
-    | { contentMarkdown: string; versions: readonly unknown[] }
+    | Promise<{ contentMarkdown: string; versions: readonly ActiveBrdVersion[] } | null>
+    | { contentMarkdown: string; versions: readonly ActiveBrdVersion[] }
     | null;
+  /**
+   * Stage a computed BRD modification as a pending preview server-side. When
+   * configured, modify_brd never returns the full updated markdown to the model.
+   */
+  stageBrdModification?: (input: {
+    updatedMarkdown: string;
+    changeSummary: string;
+  }) => Promise<BrdStagingResult> | BrdStagingResult;
 }
 
 export const DEFAULT_CONTEXT_FILTER: ContextFilter = {
@@ -49,5 +70,7 @@ export function contextAdapters(
     searchContext: adapters.searchContext ?? (() => []),
     getTemplateStructure: adapters.getTemplateStructure ?? (() => null),
     getActiveBrd: adapters.getActiveBrd ?? (() => null),
+    stageBrdModification:
+      adapters.stageBrdModification ?? (() => ({ ok: false, reason: "not_supported" })),
   };
 }

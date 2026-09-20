@@ -31,7 +31,6 @@ import { activeTemplateFor, agentFor, distillSessionContext } from "../chat/serv
 import {
   FALLBACK_FOLLOW_UPS,
   FALLBACK_ROUND_1,
-  canStageModification,
   canTransitionBrdStatus,
   followUpQuestions,
   missingRequiredSections,
@@ -42,6 +41,8 @@ import {
 } from "./flow-utils.js";
 
 export type { BrdStatus } from "./flow-utils.js";
+export { stageBrdModification } from "./staging.js";
+export type { StageModificationResult } from "./staging.js";
 export type BrdCreatedBy = "AI_AGENT" | "USER_MANUAL";
 
 export type BrdUpdateInput = BrdVersionCreateInput & {
@@ -330,48 +331,6 @@ export async function getBrdForExport(userId: string, id: string) {
       approvedBy: true,
     },
   });
-}
-
-export type StageModificationResult =
-  | { ok: true; status: "staged" }
-  | {
-      ok: false;
-      reason: "pending_exists";
-      pendingChangeSummary: string | null;
-      pendingContentMarkdown: string;
-    }
-  | { ok: false; reason: "not_found" };
-
-export async function stageBrdModification(
-  userId: string,
-  id: string,
-  contentMarkdown: string,
-  changeSummary: string,
-): Promise<StageModificationResult> {
-  const brd = await prisma.brdDocument.findFirst({ where: { id, userId } });
-  if (!brd) return { ok: false, reason: "not_found" };
-  const decision = canStageModification(brd.pendingContentMarkdown, contentMarkdown);
-  if (decision === "conflict") {
-    return {
-      ok: false,
-      reason: "pending_exists",
-      pendingChangeSummary: brd.pendingChangeSummary,
-      pendingContentMarkdown: brd.pendingContentMarkdown ?? "",
-    };
-  }
-  if (decision === "noop") return { ok: true, status: "staged" };
-  // A staged change puts the document under review; reject restores the
-  // status the user had before the preview appeared.
-  await prisma.brdDocument.update({
-    where: { id },
-    data: {
-      pendingContentMarkdown: contentMarkdown,
-      pendingChangeSummary: changeSummary,
-      statusBeforePending: brd.statusBeforePending ?? brd.status,
-      status: "IN_REVIEW",
-    },
-  });
-  return { ok: true, status: "staged" };
 }
 
 export async function approveBrdModification(userId: string, id: string) {

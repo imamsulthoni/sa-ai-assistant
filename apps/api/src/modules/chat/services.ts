@@ -14,6 +14,7 @@ import {
 } from "@anvia/transformers";
 import { prisma } from "../../lib/prisma.js";
 import { decryptSecret } from "../../lib/crypto.js";
+import { stageBrdModification } from "../brd/staging.js";
 import { agentCacheKey, agentFingerprint } from "./utils.js";
 import type { AgentPhase } from "./types.js";
 
@@ -98,7 +99,19 @@ async function adaptersFor(
           projectId,
           ...((requestedId ?? brdId) ? { id: requestedId ?? brdId } : {}),
         },
-        include: { versions: { orderBy: { versionNumber: "asc" } } },
+        select: {
+          contentMarkdown: true,
+          versions: {
+            orderBy: { versionNumber: "asc" },
+            select: {
+              id: true,
+              versionNumber: true,
+              changeSummary: true,
+              createdBy: true,
+              createdAt: true,
+            },
+          },
+        },
       });
       if (!brd) return null;
       return {
@@ -106,12 +119,29 @@ async function adaptersFor(
         versions: brd.versions.map((version) => ({
           id: version.id,
           versionNumber: version.versionNumber,
-          contentMarkdown: version.contentMarkdown,
           changeSummary: version.changeSummary,
           createdBy: version.createdBy,
           createdAt: version.createdAt.toISOString(),
         })),
       };
+    },
+    // Preview modifikasi di-stage server-side supaya markdown penuh tidak
+    // pernah masuk ke konteks model atau memory sesi.
+    stageBrdModification: async ({ updatedMarkdown, changeSummary }) => {
+      const targetId =
+        brdId ??
+        (
+          await prisma.brdDocument.findFirst({
+            where: { userId, projectId },
+            select: { id: true },
+            orderBy: { updatedAt: "desc" },
+          })
+        )?.id;
+      if (!targetId) return { ok: false as const, reason: "not_found" as const };
+      const result = await stageBrdModification(userId, targetId, updatedMarkdown, changeSummary);
+      return result.ok
+        ? { ok: true as const }
+        : { ok: false as const, reason: result.reason };
     },
   };
 }

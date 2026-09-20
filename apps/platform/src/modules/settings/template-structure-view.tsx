@@ -12,7 +12,7 @@ export function TemplateStructureView({ structure }: { structure: unknown }) {
 
   if (!parsed) {
     return (
-      <p className="text-[11px] text-slate-400">
+      <p className="text-[11px] text-muted-foreground">
         Struktur template belum dapat ditampilkan. Periksa kembali hasil
         ekstraksi.
       </p>
@@ -23,18 +23,18 @@ export function TemplateStructureView({ structure }: { structure: unknown }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <ListTree size={13} className="shrink-0 text-slate-400" />
-          <span className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
+          <ListTree size={13} className="shrink-0 text-muted-foreground" />
+          <span className="truncate text-xs font-semibold text-foreground">
             {parsed.templateName ?? "Struktur template"}
           </span>
         </div>
-        <span className="shrink-0 text-[10px] text-slate-400">
+        <span className="shrink-0 text-[10px] text-muted-foreground">
           {parsed.sections.length} bab standar
         </span>
       </div>
 
       {parsed.description && (
-        <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
           {parsed.description}
         </p>
       )}
@@ -69,18 +69,18 @@ export function TemplateStructureView({ structure }: { structure: unknown }) {
         {parsed.sections.map((section, index) => (
           <li
             key={`${section.id}-${index}`}
-            className="flex items-start gap-2.5 rounded-md border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-950/50"
+            className="flex items-start gap-2.5 rounded-md border border-border bg-muted p-2.5"
           >
-            <span className="w-5 shrink-0 pt-px text-right font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span className="w-5 shrink-0 pt-px text-right font-mono text-[11px] font-semibold text-muted-foreground">
               {section.order}
             </span>
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                <span className="text-xs font-medium text-foreground">
                   {section.title}
                 </span>
-                <span className="rounded border border-slate-200 bg-white px-1 py-px font-mono text-[9px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                <span className="rounded border border-border bg-card px-1 py-px font-mono text-[9px] text-muted-foreground">
                   {section.id}
                 </span>
                 <Badge
@@ -92,14 +92,14 @@ export function TemplateStructureView({ structure }: { structure: unknown }) {
               </div>
 
               {section.purpose && (
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                   {section.purpose}
                 </p>
               )}
 
               {section.expectedFormat && (
-                <p className="mt-1 flex items-start gap-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                  <Tag size={10} className="mt-0.5 shrink-0 text-slate-400" />
+                <p className="mt-1 flex items-start gap-1 text-[11px] leading-relaxed text-muted-foreground">
+                  <Tag size={10} className="mt-0.5 shrink-0 text-muted-foreground" />
                   <span>Format: {section.expectedFormat}</span>
                 </p>
               )}

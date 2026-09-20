@@ -98,13 +98,13 @@ export function SettingsModal({
       description="Konfigurasi tema, prompt instruksi, model AI, dan template struktur BRD"
       bodyClassName="flex min-h-0 flex-1 overflow-hidden p-0"
       footer={
-        <span className="mr-auto text-[11px] text-slate-400">
+        <span className="mr-auto text-[11px] text-muted-foreground">
           Perubahan konfigurasi tersimpan pada akun demo ini.
         </span>
       }
     >
       <div className="flex min-h-0 w-full flex-1 flex-col md:flex-row">
-        <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50/60 p-2 md:w-56 md:flex-col md:overflow-x-visible md:border-r md:border-b-0 dark:border-slate-800 dark:bg-slate-950/30">
+        <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-muted p-2 md:w-56 md:flex-col md:overflow-x-visible md:border-r md:border-b-0">
           <TabButton active={tab === "theme"} onClick={() => setTab("theme")}>
             <Sun size={13} /> Tampilan &amp; Tema
           </TabButton>
@@ -143,8 +143,8 @@ function TabButton({
       className={cn(
         "flex w-full shrink-0 cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors",
         active
-          ? "bg-slate-200 font-semibold text-slate-900 shadow-xs dark:bg-slate-800 dark:text-slate-100"
-          : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/60",
+          ? "bg-muted font-semibold text-foreground shadow-xs"
+          : "text-muted-foreground hover:bg-muted",
       )}
     >
       {children}
@@ -218,7 +218,7 @@ export function SettingsContent({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 p-4 text-xs text-slate-500">
+      <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
         <LoaderCircle size={13} className="animate-spin" /> Memuat pengaturan…
       </div>
     );
@@ -358,10 +358,10 @@ export function SettingsContent({
       {tab === "theme" && (
         <div className="space-y-4">
           <div>
-            <h3 className="text-xs font-semibold tracking-wider text-slate-900 uppercase dark:text-slate-100">
+            <h3 className="text-xs font-semibold tracking-wider text-foreground uppercase">
               Tema Warna Antarmuka
             </h3>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Pilih skema tema netral untuk kenyamanan penulisan dokumen.
             </p>
           </div>
@@ -394,18 +394,18 @@ export function SettingsContent({
                   className={cn(
                     "cursor-pointer rounded-lg border p-3 text-left transition-colors",
                     selected
-                      ? "border-slate-800 bg-white ring-1 ring-slate-800 dark:border-slate-200 dark:bg-slate-800 dark:ring-slate-200"
-                      : "border-slate-200 bg-slate-50/50 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/50",
+                      ? "border-primary bg-card ring-1 ring-ring/40"
+                      : "border-border bg-muted hover:border-primary/40",
                   )}
                 >
                   <div className="mb-2 flex items-center justify-between">
-                    <Icon size={15} className="text-slate-700 dark:text-slate-300" />
-                    {selected && <span className="size-2 rounded-full bg-emerald-500" />}
+                    <Icon size={15} className="text-muted-foreground" />
+                    {selected && <span className="size-2 rounded-full bg-success" />}
                   </div>
-                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  <div className="text-xs font-semibold text-foreground">
                     {option.title}
                   </div>
-                  <div className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+                  <div className="mt-0.5 text-[10px] text-muted-foreground">
                     {option.hint}
                   </div>
                 </button>
@@ -417,7 +417,7 @@ export function SettingsContent({
             <Button disabled={saving} onClick={() => void onSave()}>
               <Save size={13} /> {saving ? "Menyimpan…" : "Simpan pengaturan"}
             </Button>
-            {saved && <span className="text-xs text-slate-400">Tersimpan.</span>}
+            {saved && <span className="text-xs text-muted-foreground">Tersimpan.</span>}
           </div>
         </div>
       )}
@@ -426,24 +426,24 @@ export function SettingsContent({
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-xs font-semibold tracking-wider text-slate-900 uppercase dark:text-slate-100">
+              <h3 className="text-xs font-semibold tracking-wider text-foreground uppercase">
                 Instruksi Sistem Tambahan
               </h3>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Instruksi ini disisipkan pada setiap generasi klausul dan dialog agen.
               </p>
             </div>
             <button
               type="button"
               onClick={() => update("systemPrompt", "")}
-              className="inline-flex cursor-pointer items-center gap-1 text-[11px] text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+              className="inline-flex cursor-pointer items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
             >
               <RotateCcw size={11} /> Reset
             </button>
           </div>
 
           <div>
-            <span className="mb-1.5 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+            <span className="mb-1.5 block text-[11px] font-semibold text-muted-foreground">
               Pilih preset industri cepat:
             </span>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -452,12 +452,12 @@ export function SettingsContent({
                   key={preset.title}
                   type="button"
                   onClick={() => update("systemPrompt", preset.content)}
-                  className="cursor-pointer rounded-lg border border-slate-200 bg-slate-50/50 p-2.5 text-left transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-700"
+                  className="cursor-pointer rounded-lg border border-border bg-muted p-2.5 text-left transition-colors hover:border-primary/40"
                 >
-                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  <div className="text-xs font-semibold text-foreground">
                     {preset.title}
                   </div>
-                  <div className="mt-0.5 line-clamp-2 text-[10px] text-slate-500 dark:text-slate-400">
+                  <div className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
                     {preset.description}
                   </div>
                 </button>
@@ -466,7 +466,7 @@ export function SettingsContent({
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+            <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
               Teks instruksi custom:
             </span>
             <textarea
@@ -474,9 +474,9 @@ export function SettingsContent({
               value={form.systemPrompt ?? ""}
               onChange={(event) => update("systemPrompt", event.target.value)}
               placeholder="Contoh: Semua tanggal wajib format DD-MM-YYYY; setiap API wajib mTLS."
-              className="w-full rounded-lg border border-slate-300 bg-white p-2.5 font-mono text-xs text-slate-900 focus:ring-1 focus:ring-slate-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              className="w-full rounded-lg border border-input bg-card p-2.5 font-mono text-xs text-foreground focus:ring-1 focus:ring-ring focus:outline-none"
             />
-            <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
+            <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
               <span>Mengikat formulasi klausul BRD & penanganan revisi.</span>
               <span>{(form.systemPrompt ?? "").length} karakter</span>
             </div>
@@ -486,7 +486,7 @@ export function SettingsContent({
             <Button disabled={saving} onClick={() => void onSave()}>
               <Save size={13} /> {saving ? "Menyimpan…" : "Simpan instruksi"}
             </Button>
-            {saved && <span className="text-xs text-slate-400">Tersimpan.</span>}
+            {saved && <span className="text-xs text-muted-foreground">Tersimpan.</span>}
           </div>
         </div>
       )}
@@ -494,10 +494,10 @@ export function SettingsContent({
       {tab === "model" && (
         <div className="space-y-4">
           <div>
-            <h3 className="text-xs font-semibold tracking-wider text-slate-900 uppercase dark:text-slate-100">
+            <h3 className="text-xs font-semibold tracking-wider text-foreground uppercase">
               Konfigurasi Model AI
             </h3>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Opsional — kosongkan field untuk memakai default sistem. Perubahan berlaku untuk
               generasi dan dialog agen berikutnya.
             </p>
@@ -505,18 +505,18 @@ export function SettingsContent({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+              <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
                 Provider
               </span>
               <select
                 value={form.aiProvider ?? settings?.aiProvider ?? "openrouter"}
                 onChange={(event) => update("aiProvider", event.target.value)}
-                className="w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-900 transition-colors focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                className="w-full rounded-md border border-input bg-card px-2 py-2 text-xs text-foreground transition-colors focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none"
               >
                 <option value="openrouter">OpenRouter (default)</option>
                 <option value="custom">Custom provider</option>
               </select>
-              <span className="mt-1 block text-[10px] leading-4 text-slate-400">
+              <span className="mt-1 block text-[10px] leading-4 text-muted-foreground">
                 {form.aiProvider === "custom"
                   ? "Provider OpenAI-compatible milik Anda: isi Base URL dan API key."
                   : "Memakai endpoint OpenRouter; API key default server bila dikosongkan."}
@@ -524,7 +524,7 @@ export function SettingsContent({
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+              <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
                 Base URL
               </span>
               <Input
@@ -533,13 +533,13 @@ export function SettingsContent({
                 placeholder={modelDefaults?.baseUrl ?? "https://openrouter.ai/api/v1"}
                 spellCheck={false}
               />
-              <span className="mt-1 block text-[10px] leading-4 text-slate-400">
+              <span className="mt-1 block text-[10px] leading-4 text-muted-foreground">
                 Contoh: https://openrouter.ai/api/v1
               </span>
             </label>
 
             <label className="block sm:col-span-2">
-              <span className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+              <span className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
                 <KeyRound size={11} /> API Key
               </span>
               <div className="flex items-center gap-2">
@@ -573,7 +573,7 @@ export function SettingsContent({
                   </Button>
                 )}
               </div>
-              <span className="mt-1 block text-[10px] leading-4 text-slate-400">
+              <span className="mt-1 block text-[10px] leading-4 text-muted-foreground">
                 {clearApiKey
                   ? "API key tersimpan akan dihapus saat disimpan."
                   : "Biarkan kosong untuk mempertahankan key yang tersimpan."}
@@ -581,8 +581,8 @@ export function SettingsContent({
             </label>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+          <div className="rounded-lg border border-border bg-muted p-3">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
               <Cpu size={12} /> Routing model per tingkat kesulitan
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -595,7 +595,7 @@ export function SettingsContent({
                 ] as const
               ).map((field) => (
                 <label key={field.key} className="block">
-                  <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
                     {field.label}
                   </span>
                   <Input
@@ -604,7 +604,7 @@ export function SettingsContent({
                     placeholder={modelDefaults?.[field.key] ?? "default sistem"}
                     spellCheck={false}
                   />
-                  <span className="mt-1 block text-[10px] leading-4 text-slate-400">
+                  <span className="mt-1 block text-[10px] leading-4 text-muted-foreground">
                     {field.hint}
                   </span>
                 </label>
@@ -616,7 +616,7 @@ export function SettingsContent({
             <Button disabled={saving} onClick={() => void onSave()}>
               <Save size={13} /> {saving ? "Menyimpan…" : "Simpan pengaturan model"}
             </Button>
-            {saved && <span className="text-xs text-slate-400">Tersimpan.</span>}
+            {saved && <span className="text-xs text-muted-foreground">Tersimpan.</span>}
           </div>
         </div>
       )}
@@ -633,10 +633,10 @@ export function SettingsContent({
           <div className="space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="text-xs font-semibold tracking-wider text-slate-900 uppercase dark:text-slate-100">
+                <h3 className="text-xs font-semibold tracking-wider text-foreground uppercase">
                   Template Struktur Acuan BRD
                 </h3>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Kelola beberapa template sekaligus. Template <strong>aktif</strong> otomatis
                   dipakai project yang belum memilih template sendiri.
                 </p>
@@ -657,10 +657,10 @@ export function SettingsContent({
                 <label
                   aria-disabled={uploadLocked}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors dark:border-slate-700 dark:text-slate-200",
+                    "inline-flex items-center gap-2 rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors",
                     uploadLocked
                       ? "cursor-not-allowed opacity-60"
-                      : "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800",
+                      : "cursor-pointer hover:bg-muted",
                   )}
                 >
                   {uploadLocked ? (
@@ -693,16 +693,16 @@ export function SettingsContent({
             )}
 
             {templatesLoading ? (
-              <div className="flex items-center gap-2 rounded-lg border border-slate-200 p-4 text-xs text-slate-500 dark:border-slate-800">
+              <div className="flex items-center gap-2 rounded-lg border border-border p-4 text-xs text-muted-foreground">
                 <LoaderCircle size={13} className="animate-spin" /> Memuat template…
               </div>
             ) : templates.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center dark:border-slate-700">
-                <Sliders size={18} className="mx-auto mb-1.5 text-slate-400" />
-                <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+              <div className="rounded-lg border border-dashed border-border p-5 text-center">
+                <Sliders size={18} className="mx-auto mb-1.5 text-muted-foreground" />
+                <p className="text-xs font-medium text-muted-foreground">
                   Belum ada template
                 </p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
                   Unggah dokumen standar BRD, atau susun strukturnya sendiri secara manual.
                 </p>
               </div>
@@ -715,35 +715,35 @@ export function SettingsContent({
                     <li
                       key={item.id}
                       className={cn(
-                        "rounded-lg border bg-white p-3.5 dark:bg-slate-900",
+                        "rounded-lg border bg-card p-3.5",
                         active
-                          ? "border-emerald-300 ring-1 ring-emerald-200 dark:border-emerald-800 dark:ring-emerald-900"
-                          : "border-slate-200 dark:border-slate-800",
+                          ? "border-success/30 ring-1 ring-success/30"
+                          : "border-border",
                       )}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+                            <p className="truncate text-xs font-semibold text-foreground">
                               {item.title}
                             </p>
                             {active && (
-                              <Badge tone="success" className="rounded-full">
+                              <Badge tone="success" className="rounded-md">
                                 Aktif
                               </Badge>
                             )}
                             {transient && (
-                              <Badge tone="info" className="rounded-full">
+                              <Badge tone="info" className="rounded-md">
                                 Diproses
                               </Badge>
                             )}
                             {item.status === "FAILED" && (
-                              <Badge tone="danger" className="rounded-full">
+                              <Badge tone="danger" className="rounded-md">
                                 Gagal
                               </Badge>
                             )}
                           </div>
-                          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
                             {item.hasStructure
                               ? `${item.sectionCount} section`
                               : "Belum ada struktur"}
@@ -752,7 +752,7 @@ export function SettingsContent({
                             {active && " · dipakai project tanpa pilihan template"}
                           </p>
                           {item.error && (
-                            <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
+                            <p className="mt-1 text-[11px] text-destructive">
                               {item.error}
                             </p>
                           )}
@@ -782,7 +782,7 @@ export function SettingsContent({
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950"
+                              className="text-destructive hover:bg-destructive/10"
                               disabled={templateBusy}
                               onClick={() => setDeleteTarget(item)}
                             >
@@ -793,7 +793,7 @@ export function SettingsContent({
                       </div>
 
                       {transient && !item.hasStructure && (
-                        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+                        <p className="mt-2 rounded-md border border-warning/30 bg-warning/10 px-2.5 py-1.5 text-[11px] leading-relaxed text-warning">
                           Proses ekstraksi memakan waktu yang agak lama, mohon tunggu sampai
                           selesai (jangan tutup halaman).
                         </p>
@@ -835,14 +835,14 @@ export function SettingsContent({
           </>
         }
       >
-        <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           Template beserta berkas referensi dan struktur hasil ekstraksinya akan dihapus permanen.
           {deleteTarget?.id === activeTemplateId
             ? " Karena ini template aktif, project yang memakainya akan memakai template aktif berikutnya bila tersedia."
             : ""}
         </p>
         {deleteTarget && (
-          <p className="mt-2.5 truncate rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-200">
+          <p className="mt-2.5 truncate rounded border border-border bg-muted px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground">
             {deleteTarget.title}
           </p>
         )}

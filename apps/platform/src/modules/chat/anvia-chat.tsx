@@ -21,11 +21,11 @@ import {
 } from "lucide-react";
 import type { UIMessage } from "@anvia/client";
 import {
-  DEMO_USER_ID,
   deleteDocument,
   listDocuments,
   uploadDocument,
 } from "#/lib/api";
+import { getStoredToken } from "#/lib/auth-storage";
 import { COPY } from "#/lib/copy";
 import {
   ATTACHMENT_MAX_UPLOAD_BYTES,
@@ -268,13 +268,17 @@ export function AnviaChat({
   );
 
   const transport = useMemo(
-    () =>
-      createHttpClientTransport({
+    () => {
+      const token = getStoredToken();
+      const headers: Record<string, string> = {
+        "x-conversation-id": sessionId,
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      return createHttpClientTransport({
         endpoint: `${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}/chat`,
-        headers: {
-          "x-user-id": DEMO_USER_ID,
-          "x-conversation-id": sessionId,
-        },
+        headers,
         body: (context) => {
           const files = contextFilesRef.current;
           const attachedFiles = files.map((item) => item.name);
@@ -296,7 +300,8 @@ export function AnviaChat({
             metadata: Object.keys(metadata).length ? metadata : undefined,
           });
         },
-      }),
+      });
+    },
     [brdDocumentId, clearComposerContext, sessionId],
   );
 
@@ -361,25 +366,25 @@ export function AnviaChat({
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <ChatProvider controller={chat}>
         <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-3 py-2">
             <div className="flex items-center gap-2">
-              <span className="grid size-6 place-items-center rounded bg-slate-900 text-white shadow-xs dark:bg-slate-100 dark:text-slate-900">
+              <span className="grid size-6 place-items-center rounded bg-foreground text-background shadow-xs">
                 <Bot size={14} />
               </span>
               <div className="flex items-center gap-1.5">
-                <h3 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                <h3 className="text-xs font-semibold text-foreground">
                   AI Assistant
                 </h3>
-                <span className="size-1.5 rounded-full bg-emerald-500" />
+                <span className="size-1.5 rounded-full bg-success" />
               </div>
             </div>
             {onOpenDocuments && (
               <button
                 type="button"
                 onClick={onOpenDocuments}
-                className="inline-flex cursor-pointer items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                className="inline-flex cursor-pointer items-center gap-1 rounded border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors"
               >
-                <Paperclip size={11} className="text-slate-400" />
+                <Paperclip size={11} className="text-muted-foreground" />
                 <span>{COPY.chat.documentsCount(documentsCount)}</span>
               </button>
             )}
@@ -391,22 +396,22 @@ export function AnviaChat({
                 <div className="py-10 text-center">
                   {brdActive ? (
                     <>
-                      <div className="mx-auto mb-3 grid size-10 place-items-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      <div className="mx-auto mb-3 grid size-10 place-items-center rounded-2xl bg-success/10 text-success">
                         <FileText size={18} />
                       </div>
-                      <h1 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      <h1 className="text-sm font-bold text-foreground">
                         {COPY.chat.brdReadyTitle}
                       </h1>
-                      <p className="mx-auto mt-1 max-w-xs text-xs text-slate-500 dark:text-slate-400">
+                      <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
                         {COPY.chat.brdReadyBody}
                       </p>
                     </>
                   ) : (
                     <>
-                      <h1 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      <h1 className="text-sm font-bold text-foreground">
                         {COPY.chat.emptyTitle}
                       </h1>
-                      <p className="mx-auto mt-1 max-w-xs text-xs text-slate-500 dark:text-slate-400">
+                      <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
                         {COPY.chat.emptyBody}
                       </p>
                     </>
@@ -421,24 +426,24 @@ export function AnviaChat({
               <StreamingIndicator />
 
               {pendingProposal && (
-                <div className="space-y-1.5 rounded-lg border border-amber-300 bg-amber-50 p-2.5 dark:border-amber-800 dark:bg-amber-950/60">
+                <div className="space-y-1.5 rounded-lg border border-warning/30 bg-warning/10 p-2.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="rounded bg-amber-100 px-1.5 py-px text-[10px] font-semibold text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                    <span className="rounded bg-warning/10 px-1.5 py-px text-[10px] font-semibold text-warning">
                       {COPY.chat.pendingProposal}
                     </span>
-                    <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                    <span className="font-mono text-[10px] text-muted-foreground">
                       v{pendingProposal.from}.0 → v{pendingProposal.to}.0
                     </span>
                   </div>
                   {pendingProposal.summary && (
-                    <p className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-200">
+                    <p className="text-[11px] leading-relaxed text-foreground">
                       {pendingProposal.summary}
                     </p>
                   )}
                   <button
                     type="button"
                     onClick={() => onReviewDiff?.()}
-                    className="mt-0.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded bg-amber-700 px-2.5 py-1 text-xs font-medium text-white shadow-xs transition-colors hover:bg-amber-800"
+                    className="mt-0.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded bg-warning px-2.5 py-1 text-xs font-medium text-warning-foreground shadow-xs transition-colors hover:bg-warning/90"
                   >
                     <SplitSquareVertical size={12} />
                     <span>{COPY.chat.reviewDiff}</span>
@@ -450,7 +455,7 @@ export function AnviaChat({
 
           <ComposerPrimitive.Root
             data-chat-composer={sessionId}
-            className="shrink-0 border-t border-slate-200 bg-white px-2.5 py-2.5 dark:border-slate-800 dark:bg-slate-900"
+            className="shrink-0 border-t border-border bg-card px-2.5 py-2.5"
           >
             <ComposerPrimitive.Attachments className="mb-2 flex flex-wrap items-center gap-2">
               {(attachment) => <ComposerAttachment key={attachment.id} />}
@@ -461,7 +466,7 @@ export function AnviaChat({
                 {uploads.map((item) => (
                   <div
                     key={item.key}
-                    className="flex items-center gap-1.5 rounded border border-slate-200 bg-slate-100 px-2 py-1 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    className="flex items-center gap-1.5 rounded border border-border bg-muted px-2 py-1 text-[11px] text-foreground"
                   >
                     {item.isImage && item.previewUrl ? (
                       <img
@@ -470,7 +475,7 @@ export function AnviaChat({
                         className="size-6 rounded object-cover"
                       />
                     ) : (
-                      <FileText size={12} className="shrink-0 text-slate-400" />
+                      <FileText size={12} className="shrink-0 text-muted-foreground" />
                     )}
                     <span
                       className="max-w-32 truncate font-mono"
@@ -481,14 +486,14 @@ export function AnviaChat({
                     {item.status === "uploading" ? (
                       <LoaderCircle
                         size={11}
-                        className="animate-spin text-slate-400"
+                        className="animate-spin text-muted-foreground"
                       />
                     ) : (
                       <button
                         type="button"
                         onClick={() => void removeUpload(item)}
                         aria-label={`Hapus ${item.name}`}
-                        className="grid size-4 shrink-0 cursor-pointer place-items-center rounded text-slate-400 transition-colors hover:text-rose-500"
+                        className="grid size-4 shrink-0 cursor-pointer place-items-center rounded text-muted-foreground transition-colors hover:text-destructive"
                       >
                         <X size={11} />
                       </button>
@@ -503,7 +508,7 @@ export function AnviaChat({
             )}
 
             {uploadError && (
-              <p className="mb-2 text-xs text-rose-600">{uploadError}</p>
+              <p className="mb-2 text-xs text-destructive">{uploadError}</p>
             )}
 
             <div className="relative">
@@ -516,9 +521,9 @@ export function AnviaChat({
                 />
               )}
 
-              <div className="flex items-end gap-1.5 rounded-lg border border-slate-300 bg-slate-100 p-1 transition-all focus-within:ring-1 focus-within:ring-slate-500 dark:border-slate-700 dark:bg-slate-800">
+              <div className="flex items-end gap-1.5 rounded-lg border border-input bg-muted p-1 transition-all focus-within:ring-1 focus-within:ring-ring">
                 <label
-                  className="grid size-7 shrink-0 cursor-pointer place-items-center rounded text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                  className="grid size-7 shrink-0 cursor-pointer place-items-center rounded text-muted-foreground transition-colors hover:text-foreground"
                   title={COPY.chat.attachTitle(ATTACHMENT_MAX_UPLOAD_LABEL)}
                 >
                   <Paperclip size={15} />
@@ -543,15 +548,15 @@ export function AnviaChat({
                   onClick={() => setMentionOpen((open) => !open)}
                   className={`grid size-7 shrink-0 cursor-pointer place-items-center rounded transition-colors ${
                     mentionOpen
-                      ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                      : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <AtSign size={15} />
                 </button>
 
                 <ComposerPrimitive.TextareaInput
-                  className="max-h-40 min-h-8 w-full resize-none border-0 bg-transparent px-1 py-1.5 text-xs leading-5 text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100"
+                  className="max-h-40 min-h-8 w-full resize-none border-0 bg-transparent px-1 py-1.5 text-xs leading-5 text-foreground outline-none placeholder:text-muted-foreground"
                   placeholder={
                     brdActive
                       ? COPY.chat.composerPlaceholderBrd
@@ -609,13 +614,13 @@ function MentionChips({
   const composer = useComposer();
   return (
     <div className="mb-2 flex flex-wrap items-center gap-1.5">
-      <span className="flex items-center gap-1 text-[10px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+      <span className="flex items-center gap-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
         <AtSign size={10} /> Konteks:
       </span>
       {mentions.map((item) => (
         <span
           key={item.id}
-          className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          className="inline-flex items-center gap-1 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] text-foreground"
         >
           <span className="max-w-32 truncate" title={item.name}>
             {item.name}
@@ -633,7 +638,7 @@ function MentionChips({
               );
               onRemove(item.id);
             }}
-            className="cursor-pointer text-slate-400 transition-colors hover:text-rose-500"
+            className="cursor-pointer text-muted-foreground transition-colors hover:text-destructive"
           >
             <X size={10} />
           </button>
@@ -681,14 +686,14 @@ function ComposerSubmitArea() {
 
   if (canStop) {
     return (
-      <ComposerPrimitive.Stop className="grid size-8 shrink-0 cursor-pointer place-items-center rounded bg-slate-900 text-white transition-opacity hover:opacity-90 dark:bg-slate-100 dark:text-slate-900">
+      <ComposerPrimitive.Stop className="grid size-8 shrink-0 cursor-pointer place-items-center rounded bg-foreground text-background transition-opacity hover:opacity-90">
         <Square size={13} fill="currentColor" />
       </ComposerPrimitive.Stop>
     );
   }
 
   return (
-    <ComposerPrimitive.Submit className="grid size-8 shrink-0 cursor-pointer place-items-center rounded bg-slate-900 text-white transition-opacity hover:bg-slate-800 disabled:pointer-events-none disabled:opacity-40 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
+    <ComposerPrimitive.Submit className="grid size-8 shrink-0 cursor-pointer place-items-center rounded bg-foreground text-background transition-opacity hover:bg-foreground/90 disabled:pointer-events-none disabled:opacity-40">
       <Send size={14} />
     </ComposerPrimitive.Submit>
   );
@@ -699,7 +704,7 @@ function StreamingIndicator() {
     <ThreadPrimitive.Loading
       role="status"
       aria-live="polite"
-      className="flex items-center gap-2 px-1 text-xs text-slate-500 dark:text-slate-400"
+      className="flex items-center gap-2 px-1 text-xs text-muted-foreground"
     >
       <LoaderCircle size={13} className="animate-spin" />
       {COPY.chat.agentWorking}

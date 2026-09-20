@@ -1,6 +1,10 @@
 import { createTool } from "@anvia/core";
 import { z } from "zod";
-import { contextAdapters, type AgentContextAdapters } from "./context.js";
+import {
+  contextAdapters,
+  type AgentContextAdapters,
+  type BrdStagingResult,
+} from "./context.js";
 import {
   applyOperations,
   BrdOperationSchema,
@@ -87,6 +91,51 @@ function buildOutput(
   };
 }
 
+/** Payload ringkas: markdown hasil modifikasi tidak dikirim balik ke model. */
+function buildCompactOutput(
+  result: ApplyOperationsResult,
+  referenceContext: string,
+  staging?: BrdStagingResult,
+): {
+  staged: boolean;
+  stagingReason: string | null;
+  changeSummary: string;
+  affectedIds: string[];
+  gaps: string[];
+  applied: number;
+  groundedByReference: boolean;
+  persisted: false;
+  userNotice: string;
+} {
+  const notice = (() => {
+    if (result.applied === 0) {
+      return `Tidak ada perubahan yang dapat diterapkan. ${result.gaps.join(" ")}`.trim();
+    }
+    if (!staging) {
+      return "Perubahan dihitung tetapi tidak distage ke pratinjau pada sesi ini.";
+    }
+    if (staging.ok) {
+      return "BRD berhasil dimodifikasi sebagai pratinjau. Review perubahan di panel BRD, lalu approve untuk menyimpan versi baru.";
+    }
+    if (staging.reason === "pending_exists") {
+      return "Masih ada pratinjau perubahan yang belum disetujui. Minta user untuk Approve atau Reject dulu, lalu ulangi permintaan ini.";
+    }
+    return "Tidak ada BRD aktif untuk dimodifikasi.";
+  })();
+
+  return {
+    staged: Boolean(staging?.ok),
+    stagingReason: staging && !staging.ok ? staging.reason : null,
+    changeSummary: result.changeSummary,
+    affectedIds: result.affectedIds,
+    gaps: result.gaps,
+    applied: result.applied,
+    groundedByReference: Boolean(referenceContext.trim()),
+    persisted: false as const,
+    userNotice: notice,
+  };
+}
+
 /** Tool statis tanpa adapter: pemanggil wajib mengirim markdown BRD. */
 export const modifyBrdTool = createTool({
   name: "modify_brd",
@@ -101,7 +150,11 @@ export const modifyBrdTool = createTool({
   },
 });
 
-/** Tool dengan adapter konteks: dokumen aktif selalu diambil server-side. */
+/**
+ * Tool dengan adapter konteks: dokumen aktif selalu diambil server-side.
+ * Hasil di-stage sebagai pending preview lewat adapter dan payload yang kembali
+ * ke model dibuat ringkas (tanpa markdown penuh) agar memory sesi tidak membengkak.
+ */
 export function createModifyBrdTool(adapters: AgentContextAdapters = {}) {
   const resolved = contextAdapters(adapters);
   return createTool({
@@ -112,7 +165,8 @@ export function createModifyBrdTool(adapters: AgentContextAdapters = {}) {
       const markdown = (await resolved.getActiveBrd({}))?.contentMarkdown ?? "";
       if (!markdown.trim()) {
         return {
-          updatedMarkdown: null,
+          staged: false,
+          stagingReason: "not_found",
           changeSummary: "Tidak ada perubahan.",
           affectedIds: [],
           gaps: ["BRD aktif tidak ditemukan."],
@@ -126,7 +180,14 @@ export function createModifyBrdTool(adapters: AgentContextAdapters = {}) {
         operations.length > 0
           ? applyOperations(markdown, operations as BrdOperation[])
           : applyChange(markdown, changeRequest);
-      return buildOutput(result, referenceContext);
+      const staging =
+        adapters.stageBrdModification && result.applied > 0
+          ? await adapters.stageBrdModification({
+              updatedMarkdown: result.updatedMarkdown,
+              changeSummary: result.changeSummary,
+            })
+          : undefined;
+      return buildCompactOutput(result, referenceContext, staging);
     },
   });
 }

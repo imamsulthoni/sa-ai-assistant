@@ -68,18 +68,18 @@ export function DocumentsModal({
             className={cn(
               "rounded-lg border border-dashed p-4 text-center transition-colors",
               dragging
-                ? "border-slate-800 bg-slate-100 dark:border-slate-200 dark:bg-slate-800"
-                : "border-slate-300 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-950/40",
+                ? "border-foreground bg-muted"
+                : "border-input bg-muted",
             )}
           >
-            <UploadCloud size={20} className="mx-auto mb-1 text-slate-400" />
-            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            <UploadCloud size={20} className="mx-auto mb-1 text-muted-foreground" />
+            <p className="text-xs font-semibold text-foreground">
               {COPY.documents.dropTitle}
             </p>
-            <p className="mt-0.5 text-[11px] text-slate-400">
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
               {COPY.documents.dropHint(ATTACHMENT_MAX_UPLOAD_LABEL)}
             </p>
-            <label className="mt-2 inline-flex cursor-pointer items-center gap-1 rounded border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+            <label className="mt-2 inline-flex cursor-pointer items-center gap-1 rounded border border-input bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-2xs transition-colors hover:bg-muted">
               {uploading ? <LoaderCircle size={12} className="animate-spin" /> : <Plus size={12} />}
               <span>{uploading ? COPY.documents.uploading : COPY.documents.choose}</span>
               <input
@@ -97,19 +97,19 @@ export function DocumentsModal({
             </label>
           </div>
 
-          {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
 
           <div className="space-y-2">
-            <h4 className="text-xs font-bold tracking-wider text-slate-600 uppercase dark:text-slate-400">
+            <h4 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
               {COPY.documents.listTitle(documents.length)}
             </h4>
 
             {loading && (
-              <p className="py-3 text-center text-xs text-slate-400">{COPY.sidebar.loadingFiles}</p>
+              <p className="py-3 text-center text-xs text-muted-foreground">{COPY.sidebar.loadingFiles}</p>
             )}
 
             {!loading && documents.length === 0 && (
-              <p className="py-3 text-center text-xs text-slate-400">{COPY.documents.empty}</p>
+              <p className="py-3 text-center text-xs text-muted-foreground">{COPY.documents.empty}</p>
             )}
 
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -119,20 +119,20 @@ export function DocumentsModal({
                 return (
                   <div
                     key={document.id}
-                    className="flex flex-col justify-between space-y-2 rounded-md border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
+                    className="flex flex-col justify-between space-y-2 rounded-md border border-border bg-card p-3"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-1.5 overflow-hidden">
-                          <FileText size={14} className="shrink-0 text-slate-400" />
+                          <FileText size={14} className="shrink-0 text-muted-foreground" />
                           <h5
-                            className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100"
+                            className="truncate text-xs font-semibold text-foreground"
                             title={document.title}
                           >
                             {document.title}
                           </h5>
                         </div>
-                        <span className="shrink-0 font-mono text-[10px] text-slate-400">
+                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                           {formatBytes(document.fileSize)}
                         </span>
                       </div>
@@ -142,19 +142,19 @@ export function DocumentsModal({
                           {transient && <LoaderCircle size={9} className="animate-spin" />}
                           {statusLabel(document.status)}
                         </Badge>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-muted-foreground">
                           {relativeTime(document.createdAt)}
                         </span>
                       </div>
 
                       {document.error && (
-                        <p className="mt-1.5 line-clamp-2 text-[11px] text-rose-600 dark:text-rose-400">
+                        <p className="mt-1.5 line-clamp-2 text-[11px] text-destructive">
                           {document.error}
                         </p>
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs dark:border-slate-800">
+                    <div className="flex items-center justify-between border-t border-border pt-2 text-xs">
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
@@ -163,14 +163,14 @@ export function DocumentsModal({
                             document.storageUrl &&
                             window.open(document.storageUrl, "_blank", "noopener,noreferrer")
                           }
-                          className="inline-flex cursor-pointer items-center gap-1 rounded px-2 py-0.5 text-[11px] text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-default disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+                          className="inline-flex cursor-pointer items-center gap-1 rounded px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted disabled:cursor-default disabled:opacity-40"
                         >
                           <Eye size={11} /> Pratinjau
                         </button>
                         <button
                           type="button"
                           onClick={() => onMention(document)}
-                          className="inline-flex cursor-pointer items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-800 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                          className="inline-flex cursor-pointer items-center gap-1 rounded border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors"
                         >
                           <AtSign size={11} /> Mention
                         </button>
@@ -181,7 +181,7 @@ export function DocumentsModal({
                         onClick={() => setDeleteTarget(document)}
                         title={COPY.sidebar.delete}
                         aria-label={`${COPY.sidebar.delete} ${document.title}`}
-                        className="cursor-pointer p-1 text-slate-400 transition-colors hover:text-rose-500"
+                        className="cursor-pointer p-1 text-muted-foreground transition-colors hover:text-destructive"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -216,7 +216,7 @@ export function DocumentsModal({
           </>
         }
       >
-        <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">
+        <p className="text-xs leading-5 text-muted-foreground">
           {COPY.sidebar.deleteDocumentDescription(deleteTarget?.title ?? "")}
         </p>
       </Modal>

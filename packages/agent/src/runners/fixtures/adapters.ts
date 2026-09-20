@@ -27,7 +27,15 @@ export const fixtureAdapters: AgentContextAdapters = {
   ],
   getActiveBrd: () => ({
     contentMarkdown: SEED_BRD,
-    versions: [{ versionNumber: 1, changeSummary: "Initial draft" }],
+    versions: [
+      {
+        id: "fixture-v1",
+        versionNumber: 1,
+        changeSummary: "Initial draft",
+        createdBy: "AI_AGENT",
+        createdAt: "2026-09-01T00:00:00.000Z",
+      },
+    ],
   }),
   getTemplateStructure: () => TEMPLATE,
 };

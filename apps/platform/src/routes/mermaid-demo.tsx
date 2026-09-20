@@ -109,18 +109,18 @@ function MermaidDemoPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-100/60 pb-16 dark:bg-slate-950">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+    <div className="min-h-screen bg-background pb-16">
+      <header className="sticky top-0 z-10 border-b border-border bg-card px-4 py-3">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-foreground text-background">
               <FlaskConical size={15} />
             </span>
             <div className="min-w-0">
-              <h1 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
+              <h1 className="truncate text-sm font-bold text-foreground">
                 Demo Render Mermaid
               </h1>
-              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="truncate text-[11px] text-muted-foreground">
                 Halaman uji render MarkdownContent — jalur yang sama dengan panel BRD.
               </p>
             </div>
@@ -135,11 +135,11 @@ function MermaidDemoPage() {
       </header>
 
       <main className="mx-auto mt-5 max-w-4xl space-y-5 px-4">
-        <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-xs font-semibold tracking-wider text-slate-900 uppercase dark:text-slate-100">
+        <section className="rounded-lg border border-border bg-card p-4">
+          <h2 className="text-xs font-semibold tracking-wider text-foreground uppercase">
             Uji Diagram Custom
           </h2>
-          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
             Tempel kode mermaid (tanpa fence) untuk melihat hasil render persis seperti di BRD.
           </p>
           <textarea
@@ -147,19 +147,19 @@ function MermaidDemoPage() {
             value={custom}
             onChange={(event) => setCustom(event.target.value)}
             spellCheck={false}
-            className="mt-3 w-full rounded-lg border border-slate-300 bg-slate-50 p-3 font-mono text-xs text-slate-900 focus:ring-1 focus:ring-slate-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            className="mt-3 w-full rounded-lg border border-input bg-muted p-3 font-mono text-xs text-foreground focus:ring-1 focus:ring-ring focus:outline-none"
           />
-          <div className="mt-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+          <div className="mt-3 rounded-lg border border-border p-3">
             {custom.trim() ? (
               <MarkdownContent source={customSource} />
             ) : (
-              <p className="text-[11px] text-slate-400">Tulis kode mermaid untuk merender.</p>
+              <p className="text-[11px] text-muted-foreground">Tulis kode mermaid untuk merender.</p>
             )}
           </div>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xs font-semibold tracking-wider text-slate-900 uppercase dark:text-slate-100">
+          <h2 className="text-xs font-semibold tracking-wider text-foreground uppercase">
             Contoh Per Jenis Diagram
           </h2>
           {SAMPLES.map((sample) => (
@@ -174,15 +174,15 @@ function MermaidDemoPage() {
 function SampleCard({ title, note, chart }: { title: string; note: string; chart: string }) {
   const source = `\`\`\`mermaid\n${chart}\n\`\`\`\n`;
   return (
-    <article className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950/50">
+    <article className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted px-4 py-2.5">
         <div>
-          <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">{title}</h3>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">{note}</p>
+          <h3 className="text-xs font-bold text-foreground">{title}</h3>
+          <p className="text-[11px] text-muted-foreground">{note}</p>
         </div>
-        <details className="text-[11px] text-slate-500 dark:text-slate-400">
+        <details className="text-[11px] text-muted-foreground">
           <summary className="cursor-pointer select-none">Lihat kode</summary>
-          <pre className="mt-2 max-h-56 overflow-auto rounded border border-slate-200 bg-white p-2 font-mono text-[11px] dark:border-slate-800 dark:bg-slate-950">
+          <pre className="mt-2 max-h-56 overflow-auto rounded border border-border bg-card p-2 font-mono text-[11px]">
             {chart}
           </pre>
         </details>

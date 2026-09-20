@@ -136,3 +136,19 @@ export type ClarificationQuestion = {
 };
 
 export type MessagesResponse = { messages: UIMessage[] };
+
+export type UserRole = "SUPER_ADMIN" | "USER";
+
+export type PublicUser = {
+  id: string;
+  username: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type AdminUser = PublicUser & {
+  projectCount: number;
+};
+

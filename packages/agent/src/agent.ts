@@ -1,4 +1,5 @@
 import { Agent, AnyTool, type AgentOptions } from "@anvia/core";
+import { createToolOutputCapMiddleware } from "./middleware.js";
 import { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";
 import {
   CLARIFY_INSTRUCTIONS,
@@ -41,6 +42,8 @@ export interface CreateSystemAnalystAgentOptions {
   systemPrompt?: string;
   templateInstruction?: string;
   allowedTools?: string[];
+  /** Default: false untuk fase QA agar dokumen penuh tidak pernah masuk konteks. */
+  allowFullBrd?: boolean;
 }
 
 export type AgentPhaseName = "CLARIFY" | "JUDGE" | "GENERATE" | "QA";
@@ -94,6 +97,8 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
   const answerTool = options.contextAdapters
     ? createAnswerBrdQuestionTool(options.contextAdapters)
     : answerBrdQuestionTool;
+  // QA tidak boleh menarik dokumen penuh: cukup outline/section per bagian.
+  const allowFullBrd = options.allowFullBrd ?? options.phase !== "QA";
   const allTools = [
     draftBrdTool,
     elicitClarificationsTool,
@@ -103,7 +108,7 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
       ? [
           createSearchContextTool(options.contextAdapters),
           createTemplateStructureTool(options.contextAdapters),
-          createActiveBrdTool(options.contextAdapters),
+          createActiveBrdTool(options.contextAdapters, { allowFull: allowFullBrd }),
         ]
       : [searchContextTool, getTemplateStructureTool, getActiveBrdTool]),
     ...webTools(tavily),
@@ -130,6 +135,8 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
     tools: options.allowedTools
       ? allTools.filter((tool) => options.allowedTools?.includes(tool.name))
       : allTools,
+    // Hasil tool besar (mis. BRD penuh) dipotong sebelum masuk konteks & memory.
+    middlewares: [createToolOutputCapMiddleware()],
     memory: options.memory,
     observability: options.tracingBy
       ? {
