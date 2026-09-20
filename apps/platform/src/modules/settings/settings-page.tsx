@@ -33,6 +33,7 @@ import {
 } from "#/lib/api";
 import { describeError } from "#/lib/errors";
 import { notify } from "#/lib/notify";
+import { applyTheme } from "#/lib/theme";
 import { relativeTime } from "#/lib/time";
 import { useSettings } from "#/modules/settings/hooks/use-settings";
 import { useTemplates } from "#/modules/settings/hooks/use-templates";
@@ -62,12 +63,6 @@ const PROMPT_PRESETS = [
       "Tekankan jejak audit: setiap kebutuhan merujuk regulasi terkait, pemisahan tugas (maker-checker), retensi data eksplisit, dan skenario kegagalan yang terdokumentasi.",
   },
 ];
-
-function applyTheme(theme: string | undefined) {
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const dark = theme === "dark" || (theme !== "light" && prefersDark);
-  document.documentElement.classList.toggle("dark", dark);
-}
 
 function messageOf(error: unknown): string {
   return describeError(error);
@@ -203,7 +198,8 @@ export function SettingsContent({
   }, [open]);
 
   useEffect(() => {
-    applyTheme(form.theme ?? settings?.theme);
+    const theme = form.theme ?? settings?.theme;
+    if (theme) applyTheme(theme);
   }, [form.theme, settings?.theme]);
 
   const isTemplateTransient = templates.some((item) => TRANSIENT_STATUSES.has(item.status));
