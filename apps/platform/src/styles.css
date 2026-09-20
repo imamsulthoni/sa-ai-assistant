@@ -240,6 +240,17 @@
   color: #fef3c7;
 }
 
+/* Kemunculan yang sedang difokuskan lewat tombol Enter. */
+::highlight(brd-search-active) {
+  background-color: #f59e0b;
+  color: #451a03;
+}
+
+.dark ::highlight(brd-search-active) {
+  background-color: #b45309;
+  color: #fffbeb;
+}
+
 /* =========================================================================
    Landing page
    Light is the default token set; .landing-theme-dark swaps every token so

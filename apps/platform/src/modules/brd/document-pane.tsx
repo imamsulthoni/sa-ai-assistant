@@ -17,7 +17,7 @@ import { Badge } from "#/components/base/badge";
 import { Button } from "#/components/base/button";
 import { MarkdownContent } from "#/components/markdown/markdown-content";
 import { buildToc } from "#/lib/markdown-toc";
-import { highlightMatches } from "#/lib/search-highlight";
+import { highlightMatches, type SearchHighlights } from "#/lib/search-highlight";
 import {
   approveBrdModification,
   exportBrd,
@@ -74,6 +74,8 @@ export function DocumentPane({
   const [compareFrom, setCompareFrom] = useState<number | null>(null);
   const [previewVersion, setPreviewVersion] = useState<number | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const searchHighlightsRef = useRef<SearchHighlights | null>(null);
+  const searchCursorRef = useRef(-1);
 
   const versions = brd.versions ?? [];
   const pending = brd.pendingContentMarkdown;
@@ -104,8 +106,29 @@ export function DocumentPane({
   useEffect(() => {
     const element = previewRef.current;
     if (!element || tab !== "preview") return;
-    return highlightMatches(element, searchQuery);
+    const highlights = highlightMatches(element, searchQuery);
+    searchHighlightsRef.current = highlights;
+    searchCursorRef.current = -1;
+    return () => {
+      searchHighlightsRef.current = null;
+      highlights.clear();
+    };
   }, [searchQuery, tab, displayContent]);
+
+  const focusMatch = useCallback((step: number) => {
+    const highlights = searchHighlightsRef.current;
+    if (!highlights || highlights.count === 0) return;
+    const total = highlights.count;
+    const current = searchCursorRef.current;
+    const next =
+      current < 0
+        ? step > 0
+          ? 0
+          : total - 1
+        : (current + step + total) % total;
+    searchCursorRef.current = next;
+    highlights.focus(next);
+  }, []);
 
   const copyText = useCallback(async (text: string, label: string) => {
     try {
@@ -246,6 +269,11 @@ export function DocumentPane({
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                focusMatch(event.shiftKey ? -1 : 1);
+              }}
               placeholder="Cari klausul…"
               aria-label="Cari klausul di dokumen"
               className="w-32 rounded border border-input bg-muted py-1 pr-2 pl-6 text-xs text-foreground transition-all focus:w-44 focus:bg-card focus:outline-none"
