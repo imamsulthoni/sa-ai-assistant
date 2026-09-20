@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { prisma } from "../../lib/prisma.js";
-import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
+import { CONVERSATION_ID_HEADER } from "../../lib/identity.js";
+import { getAuthUser } from "../../lib/auth.js";
 import { documentQueue, retryPolicies } from "../../lib/queue.js";
 import {
   DOCUMENT_MIME_TYPES,
@@ -16,7 +17,7 @@ import { sessionProjectId } from "../session/service.js";
 
 export const documentModule = new Hono()
   .get("/", async (c) => {
-    const userId = resolveUserId(c.req.header(USER_ID_HEADER));
+    const userId = getAuthUser(c).id;
     const sessionId = c.req.header(CONVERSATION_ID_HEADER)?.trim();
     const scope = c.req.query("scope")?.trim();
     const queryProjectId = c.req.query("projectId")?.trim();
@@ -45,7 +46,7 @@ export const documentModule = new Hono()
     return c.json({ documents });
   })
   .post("/", async (c) => {
-    const userId = resolveUserId(c.req.header(USER_ID_HEADER));
+    const userId = getAuthUser(c).id;
     const sessionId = c.req.header(CONVERSATION_ID_HEADER)?.trim();
     if (!sessionId) {
       return c.json({ error: "A conversation id is required" }, 400);
@@ -120,7 +121,7 @@ export const documentModule = new Hono()
     return c.json({ document }, 201);
   })
   .get("/:id", async (c) => {
-    const userId = resolveUserId(c.req.header(USER_ID_HEADER));
+    const userId = getAuthUser(c).id;
     const document = await prisma.document.findFirst({
       where: { id: c.req.param("id"), userId },
       select: {
@@ -140,7 +141,7 @@ export const documentModule = new Hono()
     return c.json({ document });
   })
   .delete("/:id", async (c) => {
-    const userId = resolveUserId(c.req.header(USER_ID_HEADER));
+    const userId = getAuthUser(c).id;
     const id = c.req.param("id");
     const document = await prisma.document.findFirst({ where: { id, userId } });
     if (!document) return c.json({ error: "Document not found" }, 404);

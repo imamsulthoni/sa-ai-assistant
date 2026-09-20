@@ -12,21 +12,15 @@ export type BadgeTone =
   | "dark";
 
 const TONES: Record<BadgeTone, string> = {
-  neutral:
-    "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  success:
-    "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300",
-  warning:
-    "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-300",
-  danger:
-    "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/70 dark:text-rose-300",
-  info: "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/70 dark:text-sky-300",
-  sky: "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/70 dark:text-sky-300",
-  amber:
-    "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-300",
-  emerald:
-    "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300",
-  dark: "border-slate-700 bg-slate-900 text-slate-100 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900",
+  neutral: "border-border bg-muted text-muted-foreground",
+  success: "border-success/30 bg-success/10 text-success",
+  warning: "border-warning/30 bg-warning/10 text-warning",
+  danger: "border-destructive/30 bg-destructive/10 text-destructive",
+  info: "border-info/30 bg-info/10 text-info",
+  sky: "border-info/30 bg-info/10 text-info",
+  amber: "border-warning/30 bg-warning/10 text-warning",
+  emerald: "border-success/30 bg-success/10 text-success",
+  dark: "border-foreground/20 bg-foreground text-background",
 };
 
 export type BadgeProps = React.ComponentProps<"span"> & {

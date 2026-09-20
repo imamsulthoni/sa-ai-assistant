@@ -27,6 +27,7 @@ export type ModalProps = {
   size?: keyof typeof SIZES;
   className?: string;
   bodyClassName?: string;
+  showClose?: boolean;
 };
 
 /**
@@ -45,6 +46,7 @@ export function Modal({
   size = "md",
   className,
   bodyClassName,
+  showClose = true,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(open);
@@ -114,7 +116,7 @@ export function Modal({
       <div
         aria-hidden="true"
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+        className="bg-overlay absolute inset-0 backdrop-blur-xs"
       />
 
       <div
@@ -124,24 +126,19 @@ export function Modal({
         aria-label={typeof title === "string" ? title : undefined}
         onKeyDown={trapFocus}
         className={cn(
-          "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white p-0 text-slate-800 shadow-2xl outline-none",
+          "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-lg border border-border bg-card p-0 text-card-foreground shadow-2xl outline-none",
           "transition-all duration-200 ease-out",
           visible ? "scale-100 opacity-100" : "scale-95 opacity-0",
-          "dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100",
           SIZES[size],
           className,
         )}
       >
-        {(title || description) && (
-          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
-            <div className="min-w-0">
-              {title && (
-                <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h2>
-              )}
+        {(title || description || showClose) && (
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-muted px-4 py-3">
+            <div className={cn("min-w-0", !title && !description && "hidden")}>
+              {title && <h2 className="text-sm font-bold text-foreground">{title}</h2>}
               {description && (
-                <p className="mt-0.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-                  {description}
-                </p>
+                <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{description}</p>
               )}
             </div>
             <Button
@@ -149,7 +146,10 @@ export function Modal({
               size="icon-sm"
               onClick={onClose}
               aria-label="Tutup dialog"
-              className="shrink-0 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              className={cn(
+                "shrink-0",
+                !title && !description && "auth-dialog-close absolute top-3 right-3",
+              )}
             >
               <X size={15} />
             </Button>
@@ -159,7 +159,7 @@ export function Modal({
         <div className={cn("min-h-0 flex-1 overflow-y-auto p-4", bodyClassName)}>{children}</div>
 
         {footer && (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-muted px-4 py-2.5">
             {footer}
           </div>
         )}

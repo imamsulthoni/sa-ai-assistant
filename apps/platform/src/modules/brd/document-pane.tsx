@@ -202,13 +202,13 @@ export function DocumentPane({
   };
 
   return (
-    <section className="flex h-full min-h-0 flex-1 flex-col bg-slate-100/60 dark:bg-slate-950">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3.5 py-2 dark:border-slate-800 dark:bg-slate-900">
+    <section className="flex h-full min-h-0 flex-1 flex-col bg-muted">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-3.5 py-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+          <span className="inline-flex items-center gap-1 rounded border border-success/30 bg-success/10 px-2 py-0.5 font-mono text-xs font-semibold text-success">
             <ShieldCheck size={12} />v{current}.0
           </span>
-          <h2 className="max-w-xs truncate text-xs font-bold text-slate-900 md:max-w-md dark:text-slate-100">
+          <h2 className="max-w-xs truncate text-xs font-bold text-foreground md:max-w-md">
             {brd.title}
           </h2>
           <Badge tone={statusTone(brd.status)}>{BRD_STATUS_LABEL[brd.status]}</Badge>
@@ -216,7 +216,7 @@ export function DocumentPane({
             <button
               type="button"
               onClick={() => setTab("diff")}
-              className="inline-flex cursor-pointer items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-300"
+              className="inline-flex cursor-pointer items-center gap-1 rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning"
             >
               Usulan v{current + 1}.0 menunggu review
             </button>
@@ -238,14 +238,17 @@ export function DocumentPane({
             ))}
 
           <div className="relative hidden md:block">
-            <Search size={12} className="absolute top-1/2 left-2 -translate-y-1/2 text-slate-400" />
+            <Search
+              size={12}
+              className="absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground"
+            />
             <input
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Cari klausul…"
               aria-label="Cari klausul di dokumen"
-              className="w-32 rounded border border-slate-200 bg-slate-50 py-1 pr-2 pl-6 text-xs text-slate-900 transition-all focus:w-44 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:bg-slate-900"
+              className="w-32 rounded border border-input bg-muted py-1 pr-2 pl-6 text-xs text-foreground transition-all focus:w-44 focus:bg-card focus:outline-none"
             />
           </div>
 
@@ -257,8 +260,8 @@ export function DocumentPane({
             className={cn(
               "grid size-7 cursor-pointer place-items-center rounded border transition-colors",
               showToc
-                ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
-                : "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted-foreground hover:bg-muted",
             )}
           >
             <ListTree size={13} />
@@ -270,15 +273,15 @@ export function DocumentPane({
             onClick={() => void copyText(displayContent, "doc")}
           >
             {copied === "doc" ? (
-              <Check size={13} className="text-emerald-600" />
+              <Check size={13} className="text-success" />
             ) : (
-              <Copy size={13} className="text-slate-500" />
+              <Copy size={13} className="text-muted-foreground" />
             )}
             {copied === "doc" ? "Tersalin" : "Salin"}
           </Button>
 
           <Button variant="outline" size="sm" onClick={() => void handleExport("markdown")}>
-            <Download size={13} className="text-slate-500" /> .MD
+            <Download size={13} className="text-muted-foreground" /> .MD
           </Button>
 
           <Button variant="solid" size="sm" onClick={() => void handleExport("pdf")}>
@@ -287,7 +290,7 @@ export function DocumentPane({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3.5 text-xs font-semibold dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-3.5 text-xs font-semibold">
         <TabButton active={tab === "preview"} onClick={() => setTab("preview")}>
           <FileText size={12} />
           {selectedVersion
@@ -297,7 +300,7 @@ export function DocumentPane({
         <TabButton active={tab === "diff"} onClick={() => setTab("diff")}>
           <SplitSquareVertical size={12} /> Review Diff
           {pending && (
-            <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-amber-500" />
+            <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-warning" />
           )}
         </TabButton>
         <TabButton active={tab === "history"} onClick={() => setTab("history")}>
@@ -310,21 +313,21 @@ export function DocumentPane({
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {showToc && (
-          <div className="w-56 shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-1.5 dark:border-slate-800">
-              <span className="text-[10px] font-bold tracking-wider text-slate-600 uppercase dark:text-slate-400">
+          <div className="w-56 shrink-0 overflow-y-auto border-r border-border bg-card p-3">
+            <div className="mb-2 flex items-center justify-between border-b border-border pb-1.5">
+              <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                 Daftar Isi
               </span>
-              <span className="font-mono text-[10px] text-slate-400">{toc.length}</span>
+              <span className="font-mono text-[10px] text-muted-foreground">{toc.length}</span>
             </div>
             <div className="space-y-0.5 text-xs">
-              {toc.length === 0 && <p className="p-1 text-[11px] text-slate-400">Tanpa heading.</p>}
+              {toc.length === 0 && <p className="p-1 text-[11px] text-muted-foreground">Tanpa heading.</p>}
               {toc.map((item) => (
                 <button
                   key={`${item.line}-${item.slug}`}
                   type="button"
                   onClick={() => scrollToHeading(item.text)}
-                  className="w-full cursor-pointer truncate rounded p-1 text-left text-[11px] text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="w-full cursor-pointer truncate rounded p-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted"
                   style={{ paddingLeft: `${(item.level - 2) * 8 + 4}px` }}
                 >
                   {item.text}
@@ -338,7 +341,7 @@ export function DocumentPane({
           {tab === "preview" && (
             <div className="mx-auto max-w-4xl space-y-3">
               {selectedVersion && (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-[11px] text-sky-900 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-200">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-[11px] text-info">
                   <span className="font-medium">
                     {COPY.workspace.previewOldVersion(selectedVersion.versionNumber, current)}
                   </span>
@@ -362,7 +365,7 @@ export function DocumentPane({
               )}
               <div
                 ref={previewRef}
-                className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs md:p-8 dark:border-slate-800 dark:bg-slate-900"
+                className="rounded-lg border border-border bg-card p-5 shadow-xs md:p-8"
               >
                 <MarkdownContent source={displayContent} />
               </div>
@@ -397,6 +400,11 @@ export function DocumentPane({
                   setCompareFrom(null);
                   setTab("preview");
                 }}
+                onShowCurrent={() => {
+                  setPreviewVersion(null);
+                  setCompareFrom(null);
+                  setTab("preview");
+                }}
                 onOpen={openVersion}
                 onRestore={(version) => {
                   onRestore(version);
@@ -410,13 +418,13 @@ export function DocumentPane({
           )}
 
           {tab === "raw" && (
-            <div className="mx-auto max-w-4xl overflow-x-auto rounded-lg border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-300">
-              <div className="mb-2 flex items-center justify-between border-b border-slate-800 pb-2 text-slate-400">
+            <div className="mx-auto max-w-4xl overflow-x-auto rounded-lg border border-border bg-muted p-4 font-mono text-xs text-foreground">
+              <div className="mb-2 flex items-center justify-between border-b border-border pb-2 text-muted-foreground">
                 <span className="text-[11px]">Markdown Source (v{displayedVersion}.0)</span>
                 <button
                   type="button"
                   onClick={() => void copyText(displayContent, "raw")}
-                  className="cursor-pointer rounded bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300 transition-colors hover:bg-slate-700"
+                  className="cursor-pointer rounded bg-foreground px-2 py-0.5 text-[11px] text-background transition-colors hover:bg-foreground/90"
                 >
                   {copied === "raw" ? "Tersalin!" : "Copy Code"}
                 </button>
@@ -453,8 +461,8 @@ function TabButton({
       className={cn(
         "flex cursor-pointer items-center gap-1.5 border-b-2 py-2 transition-colors",
         active
-          ? "border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100"
-          : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
+          ? "border-foreground text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
       )}
     >
       {children}

@@ -36,8 +36,8 @@ import {
 } from "#/modules/brd/generating-view";
 import { DocumentPane, type DocumentTab } from "#/modules/brd/document-pane";
 import { DocumentsModal } from "#/modules/brd/documents-modal";
+import { UserMenu } from "#/modules/auth/user-menu";
 import {
-  DEMO_USER_ID,
   clarifyBrd,
   importPendingBrd,
   submitClarification,
@@ -64,15 +64,6 @@ function parseSession(value: unknown): string | undefined {
 
 function messageOf(error: unknown): string {
   return describeError(error);
-}
-
-function initialsOf(value: string): string {
-  const parts = value
-    .split(/[^a-zA-Z0-9]+/)
-    .filter(Boolean)
-    .slice(0, 2);
-  const initials = parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
-  return initials || "SA";
 }
 
 const CHAT_PANE_DEFAULT_WIDTH = 380;
@@ -645,13 +636,13 @@ function ProjectWorkspace() {
     <ChatShell
       title={
         <div className="flex min-w-0 items-center gap-2">
-          <span className="max-w-[220px] truncate text-xs font-semibold text-slate-800 dark:text-slate-100">
+          <span className="max-w-[220px] truncate text-xs font-semibold text-foreground">
             {project?.name ?? "Project"}
           </span>
           {activeSession && (
             <>
-              <span className="hidden h-3.5 w-px bg-slate-200 md:block dark:bg-slate-800" />
-              <span className="hidden max-w-[200px] truncate text-xs text-slate-500 md:inline dark:text-slate-400">
+              <span className="hidden h-3.5 w-px bg-border md:block" />
+              <span className="hidden max-w-[200px] truncate text-xs text-muted-foreground md:inline">
                 {activeSession.title}
               </span>
             </>
@@ -667,9 +658,9 @@ function ProjectWorkspace() {
             type="button"
             onClick={() => openSettings("template")}
             title="Pengaturan template struktur BRD"
-            className="hidden cursor-pointer items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-200 md:inline-flex dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            className="hidden cursor-pointer items-center gap-1 rounded border border-border bg-muted px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground md:inline-flex"
           >
-            <Layers size={12} className="text-slate-500" />
+            <Layers size={12} className="text-muted-foreground" />
             <span className="max-w-28 truncate text-[11px]">
               {templateLabel ?? COPY.sidebar.noTemplate}
             </span>
@@ -679,26 +670,21 @@ function ProjectWorkspace() {
             type="button"
             onClick={() => setDocumentsOpen(true)}
             title="Dokumen referensi project"
-            className="inline-flex cursor-pointer items-center gap-1 rounded border border-slate-200 bg-slate-100 px-2 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            className="inline-flex cursor-pointer items-center gap-1 rounded border border-border bg-muted px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
-            <Paperclip size={12} className="text-slate-500" />
+            <Paperclip size={12} className="text-muted-foreground" />
             <span className="hidden text-[11px] sm:inline">Dokumen</span>
-            <span className="rounded bg-slate-200 px-1 py-px font-mono text-[10px] text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+            <span className="rounded bg-card px-1 py-px font-mono text-[10px] text-foreground">
               {documentState.documents.length}
             </span>
           </button>
 
           <Button variant="outline" size="sm" onClick={() => openSettings()}>
-            <Sliders size={12} className="text-slate-500" />
+            <Sliders size={12} className="text-muted-foreground" />
             <span className="hidden text-[11px] sm:inline">Pengaturan</span>
           </Button>
 
-          <span
-            title={DEMO_USER_ID}
-            className="ms-1 grid size-6 shrink-0 place-items-center rounded-full border border-slate-200 bg-slate-800 text-[10px] font-semibold text-white dark:border-slate-700"
-          >
-            {initialsOf(DEMO_USER_ID)}
-          </span>
+          <UserMenu className="ms-1" />
         </>
       }
       sidebar={
@@ -759,7 +745,7 @@ function ProjectWorkspace() {
         )}
 
       {!activeId ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           {loading ? COPY.workspace.loading : COPY.workspace.noSession}
         </div>
       ) : brdState.active ? (
@@ -767,7 +753,7 @@ function ProjectWorkspace() {
           className="flex min-h-0 flex-1 flex-col md:flex-row"
           style={{ "--chat-pane-width": `${chatPaneWidth}px` } as React.CSSProperties}
         >
-          <div className="h-1/2 w-full shrink-0 border-b border-slate-200 md:h-full md:w-[var(--chat-pane-width)] md:border-b-0 dark:border-slate-800">
+          <div className="h-1/2 w-full shrink-0 border-b border-border md:h-full md:w-[var(--chat-pane-width)] md:border-b-0">
             <AnviaChat
               key={activeId}
               sessionId={activeId}
@@ -808,9 +794,9 @@ function ProjectWorkspace() {
             onPointerDown={startChatPaneResize}
             onKeyDown={resizeChatPaneWithKeyboard}
             onDoubleClick={() => setChatPaneWidth(CHAT_PANE_DEFAULT_WIDTH)}
-            className="group hidden w-1.5 shrink-0 cursor-col-resize touch-none items-center justify-center border-l border-slate-200 bg-slate-50 transition-colors hover:bg-slate-200 focus-visible:bg-slate-200 focus-visible:outline-none md:flex dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800 dark:focus-visible:bg-slate-800"
+            className="group hidden w-1.5 shrink-0 cursor-col-resize touch-none items-center justify-center border-l border-border bg-muted transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none md:flex"
           >
-            <span className="h-8 w-0.5 rounded-full bg-slate-300 transition-colors group-hover:bg-slate-400 dark:bg-slate-700 dark:group-hover:bg-slate-600" />
+            <span className="h-8 w-0.5 rounded-full bg-border transition-colors group-hover:bg-primary" />
           </div>
 
           <div className="min-h-0 h-1/2 flex-1 md:h-full">
@@ -832,7 +818,7 @@ function ProjectWorkspace() {
           </div>
         </div>
       ) : brdState.loading ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           {COPY.workspace.loadingConversation}
         </div>
       ) : brdLocked ? (
@@ -888,11 +874,11 @@ function ProjectWorkspace() {
           <button
             type="button"
             onClick={() => openSettings("template")}
-            className="fixed right-4 bottom-4 z-40 inline-flex max-w-[calc(100vw-2rem)] cursor-pointer items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900 shadow-lg transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+            className="fixed right-4 bottom-4 z-40 inline-flex max-w-[calc(100vw-2rem)] cursor-pointer items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3.5 py-2 text-xs font-semibold text-warning shadow-lg transition-colors hover:bg-warning/20"
           >
             <span className="relative flex size-2 shrink-0">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-500 opacity-75" />
-              <span className="relative inline-flex size-2 rounded-full bg-amber-500" />
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-warning opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-warning" />
             </span>
             <Layers size={13} className="shrink-0" />
             {COPY.newBrd.templateBadge}

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
+import { CONVERSATION_ID_HEADER } from "../../lib/identity.js";
+import { getAuthUser } from "../../lib/auth.js";
 import {
   BrdClarifySchema,
   BrdCreateSchema,
@@ -35,8 +36,7 @@ import {
 } from "./services.js";
 import { clearPendingImport, getBrdFlow } from "./flow-state.js";
 
-const owner = (c: { req: { header(name: string): string | undefined } }) =>
-  resolveUserId(c.req.header(USER_ID_HEADER));
+const owner = (c: Parameters<typeof getAuthUser>[0]) => getAuthUser(c).id;
 const session = (c: { req: { header(name: string): string | undefined } }) =>
   c.req.header(CONVERSATION_ID_HEADER)?.trim();
 

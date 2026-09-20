@@ -72,8 +72,8 @@ export function SessionSidebar({
   const [deleteTarget, setDeleteTarget] = useState<SessionSummary | null>(null);
 
   return (
-    <div className="flex h-full w-64 flex-col border-r border-slate-800 bg-slate-900 text-slate-200 select-none">
-      <div className="flex items-center justify-between border-b border-slate-800 px-3.5 py-2.5">
+    <div className="flex h-full w-64 flex-col border-r border-border bg-card text-foreground select-none">
+      <div className="flex items-center justify-between border-b border-border px-3.5 py-2.5">
         <div className="flex min-w-0 items-center gap-1.5">
           {onBackToProjects && (
             <button
@@ -81,16 +81,16 @@ export function SessionSidebar({
               onClick={onBackToProjects}
               title={COPY.projects.backToProjects}
               aria-label={COPY.projects.backToProjects}
-              className="grid size-6 shrink-0 cursor-pointer place-items-center rounded text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+              className="grid size-6 shrink-0 cursor-pointer place-items-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ArrowLeft size={14} />
             </button>
           )}
           <div className="min-w-0">
-            <span className="block text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+            <span className="block text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
               {projectName ? COPY.sidebar.projectLabel : "Workspace"}
             </span>
-            <h2 className="max-w-[180px] truncate text-xs font-bold text-white">
+            <h2 className="max-w-[180px] truncate text-xs font-bold text-foreground">
               {projectName ?? COPY.sidebar.workspaceName}
             </h2>
           </div>
@@ -99,7 +99,7 @@ export function SessionSidebar({
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={closeMobile}
             aria-label={COPY.shell.closeMenu}
           >
@@ -108,37 +108,37 @@ export function SessionSidebar({
         )}
       </div>
 
-      <div className="border-b border-slate-800 p-2.5">
+      <div className="border-b border-border p-2.5">
         <button
           type="button"
           onClick={onNew}
           disabled={disabled || newDisabled}
           title={newDisabled ? (newDisabledHint ?? COPY.sidebar.newChatLocked) : undefined}
-          className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-xs transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background shadow-xs transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus size={14} />
           <span>{COPY.sidebar.newChat}</span>
         </button>
         {newDisabled && (
-          <p className="mt-1.5 text-center text-[10px] leading-4 text-slate-400">
+          <p className="mt-1.5 text-center text-[10px] leading-4 text-muted-foreground">
             {newDisabledHint ?? COPY.sidebar.newChatLocked}
           </p>
         )}
       </div>
 
       <div className="flex-1 space-y-1 overflow-y-auto p-1.5">
-        <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+        <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
           <span>{COPY.sidebar.conversations}</span>
           <span className="font-mono">{sessions.length}</span>
         </div>
 
         {loading &&
           Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-16 w-full bg-slate-800" />
+            <Skeleton key={index} className="h-16 w-full bg-muted" />
           ))}
 
         {!loading && sessions.length === 0 && (
-          <p className="px-3 py-6 text-center text-xs text-slate-400">
+          <p className="px-3 py-6 text-center text-xs text-muted-foreground">
             {COPY.sidebar.noConversations}
           </p>
         )}
@@ -152,8 +152,8 @@ export function SessionSidebar({
               className={cn(
                 "group relative cursor-pointer rounded-lg border p-2.5 transition-colors",
                 active
-                  ? "border-slate-700 bg-slate-800 text-white"
-                  : "border-transparent text-slate-300 hover:bg-slate-800/50",
+                  ? "border-border bg-muted text-foreground"
+                  : "border-transparent text-muted-foreground hover:bg-muted",
               )}
               onClick={() => {
                 if (disabled) return;
@@ -165,7 +165,7 @@ export function SessionSidebar({
                 <span
                   className={cn(
                     "mt-0.5 grid size-5 shrink-0 place-items-center rounded",
-                    active ? "bg-slate-700 text-slate-100" : "bg-slate-800 text-slate-400",
+                    active ? "bg-foreground text-background" : "bg-muted text-muted-foreground",
                   )}
                 >
                   <FileText size={12} />
@@ -174,7 +174,7 @@ export function SessionSidebar({
                   <h4
                     className={cn(
                       "truncate text-xs leading-snug font-medium",
-                      active ? "text-white" : "text-slate-300",
+                      active ? "text-foreground" : "text-muted-foreground",
                     )}
                   >
                     {session.title}
@@ -183,14 +183,14 @@ export function SessionSidebar({
                     <Badge tone={badge.tone} className="text-[9px]">
                       {badge.label}
                     </Badge>
-                    <span className="text-[9px] text-slate-400">
+                    <span className="text-[9px] text-muted-foreground">
                       {relativeTime(session.updatedAt)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-1.5 flex items-center justify-between border-t border-slate-800/80 pt-1 text-[10px] text-slate-400">
+              <div className="mt-1.5 flex items-center justify-between border-t border-border pt-1 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Clock size={10} />
                   {relativeTime(session.createdAt)}
@@ -203,7 +203,7 @@ export function SessionSidebar({
                   type="button"
                   title={COPY.sidebar.rename}
                   aria-label={`${COPY.sidebar.rename} ${session.title}`}
-                  className="grid size-6 cursor-pointer place-items-center rounded text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+                  className="grid size-6 cursor-pointer place-items-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   onClick={(event) => {
                     event.stopPropagation();
                     setRenameTarget(session);
@@ -215,7 +215,7 @@ export function SessionSidebar({
                   type="button"
                   title={COPY.sidebar.delete}
                   aria-label={`${COPY.sidebar.delete} ${session.title}`}
-                  className="grid size-6 cursor-pointer place-items-center rounded text-slate-400 transition-colors hover:bg-slate-700 hover:text-rose-300"
+                  className="grid size-6 cursor-pointer place-items-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                   onClick={(event) => {
                     event.stopPropagation();
                     setDeleteTarget(session);
@@ -229,19 +229,19 @@ export function SessionSidebar({
         })}
       </div>
 
-      <div className="space-y-1 border-t border-slate-800 bg-slate-950/40 p-2">
+      <div className="space-y-1 border-t border-border bg-background p-2">
         <button
           type="button"
           onClick={() => onOpenSettings("template")}
-          className="w-full cursor-pointer rounded-md border border-slate-700/50 bg-slate-800/60 p-2 text-left transition-colors hover:bg-slate-800"
+          className="w-full cursor-pointer rounded-md border border-border bg-muted p-2 text-left transition-colors"
         >
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-300">
-              <Layers size={12} className="text-slate-400" /> {COPY.sidebar.templateSection}
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-foreground">
+              <Layers size={12} className="text-muted-foreground" /> {COPY.sidebar.templateSection}
             </span>
-            <span className="text-[10px] text-slate-400">{COPY.sidebar.manage}</span>
+            <span className="text-[10px] text-muted-foreground">{COPY.sidebar.manage}</span>
           </div>
-          <p className="mt-0.5 truncate text-[11px] font-medium text-slate-200">
+          <p className="mt-0.5 truncate text-[11px] font-medium text-foreground">
             {templateName || COPY.sidebar.noTemplate}
           </p>
         </button>
@@ -249,10 +249,10 @@ export function SessionSidebar({
         <button
           type="button"
           onClick={() => onOpenSettings()}
-          className="flex w-full cursor-pointer items-center justify-between rounded-md bg-slate-800/40 px-2 py-1.5 text-left text-xs text-slate-300 transition-colors hover:bg-slate-800"
+          className="flex w-full cursor-pointer items-center justify-between rounded-md bg-muted px-2 py-1.5 text-left text-xs text-foreground transition-colors"
         >
           <span className="flex items-center gap-1.5 text-[11px]">
-            <Sliders size={12} className="text-slate-400" />
+            <Sliders size={12} className="text-muted-foreground" />
             <span>{COPY.sidebar.allSettings}</span>
           </span>
         </button>
@@ -290,7 +290,7 @@ export function SessionSidebar({
           </>
         }
       >
-        <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">
+        <p className="text-xs leading-5 text-muted-foreground">
           {COPY.sidebar.deleteDescription(deleteTarget?.title ?? "")}
         </p>
       </Modal>

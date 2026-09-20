@@ -14,14 +14,14 @@ type LockedBrdPanelProps = {
 export function LockedBrdPanel({ onNewProject, onOpenBrd }: LockedBrdPanelProps) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-4 px-6 py-10 text-center">
-      <div className="grid size-12 place-items-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+      <div className="grid size-12 place-items-center rounded-2xl bg-warning/10 text-warning">
         <Lock size={20} />
       </div>
       <div>
-        <h2 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+        <h2 className="font-display text-lg font-semibold text-foreground">
           {COPY.projects.newBrdLocked}
         </h2>
-        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500 dark:text-slate-400">
+        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
           {COPY.projects.newBrdLockedBody}
         </p>
       </div>

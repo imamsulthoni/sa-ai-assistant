@@ -24,7 +24,7 @@ export function MessageBubble() {
   if (message.role === "system") {
     return (
       <div className="my-1 text-center">
-        <MessagePrimitive.Content className="inline-block rounded-full border border-slate-300/60 bg-slate-200/70 px-2.5 py-0.5 text-[10px] text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+        <MessagePrimitive.Content className="inline-block rounded-md border border-border bg-muted px-2.5 py-0.5 text-[10px] text-muted-foreground">
           <MessagePrimitive.Parts>
             {() => <MessagePrimitive.Text />}
           </MessagePrimitive.Parts>
@@ -36,7 +36,7 @@ export function MessageBubble() {
   if (message.role === "user") {
     return (
       <div className="flex items-start justify-end gap-2 mb-2">
-        <div className="max-w-[85%] rounded-lg rounded-tr-xs bg-slate-900 p-2.5 text-xs leading-relaxed text-white dark:bg-slate-100 dark:text-slate-900">
+        <div className="max-w-[85%] rounded-lg rounded-tr-xs bg-foreground p-2.5 text-xs leading-relaxed text-background">
           <MessagePrimitive.Root className="min-w-0">
             <MessagePrimitive.Content>
               <MessagePrimitive.Parts>
@@ -45,7 +45,7 @@ export function MessageBubble() {
             </MessagePrimitive.Content>
           </MessagePrimitive.Root>
         </div>
-        <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-slate-800 text-white dark:bg-slate-700">
+        <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-foreground text-background">
           <User size={12} />
         </span>
       </div>
@@ -68,11 +68,11 @@ export function MessageBubble() {
 
   return (
     <div className="group flex items-start gap-2">
-      <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-slate-900 text-white shadow-xs dark:bg-slate-100 dark:text-slate-900">
+      <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-foreground text-background shadow-xs">
         <Bot size={12} />
       </span>
       <div className="flex min-w-0 max-w-[85%] flex-col gap-1">
-        <div className="rounded-lg rounded-tl-xs border border-slate-200 bg-white p-2.5 text-xs leading-relaxed shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-lg rounded-tl-xs border border-border bg-card p-2.5 text-xs leading-relaxed shadow-xs">
           <MessagePrimitive.Root className="min-w-0">
             <MessagePrimitive.Content>
               <MessagePrimitive.Parts>
@@ -82,11 +82,11 @@ export function MessageBubble() {
           </MessagePrimitive.Root>
         </div>
         <MessagePrimitive.Actions className="flex items-center gap-1 pl-1 opacity-100 focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
-          <MessagePrimitive.Copy className="inline-flex h-6 cursor-pointer items-center gap-1 rounded px-1.5 text-[11px] text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+          <MessagePrimitive.Copy className="inline-flex h-6 cursor-pointer items-center gap-1 rounded px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
             <Copy size={12} />
             Copy
           </MessagePrimitive.Copy>
-          <MessagePrimitive.Regenerate className="inline-flex h-6 cursor-pointer items-center gap-1 rounded px-1.5 text-[11px] text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+          <MessagePrimitive.Regenerate className="inline-flex h-6 cursor-pointer items-center gap-1 rounded px-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
             <RefreshCw size={12} />
             Regenerate
           </MessagePrimitive.Regenerate>
@@ -118,7 +118,7 @@ function AssistantPart() {
       return <MarkdownContent source={part.text} />;
     case "reasoning":
       return (
-        <MessagePrimitive.Reasoning className="my-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
+        <MessagePrimitive.Reasoning className="my-2 rounded-lg border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
           <summary className="flex cursor-pointer items-center gap-1.5 font-medium select-none">
             <Brain size={13} />
             Thinking
@@ -138,11 +138,11 @@ function AssistantPart() {
       );
     case "data":
       return (
-        <MessagePrimitive.Data className="my-2 overflow-auto rounded-lg bg-slate-100 p-2 text-[11px] dark:bg-slate-800" />
+        <MessagePrimitive.Data className="my-2 overflow-auto rounded-lg bg-muted p-2 text-[11px]" />
       );
     default:
       return (
-        <MessagePrimitive.Error className="my-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-300" />
+        <MessagePrimitive.Error className="my-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive" />
       );
   }
 }
@@ -155,9 +155,9 @@ function ToolCall() {
     part.state === "input-streaming" || part.state === "input-available";
 
   return (
-    <MessagePrimitive.Tool className="my-2 inline-flex max-w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
+    <MessagePrimitive.Tool className="my-2 inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
       <Wrench size={13} className="shrink-0" />
-      <MessagePrimitive.ToolName className="truncate font-medium text-slate-800 dark:text-slate-200">
+      <MessagePrimitive.ToolName className="truncate font-medium text-foreground">
         {toolLabel(part.toolName)}
       </MessagePrimitive.ToolName>
       {running ? (
@@ -169,7 +169,7 @@ function ToolCall() {
         <MessagePrimitive.ToolStatus className="shrink-0" />
       )}
       {part.state === "error" && (
-        <MessagePrimitive.ToolError className="text-rose-600" />
+        <MessagePrimitive.ToolError className="text-destructive" />
       )}
     </MessagePrimitive.Tool>
   );
@@ -186,7 +186,7 @@ function AttachmentView({
   };
 }) {
   return (
-    <div className="my-1 flex max-w-full items-center gap-2 overflow-hidden rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
+    <div className="my-1 flex max-w-full items-center gap-2 overflow-hidden rounded border border-border bg-muted px-2 py-1 text-[11px]">
       <FileText size={12} className="shrink-0" />
       <span className="truncate">{attachment.name ?? "Lampiran"}</span>
     </div>
@@ -196,8 +196,8 @@ function AttachmentView({
 export function ComposerAttachment() {
   const { attachment, remove } = useAttachment();
   return (
-    <div className="flex items-center gap-2 rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-      <FileText size={12} className="shrink-0 text-slate-400" />
+    <div className="flex items-center gap-2 rounded border border-border bg-card px-2 py-1 text-[11px] text-foreground">
+      <FileText size={12} className="shrink-0 text-muted-foreground" />
       <span className="max-w-36 truncate sm:max-w-48">
         {attachment.name ?? "Lampiran"}
       </span>
@@ -206,7 +206,7 @@ export function ComposerAttachment() {
           type="button"
           onClick={remove}
           aria-label={`Hapus ${attachment.name ?? "lampiran"}`}
-          className="grid size-4 shrink-0 cursor-pointer place-items-center rounded text-slate-400 transition-colors hover:text-rose-500"
+          className="grid size-4 shrink-0 cursor-pointer place-items-center rounded text-muted-foreground transition-colors hover:text-destructive"
         >
           <X size={11} />
         </button>

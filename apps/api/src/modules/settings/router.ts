@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { normalizeTemplateStructure } from "@sa-ai-assistant/agent";
-import { USER_ID_HEADER, CONVERSATION_ID_HEADER, resolveUserId } from "../../lib/identity.js";
+import { CONVERSATION_ID_HEADER } from "../../lib/identity.js";
+import { getAuthUser } from "../../lib/auth.js";
 import { SettingsPatchSchema, TemplateManualCreateSchema } from "../../lib/api-contract.js";
 import {
   MAX_DOCUMENT_SIZE,
@@ -25,8 +26,7 @@ import {
   uploadTemplate,
 } from "./services.js";
 
-const user = (c: { req: { header(name: string): string | undefined } }) =>
-  resolveUserId(c.req.header(USER_ID_HEADER));
+const user = (c: Parameters<typeof getAuthUser>[0]) => getAuthUser(c).id;
 
 export const settingsModule = new Hono()
   .get("/", async (c) =>
