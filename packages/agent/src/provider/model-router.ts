@@ -105,7 +105,7 @@ export function createModelRouter(options: ModelRouterOptions = {}): ModelRouter
       return createModel(modelIdFor(decision.output.difficulty, resolvedOptions));
     },
     getModelForPhase(phase) {
-      const difficulty = phase === "CLARIFY" ? "easy" : phase === "GENERATE" ? "hard" : "medium";
+      const difficulty = phase === "GENERATE" ? "hard" : phase === "JUDGE" ? "medium" : "easy";
       return createModel(modelIdFor(difficulty, resolvedOptions));
     },
   };
@@ -145,6 +145,49 @@ export function heuristicDifficulty(task: string): TaskDifficulty | undefined {
   }
 
   return undefined;
+}
+
+const QA_MODIFICATION_PATTERNS = [
+  /\b(modify|update|edit|revise|change|adjust|improve|enhance|enrich|deepen|expand|extend|rewrite|replace|add|remove|delete|drop|insert|leverage)\b/,
+  /\b(ubah|rubah|ganti|revisi|perbarui|perbaharui|perbaiki|tingkatkan|perdalam|perluas|lengkapi|sederhanakan|tambah|tambahkan|hapus|hilangkan|buang|sisipkan|modifikasi)\b/,
+];
+
+export function qaDifficultyFor(task: string): TaskDifficulty {
+  const t = task.trim().toLowerCase();
+  if (!t) return "easy";
+  return QA_MODIFICATION_PATTERNS.some((re) => re.test(t)) ? "medium" : "easy";
+}
+
+export function createQaRoutingModel(
+  router: ModelRouter,
+  routingOptions: { debug?: boolean } = {},
+): RoutingCompletionModel {
+  const easy = router.getModel("easy");
+  const medium = router.getModel("medium");
+
+  const pick = (request: CompletionRequest): OpenAICompletionModel => {
+    const task = latestUserText(request.chatHistory);
+    const difficulty = qaDifficultyFor(task);
+    const model = difficulty === "medium" ? medium : easy;
+    if (routingOptions.debug) {
+      console.log(`[model-router] qa ${difficulty} -> ${model.modelId}`);
+    }
+    return model;
+  };
+
+  return {
+    provider: easy.provider,
+    modelId: easy.modelId,
+    contextLimits: easy.contextLimits,
+    capabilities: easy.capabilities,
+    controls: easy.controls,
+    async completion(request, options) {
+      return pick(request).completion(request, options);
+    },
+    async *streamCompletion(request, options) {
+      yield* pick(request).streamCompletion(request, options);
+    },
+  };
 }
 
 function firstUserText(messages: readonly Message[]): string {

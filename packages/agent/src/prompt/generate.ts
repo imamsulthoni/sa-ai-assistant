@@ -35,6 +35,7 @@ Write each section in Bahasa Indonesia with real substance, never one-line place
     E -->|Tolak| G[Dikembalikan]
     G --> B
   \`\`\`
+- Aturan sintaks mermaid: JANGAN memakai tanda kutip ganda mentah di dalam label node (mis. \`A[Klik "Terapkan"]\` gagal dirender). Gunakan entitas \`#quot;\` (\`A[Klik #quot;Terapkan#quot;]\`) atau kutip tunggal.
 - Kebutuhan bisnis dan aturan: BR-### satu per satu, tiap item punya judul, deskripsi lengkap, prioritas (MUST/SHOULD/MAY), rationale, dan sumber.
 - Kebutuhan fungsional: FR-### satu per satu, tiap item menjelaskan perilaku yang dapat diamati: input, proses, output, perubahan status, validasi, otorisasi, dan perilaku error.
 - Kebutuhan non-fungsional dan arsitektur: performa, keamanan, privasi, ketersediaan, aksesibilitas, observabilitas, kompatibilitas bila relevan.
