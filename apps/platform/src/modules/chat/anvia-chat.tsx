@@ -39,7 +39,7 @@ import {
 } from "#/modules/chat/message-bubble";
 import { MentionPopover } from "#/modules/brd/mention-popover";
 
-export type MentionRequest = { id: number; name: string };
+export type MentionRequest = { id: number; name: string; documentId: string };
 
 export type PendingProposal = {
   from: number;
@@ -571,6 +571,7 @@ export function AnviaChat({
             <MentionInjector
               request={mentionRequest ?? null}
               onConsumed={onMentionConsumed}
+              onMention={addMention}
             />
           </ComposerPrimitive.Root>
         </ThreadPrimitive.Root>
@@ -582,9 +583,11 @@ export function AnviaChat({
 function MentionInjector({
   request,
   onConsumed,
+  onMention,
 }: {
   request: MentionRequest | null;
   onConsumed?: () => void;
+  onMention?: (item: MentionItem) => void;
 }) {
   const composer = useComposer();
   const composerRef = useRef(composer);
@@ -598,8 +601,11 @@ function MentionInjector({
     composerRef.current.setInput(
       current ? `${current.trimEnd()} @${request.name} ` : `@${request.name} `,
     );
+    // Daftarkan ID dokumen supaya terkirim sebagai attachedDocumentIds dan
+    // agent menerima blok konteks isi file, bukan sekadar teks @nama.
+    onMention?.({ id: request.documentId, name: request.name });
     onConsumed?.();
-  }, [request, onConsumed]);
+  }, [request, onConsumed, onMention]);
 
   return null;
 }

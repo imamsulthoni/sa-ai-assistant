@@ -623,7 +623,7 @@ function ProjectWorkspace() {
   }, []);
 
   const mentionDocument = useCallback((document: DocumentSummary) => {
-    setMentionRequest({ id: Date.now(), name: document.title });
+    setMentionRequest({ id: Date.now(), name: document.title, documentId: document.id });
     setDocumentsOpen(false);
   }, []);
 

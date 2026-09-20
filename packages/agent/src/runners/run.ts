@@ -11,6 +11,7 @@ import { fullFlowScenario } from "./scenarios/full-flow.runner.js";
 import { generateScenario } from "./scenarios/generate.runner.js";
 import { injectionScenario } from "./scenarios/injection.runner.js";
 import { judgeScenario } from "./scenarios/judge.runner.js";
+import { mentionAttachmentScenario } from "./scenarios/mention-attachment.runner.js";
 import { modifyScenario } from "./scenarios/modify.runner.js";
 import { qaScenario } from "./scenarios/qa.runner.js";
 
@@ -22,6 +23,7 @@ const SCENARIOS: Scenario[] = [
   qaScenario,
   injectionScenario,
   fullFlowScenario,
+  mentionAttachmentScenario,
 ];
 
 async function main() {
