@@ -120,37 +120,37 @@ export function NewBrdPanel({
 
   return (
     <div className="mx-auto max-w-3xl px-3 py-5 sm:px-4">
-      <div className="mb-4 flex flex-col justify-between gap-2.5 border-b border-slate-200 pb-3.5 sm:flex-row sm:items-center dark:border-slate-800">
+      <div className="mb-4 flex flex-col justify-between gap-2.5 border-b border-border pb-3.5 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-base font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          <h2 className="text-base font-bold tracking-tight text-foreground">
             {COPY.newBrd.title}
           </h2>
-          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
             {COPY.newBrd.eyebrow}{" "}
             {onOpenTemplateManager ? (
               <button
                 type="button"
                 onClick={onOpenTemplateManager}
-                className="inline-flex cursor-pointer items-center gap-1 font-semibold text-slate-700 hover:underline dark:text-slate-300"
+                className="inline-flex cursor-pointer items-center gap-1 font-semibold text-muted-foreground hover:underline"
               >
                 {templateName || COPY.sidebar.noTemplate}
               </button>
             ) : (
-              <span className="font-semibold text-slate-700 dark:text-slate-300">
+              <span className="font-semibold text-muted-foreground">
                 {templateName || COPY.sidebar.noTemplate}
               </span>
             )}
           </p>
         </div>
 
-        <div className="inline-flex self-start rounded-md border border-slate-200 bg-slate-100 p-0.5 sm:self-auto dark:border-slate-700 dark:bg-slate-800">
+        <div className="inline-flex self-start rounded-md border border-border bg-muted p-0.5 sm:self-auto">
           <button
             type="button"
             onClick={() => setMode("story")}
             className={`cursor-pointer rounded px-3 py-1 text-xs font-semibold transition-colors ${
               mode === "story"
-                ? "bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100"
-                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                ? "bg-card text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {COPY.newBrd.modeStoryTab}
@@ -160,8 +160,8 @@ export function NewBrdPanel({
             onClick={() => setMode("upload")}
             className={`cursor-pointer rounded px-3 py-1 text-xs font-semibold transition-colors ${
               mode === "upload"
-                ? "bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-slate-100"
-                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                ? "bg-card text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {COPY.newBrd.modeUploadTab}
@@ -170,29 +170,29 @@ export function NewBrdPanel({
       </div>
 
       {error && (
-        <p className="mb-3 flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+        <p className="mb-3 flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <AlertCircle size={13} /> {error}
         </p>
       )}
 
       {mode === "story" ? (
-        <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 dark:border-slate-800">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+        <div className="space-y-3 rounded-lg border border-border bg-card p-4 shadow-xs">
+          <div className="flex items-center justify-between border-b border-border pb-2.5">
+            <span className="text-xs font-semibold text-foreground">
               {COPY.newBrd.formTitle}
             </span>
           </div>
 
           {selectableTemplates.length > 1 && onTemplateChange && (
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
                 {COPY.newBrd.templatePicker}
               </span>
               <select
                 value={selectedTemplateId ?? ""}
                 disabled={busy}
                 onChange={(event) => onTemplateChange(event.target.value)}
-                className="w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-900 transition-colors focus:border-slate-500 focus:ring-1 focus:ring-slate-500 focus:outline-none disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                className="w-full rounded-md border border-input bg-card px-2 py-2 text-xs text-foreground transition-colors focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none disabled:opacity-60"
               >
                 {selectableTemplates.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -200,15 +200,15 @@ export function NewBrdPanel({
                   </option>
                 ))}
               </select>
-              <span className="mt-1 block text-[11px] text-slate-400">
+              <span className="mt-1 block text-[11px] text-muted-foreground">
                 {COPY.newBrd.templatePickerHint}
               </span>
             </label>
           )}
 
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
-              {COPY.newBrd.userStory} <span className="text-rose-500">*</span>
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              {COPY.newBrd.userStory} <span className="text-destructive">*</span>
             </span>
             <Textarea
               rows={6}
@@ -221,7 +221,7 @@ export function NewBrdPanel({
           </label>
 
           {!templateReady && (
-            <p className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+            <p className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[11px] leading-relaxed text-warning">
               <AlertCircle size={13} className="mt-px shrink-0" />
               <span>
                 {COPY.newBrd.templateRequired}{" "}
@@ -229,7 +229,7 @@ export function NewBrdPanel({
                   <button
                     type="button"
                     onClick={onOpenTemplateManager}
-                    className="cursor-pointer font-semibold underline underline-offset-2 hover:text-amber-950 dark:hover:text-amber-100"
+                    className="cursor-pointer font-semibold underline underline-offset-2 hover:text-foreground"
                   >
                     {COPY.newBrd.manageTemplate}
                   </button>
@@ -238,15 +238,15 @@ export function NewBrdPanel({
             </p>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
             {reference ? (
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-[11px] text-muted-foreground">
                 <Paperclip size={11} /> {reference.name}
                 <button
                   type="button"
                   onClick={() => setReference(undefined)}
                   aria-label={`Hapus lampiran ${reference.name}`}
-                  className="cursor-pointer text-slate-400 hover:text-rose-500"
+                  className="cursor-pointer text-muted-foreground hover:text-destructive"
                 >
                   <X size={11} />
                 </button>
@@ -254,7 +254,7 @@ export function NewBrdPanel({
             ) : (
               <label
                 title={COPY.chat.attachTitle(ATTACHMENT_MAX_UPLOAD_LABEL)}
-                className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
               >
                 <Paperclip size={12} /> {COPY.newBrd.attach}
                 <input
@@ -271,22 +271,22 @@ export function NewBrdPanel({
               {COPY.newBrd.startClarify} <ArrowRight size={13} />
             </Button>
           </div>
-          <p className="text-[11px] text-slate-400">{COPY.newBrd.clarifyHint}</p>
+          <p className="text-[11px] text-muted-foreground">{COPY.newBrd.clarifyHint}</p>
         </div>
       ) : (
-        <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 dark:border-slate-800">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+        <div className="space-y-3 rounded-lg border border-border bg-card p-4 shadow-xs">
+          <div className="flex items-center justify-between border-b border-border pb-2.5">
+            <span className="text-xs font-semibold text-foreground">
               {COPY.newBrd.uploadTitle}
             </span>
           </div>
 
-          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 p-4 text-center dark:border-slate-700 dark:bg-slate-950/40">
-            <UploadCloud size={24} className="mx-auto mb-1 text-slate-400" />
-            <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+          <div className="rounded-lg border border-dashed border-border bg-muted p-4 text-center">
+            <UploadCloud size={24} className="mx-auto mb-1 text-muted-foreground" />
+            <p className="text-xs font-medium text-muted-foreground">
               {brdFile ? brdFile.name : COPY.newBrd.chooseFile}
             </p>
-            <label className="mt-2 inline-block cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-xs transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
+            <label className="mt-2 inline-block cursor-pointer rounded-md border border-input bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-xs transition-colors hover:bg-muted">
               {COPY.newBrd.pickFile}
               <input
                 type="file"
@@ -295,13 +295,13 @@ export function NewBrdPanel({
                 onChange={(event) => pickBrdFile(event.target.files?.[0])}
               />
             </label>
-            <p className="mt-1 text-[11px] text-slate-400">
+            <p className="mt-1 text-[11px] text-muted-foreground">
               {COPY.newBrd.uploadHint} · maks {BRD_IMPORT_MAX_UPLOAD_LABEL}
             </p>
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
               {COPY.newBrd.pasteLabel}
             </span>
             <Textarea
@@ -313,10 +313,10 @@ export function NewBrdPanel({
             />
           </label>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
-            <span className="text-[11px] text-slate-400">{COPY.newBrd.uploadFooterHint}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+            <span className="text-[11px] text-muted-foreground">{COPY.newBrd.uploadFooterHint}</span>
             <div className="flex items-center gap-2">
-              {importing && <LoaderCircle size={13} className="animate-spin text-slate-400" />}
+              {importing && <LoaderCircle size={13} className="animate-spin text-muted-foreground" />}
               <Button
                 variant="outline"
                 disabled={importing || !brdFile}

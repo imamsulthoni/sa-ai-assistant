@@ -64,8 +64,9 @@ export function useDocuments(sessionId: string | null) {
 
   const upload = useCallback(
     async (files: FileList | File[]) => {
+      const snapshot = Array.from(files);
       setActionError(null);
-      await uploadMutation.mutateAsync({ files });
+      await uploadMutation.mutateAsync({ files: snapshot });
     },
     [uploadMutation],
   );

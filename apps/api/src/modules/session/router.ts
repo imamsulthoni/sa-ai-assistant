@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
+import { getAuthUser } from "../../lib/auth.js";
 import { ensureDefaultProject } from "../project/service.js";
 import {
   createSession,
@@ -12,8 +12,8 @@ import {
 
 export const sessionModule = new Hono();
 
-function userIdFrom(c: { req: { header(name: string): string | undefined } }) {
-  return resolveUserId(c.req.header(USER_ID_HEADER));
+function userIdFrom(c: Parameters<typeof getAuthUser>[0]) {
+  return getAuthUser(c).id;
 }
 
 sessionModule.get("/", async (c) => {

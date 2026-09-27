@@ -59,9 +59,15 @@ export const fullFlowScenario = {
     checks.check("2. BRD memuat mermaid", /```mermaid/.test(markdown));
 
     // 3) MODIFY — perubahan pada BRD hasil generate tidak merusak konten lama.
+    // Markdown diambil dari payload staging (tool hanya mengembalikan ringkasan).
+    const stagedMarkdown: string[] = [];
     const generatedAdapters = {
       ...fixtureAdapters,
       getActiveBrd: () => ({ contentMarkdown: markdown, versions: [] }),
+      stageBrdModification: ({ updatedMarkdown }: { updatedMarkdown: string }) => {
+        stagedMarkdown.push(updatedMarkdown);
+        return { ok: true as const };
+      },
     };
     const modify = await runAgent({
       phase: "QA",
@@ -70,7 +76,7 @@ export const fullFlowScenario = {
       adapters: generatedAdapters,
     });
     const output = toolOutput<ModifyOutput>(modify, "modify_brd");
-    const updated = output?.updatedMarkdown ?? "";
+    const updated = stagedMarkdown.at(-1) ?? "";
     checks.check(
       "3. modifikasi diterapkan",
       (output?.applied ?? 0) >= 1,

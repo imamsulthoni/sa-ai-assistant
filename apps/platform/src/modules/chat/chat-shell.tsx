@@ -45,7 +45,7 @@ export function ChatShell({ sidebar, title, actions, children }: ChatShellProps)
   };
 
   return (
-    <main className="flex h-dvh w-full overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
+    <main className="flex h-dvh w-full overflow-hidden bg-background font-sans text-foreground antialiased">
       {/* Width dianimasikan, konten sidebar lebar tetap agar tidak terlipat saat transisi. */}
       <aside
         aria-hidden={!sidebarOpen}
@@ -62,7 +62,7 @@ export function ChatShell({ sidebar, title, actions, children }: ChatShellProps)
           <button
             type="button"
             aria-label={COPY.shell.closeMenu}
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+            className="absolute inset-0 bg-overlay backdrop-blur-xs"
             onClick={() => setMobileOpen(false)}
           />
           <div className="relative z-10 h-full">
@@ -74,7 +74,7 @@ export function ChatShell({ sidebar, title, actions, children }: ChatShellProps)
       )}
 
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="z-20 flex h-11 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 transition-colors dark:border-slate-800 dark:bg-slate-900">
+        <header className="z-20 flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 transition-colors">
           <div className="flex min-w-0 items-center gap-2.5">
             <Button
               variant="ghost"
@@ -98,12 +98,12 @@ export function ChatShell({ sidebar, title, actions, children }: ChatShellProps)
             </Button>
 
             <div className="flex items-center gap-2">
-              <span className="grid size-6 shrink-0 place-items-center rounded bg-slate-900 text-white shadow-xs dark:bg-slate-100 dark:text-slate-900">
+              <span className="grid size-6 shrink-0 place-items-center rounded bg-foreground text-background shadow-xs">
                 <Sparkles size={14} />
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold tracking-tight">{APP_NAME}</span>
-                <span className="hidden rounded border border-slate-200 bg-slate-100 px-1.5 py-px font-mono text-[10px] text-slate-500 sm:inline dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                <span className="hidden rounded border border-border bg-muted px-1.5 py-px font-mono text-[10px] text-muted-foreground sm:inline">
                   {APP_TAGLINE}
                 </span>
               </div>
@@ -111,7 +111,7 @@ export function ChatShell({ sidebar, title, actions, children }: ChatShellProps)
 
             {title && (
               <>
-                <span className="mx-1 hidden h-3.5 w-px bg-slate-200 md:block dark:bg-slate-800" />
+                <span className="mx-1 hidden h-3.5 w-px bg-border md:block" />
                 <div className="hidden min-w-0 items-center gap-2 md:flex">{title}</div>
               </>
             )}

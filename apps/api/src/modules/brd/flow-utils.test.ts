@@ -52,6 +52,37 @@ describe("weakRequiredSections", () => {
     expect(weakRequiredSections(markdown, STRUCTURE, { minChars: 50 })).toEqual([]);
   });
 
+  it("counts nested sub-heading content as part of the section body", () => {
+    const markdown =
+      "# BRD\n\n## Kebutuhan fungsional\n### FR-001\n" +
+      `${"detail perilaku sistem. ".repeat(20)}\n` +
+      "### FR-002\n" +
+      `${"aturan validasi dan error. ".repeat(20)}`;
+    expect(weakRequiredSections(markdown, STRUCTURE, { minChars: 50 })).toEqual([]);
+  });
+
+  it("does not count the next same-level section into the previous section", () => {
+    const markdown =
+      "# BRD\n\n## Ringkasan dan ruang lingkup\n" +
+      `${"x".repeat(30)}\n` +
+      "### Sub-ringkasan\n" +
+      `${"y".repeat(30)}\n` +
+      "## Kebutuhan fungsional\n" +
+      `${"detail perilaku sistem. ".repeat(20)}`;
+    expect(weakRequiredSections(markdown, STRUCTURE, { minChars: 120 })).toEqual([
+      "Ringkasan dan ruang lingkup",
+    ]);
+  });
+
+  it("prefers the shallowest matching heading over a deeper look-alike", () => {
+    const markdown =
+      "# BRD\n\n## Kebutuhan fungsional\n" +
+      `${"detail sistem. ".repeat(10)}\n` +
+      "### Ringkasan dan ruang lingkup\npendek\n\n" +
+      `## Ringkasan dan ruang lingkup\n${"x".repeat(100)}`;
+    expect(weakRequiredSections(markdown, STRUCTURE, { minChars: 50 })).toEqual([]);
+  });
+
   it("returns an empty list without a template", () => {
     expect(weakRequiredSections("# BRD", null)).toEqual([]);
   });

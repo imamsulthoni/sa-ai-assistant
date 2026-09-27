@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { createClientStreamResponse } from "@anvia/server";
 import { agentToClientStream, parseClientStreamRequest } from "@anvia/client";
-import { CONVERSATION_ID_HEADER, USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
+import { CONVERSATION_ID_HEADER } from "../../lib/identity.js";
+import { getAuthUser } from "../../lib/auth.js";
 import { sessionProjectId, titleSessionFromFirstMessage } from "../session/service.js";
 import { agentFor, attachmentContextBlock } from "./services.js";
-import { stageBrdModification } from "../brd/services.js";
 import type { FlowMetadata } from "./types.js";
 export const chatModule = new Hono();
 
@@ -31,7 +31,7 @@ chatModule.post("/", async (c) => {
     return c.json({ error: "Only message streams are supported" }, 400);
   }
 
-  const userId = resolveUserId(c.req.header(USER_ID_HEADER));
+  const userId = getAuthUser(c).id;
   const sessionId = c.req.header(CONVERSATION_ID_HEADER)?.trim();
 
   if (!sessionId) {
@@ -84,67 +84,10 @@ chatModule.post("/", async (c) => {
       metadata: { userId },
     },
   });
+  // Modifikasi BRD sekarang di-stage langsung oleh modify_brd lewat adapter
+  // (apps/api/src/modules/chat/services.ts), jadi stream diteruskan apa adanya.
   const events = agentToClientStream({
-    events: (async function* () {
-      for await (const event of agentStream) {
-        if (
-          event.type === "tool_result" &&
-          event.toolName === "modify_brd" &&
-          event.output?.type === "json"
-        ) {
-          const output = event.output.value as {
-            updatedMarkdown?: string | null;
-            changeSummary?: string;
-            userNotice?: string;
-            affectedIds?: string[];
-            gaps?: string[];
-          };
-          if (output.updatedMarkdown) {
-            const staged = await stageBrdModification(
-              userId,
-              metadata?.brdDocumentId ?? "",
-              output.updatedMarkdown,
-              output.changeSummary ?? "Pending BRD modification",
-            );
-            if (staged.ok) {
-              yield {
-                ...event,
-                output: {
-                  ...event.output,
-                  value: {
-                    ...output,
-                    applied: true,
-                    persisted: false,
-                    userNotice:
-                      output.userNotice ??
-                      "BRD berhasil dimodifikasi sebagai preview. Silakan approve di panel BRD.",
-                  },
-                },
-              };
-            } else {
-              yield {
-                ...event,
-                output: {
-                  ...event.output,
-                  value: {
-                    ...output,
-                    applied: false,
-                    persisted: false,
-                    updatedMarkdown: null,
-                    userNotice:
-                      staged.reason === "pending_exists"
-                        ? "Masih ada pratinjau perubahan yang belum disetujui. Minta user untuk Approve atau Reject dulu, lalu ulangi permintaan ini."
-                        : "Tidak ada BRD aktif untuk dimodifikasi.",
-                  },
-                },
-              };
-            }
-            continue;
-          }
-        }
-        yield event;
-      }
-    })(),
+    events: agentStream,
     ...(body.metadata === undefined ? {} : { metadata: body.metadata }),
     mapError: () => ({ message: "The run failed", retryable: true }),
   });

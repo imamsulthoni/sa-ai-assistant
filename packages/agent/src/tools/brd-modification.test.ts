@@ -60,9 +60,14 @@ describe("modifyBrdTool", () => {
 });
 
 describe("createModifyBrdTool", () => {
-  it("resolves the active BRD server-side when the agent omits the document", async () => {
+  it("resolves the active BRD server-side and stages the preview without returning markdown", async () => {
+    const staged: Array<{ updatedMarkdown: string; changeSummary: string }> = [];
     const tool = createModifyBrdTool({
       getActiveBrd: () => ({ contentMarkdown: BRD, versions: [] }),
+      stageBrdModification: (input) => {
+        staged.push(input);
+        return { ok: true };
+      },
     });
 
     const output = await tool.call({
@@ -78,7 +83,45 @@ describe("createModifyBrdTool", () => {
     });
 
     expect(output.applied).toBe(1);
-    expect(output.updatedMarkdown).toContain("Bagian fungsional yang diperkaya.");
+    expect(output.staged).toBe(true);
+    expect(output.stagingReason).toBeNull();
+    expect((output as { updatedMarkdown?: unknown }).updatedMarkdown).toBeUndefined();
+    expect(staged).toHaveLength(1);
+    expect(staged[0]?.updatedMarkdown).toContain("Bagian fungsional yang diperkaya.");
+    expect(output.userNotice).toContain("pratinjau");
+  });
+
+  it("reports pending_exists without exposing markdown", async () => {
+    const tool = createModifyBrdTool({
+      getActiveBrd: () => ({ contentMarkdown: BRD, versions: [] }),
+      stageBrdModification: () => ({ ok: false, reason: "pending_exists" }),
+    });
+
+    const output = await tool.call({
+      operations: [{ op: "update", requirementId: "FR-001", content: "Isi baru." }],
+      changeRequest: "",
+      referenceContext: "",
+    });
+
+    expect(output.staged).toBe(false);
+    expect(output.stagingReason).toBe("pending_exists");
+    expect(output.userNotice).toContain("belum disetujui");
+  });
+
+  it("reports the modification as unstaged when no staging adapter is configured", async () => {
+    const tool = createModifyBrdTool({
+      getActiveBrd: () => ({ contentMarkdown: BRD, versions: [] }),
+    });
+
+    const output = await tool.call({
+      operations: [{ op: "update", requirementId: "FR-001", content: "Isi baru." }],
+      changeRequest: "",
+      referenceContext: "",
+    });
+
+    expect(output.applied).toBe(1);
+    expect(output.staged).toBe(false);
+    expect(output.userNotice).toContain("tidak distage");
   });
 
   it("reports a gap when there is no active BRD to resolve", async () => {
@@ -91,7 +134,7 @@ describe("createModifyBrdTool", () => {
     });
 
     expect(output.applied).toBe(0);
-    expect(output.updatedMarkdown).toBeNull();
     expect(output.gaps[0]).toContain("BRD aktif");
+    expect(output.stagingReason).toBe("not_found");
   });
 });

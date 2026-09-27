@@ -10,6 +10,7 @@ type VersionHistoryProps = {
   compareFrom?: number | null;
   previewVersion?: number | null;
   onPreview: (version: number) => void;
+  onShowCurrent: () => void;
   onOpen: (version: number) => void;
   onRestore: (version: number) => void;
   busy?: boolean;
@@ -21,18 +22,22 @@ export function VersionHistory({
   compareFrom,
   previewVersion,
   onPreview,
+  onShowCurrent,
   onOpen,
   onRestore,
   busy,
 }: VersionHistoryProps) {
+  // Saat pratinjau versi lama aktif, baris versi terbaru harus tetap bisa
+  // diklik untuk kembali menampilkan dokumen aktif.
+  const viewingOldVersion = previewVersion != null && previewVersion !== currentVersion;
   if (versions.length === 0) {
     return (
-      <div className="mx-auto max-w-lg rounded-lg border border-slate-200 bg-white p-5 text-center dark:border-slate-800 dark:bg-slate-900">
-        <FileText size={22} className="mx-auto mb-2 text-slate-400" />
-        <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+      <div className="mx-auto max-w-lg rounded-lg border border-border bg-card p-5 text-center">
+        <FileText size={22} className="mx-auto mb-2 text-muted-foreground" />
+        <h3 className="text-xs font-bold text-foreground">
           Belum ada riwayat versi
         </h3>
-        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-[11px] text-muted-foreground">
           Versi tersimpan otomatis setiap kali perubahan disetujui.
         </p>
       </div>
@@ -40,20 +45,20 @@ export function VersionHistory({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-      <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
+    <div className="rounded-lg border border-border bg-card p-4 shadow-xs">
+      <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-2">
-          <Clock size={16} className="text-slate-500" />
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+          <Clock size={16} className="text-muted-foreground" />
+          <h3 className="text-sm font-bold text-foreground">
             Riwayat Versi Dokumen BRD
           </h3>
         </div>
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+        <span className="rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
           Total {versions.length} versi
         </span>
       </div>
 
-      <div className="relative space-y-4 before:absolute before:top-2 before:bottom-2 before:left-3.5 before:w-px before:bg-slate-200 dark:before:bg-slate-800">
+      <div className="relative space-y-4 before:absolute before:top-2 before:bottom-2 before:left-3.5 before:w-px before:bg-muted">
         {versions.map((version) => {
           const active = version.versionNumber === currentVersion;
           const compared = version.versionNumber === compareFrom;
@@ -62,76 +67,87 @@ export function VersionHistory({
           return (
             <div key={version.id} className="relative pl-8">
               <span
-                className={`absolute top-1.5 left-1.5 size-4 -translate-x-1/2 rounded-full border-2 ${
+                className={`absolute top-1.5 left-1.5 -translate-x-1/2 size-4 rounded-full border-2 ${
                   active
-                    ? "border-slate-300 bg-slate-900 ring-4 ring-slate-100 dark:border-slate-600 dark:bg-slate-100 dark:ring-slate-800"
-                    : "border-slate-400 bg-white dark:bg-slate-900"
+                    ? "border-border bg-foreground ring-4 ring-muted"
+                    : "border-border bg-card"
                 }`}
               />
 
               <div
                 className={`rounded-lg border p-3.5 transition-colors ${
                   active
-                    ? "border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60"
+                    ? "border-border bg-muted"
                     : previewed
-                      ? "border-sky-300 bg-sky-50/60 dark:border-sky-800 dark:bg-sky-950/30"
+                      ? "border-info/30 bg-info/10"
                       : compared
-                        ? "border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/30"
-                        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                        ? "border-warning/30 bg-warning/10"
+                        : "border-border bg-card"
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-bold text-slate-900 dark:text-slate-100">
+                    <span className="font-mono text-sm font-bold text-foreground">
                       Versi {version.versionNumber}.0
                     </span>
                     {active ? (
-                      <Badge tone="success" className="rounded-full">
+                      <Badge tone="success" className="rounded-md">
                         Versi Aktif
                       </Badge>
                     ) : (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                      <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
                         Riwayat
                       </span>
                     )}
                   </div>
-                  <span className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                    <Clock size={13} className="text-slate-400" />
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock size={13} className="text-muted-foreground" />
                     {relativeTime(version.createdAt)}
                   </span>
                 </div>
 
-                <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                  <span className="inline-flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
+                <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 font-medium text-muted-foreground">
                     {fromAgent ? (
-                      <Bot size={13} className="text-slate-500" />
+                      <Bot size={13} className="text-muted-foreground" />
                     ) : (
-                      <User size={13} className="text-slate-500" />
+                      <User size={13} className="text-muted-foreground" />
                     )}
                     {fromAgent ? "AI Agent" : "User"}
                   </span>
                 </div>
 
                 {version.changeSummary && (
-                  <p className="mt-2 rounded border border-slate-100 bg-slate-50 p-2 text-xs leading-relaxed text-slate-600 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-300">
+                  <p className="mt-2 rounded border border-border bg-muted p-2 text-xs leading-relaxed text-muted-foreground">
                     {version.changeSummary}
                   </p>
                 )}
 
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
                   {active ? (
-                    <span className="text-[11px] text-slate-400">Sedang ditampilkan</span>
+                    viewingOldVersion ? (
+                      <button
+                        type="button"
+                        onClick={onShowCurrent}
+                        className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-info transition-colors"
+                      >
+                        <Eye size={13} />
+                        Kembali ke versi aktif
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">Sedang ditampilkan</span>
+                    )
                   ) : (
                     <div className="flex flex-wrap items-center gap-3">
                       {previewed ? (
-                        <span className="text-[11px] font-medium text-sky-700 dark:text-sky-400">
+                        <span className="text-[11px] font-medium text-info">
                           Sedang dipratinjau
                         </span>
                       ) : (
                         <button
                           type="button"
                           onClick={() => onPreview(version.versionNumber)}
-                          className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-slate-700 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+                          className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                         >
                           <Eye size={13} />
                           Lihat isi versi ini
@@ -140,7 +156,7 @@ export function VersionHistory({
                       <button
                         type="button"
                         onClick={() => onOpen(version.versionNumber)}
-                        className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-sky-700 transition-colors hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300"
+                        className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-info transition-colors"
                       >
                         <FileText size={13} />
                         Bandingkan <ArrowRight size={12} />

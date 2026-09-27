@@ -4,8 +4,10 @@ export type { CreateSystemAnalystAgentOptions } from "./agent.js";
 export { createOpenAIModel } from "./provider/openai.js";
 export {
   createModelRouter,
+  createQaRoutingModel,
   createRoutingModel,
   heuristicDifficulty,
+  qaDifficultyFor,
   type ModelRouter,
   type ModelRouterOptions,
   type RoutingCompletionModel,

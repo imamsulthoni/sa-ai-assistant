@@ -1,5 +1,9 @@
 import { Agent, AnyTool, type AgentOptions } from "@anvia/core";
-import { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";
+import { createToolOutputCapMiddleware } from "./middleware.js";
+import {
+  BRD_OUTPUT_GUIDANCE,
+  SYSTEM_ANALYST_INSTRUCTIONS,
+} from "./prompt/instructions.js";
 import {
   CLARIFY_INSTRUCTIONS,
   GENERATE_INSTRUCTIONS,
@@ -7,7 +11,11 @@ import {
   QA_INSTRUCTIONS,
 } from "./prompt/index.js";
 import { createOpenAIModel } from "./provider/openai.js";
-import { createModelRouter, type ModelRouterOptions } from "./provider/model-router.js";
+import {
+  createModelRouter,
+  createQaRoutingModel,
+  type ModelRouterOptions,
+} from "./provider/model-router.js";
 import { createTavilyProvider } from "./provider/tavily.js";
 import {
   answerBrdQuestionTool,
@@ -25,7 +33,11 @@ import {
   modifyBrdTool,
   webTools,
 } from "./tools/index.js";
-import { tracing, type TracingCaptureMode, type TracingProvider } from "./tracing.js";
+import {
+  tracing,
+  type TracingCaptureMode,
+  type TracingProvider,
+} from "./tracing.js";
 
 export interface CreateSystemAnalystAgentOptions {
   modelId?: string;
@@ -41,6 +53,8 @@ export interface CreateSystemAnalystAgentOptions {
   systemPrompt?: string;
   templateInstruction?: string;
   allowedTools?: string[];
+  /** Default: false untuk fase QA agar dokumen penuh tidak pernah masuk konteks. */
+  allowFullBrd?: boolean;
 }
 
 export type AgentPhaseName = "CLARIFY" | "JUDGE" | "GENERATE" | "QA";
@@ -49,8 +63,16 @@ export type AgentPhaseName = "CLARIFY" | "JUDGE" | "GENERATE" | "QA";
  * Tools each guided-flow phase may use. JUDGE only returns JSON, so it gets no
  * tools at all instead of inheriting the full toolkit.
  */
-export const PHASE_ALLOWED_TOOLS: Record<"CLARIFY" | "GENERATE" | "QA", readonly string[]> = {
-  CLARIFY: ["elicit_clarifications", "search_context", "get_active_brd", "web_search"],
+export const PHASE_ALLOWED_TOOLS: Record<
+  "CLARIFY" | "GENERATE" | "QA",
+  readonly string[]
+> = {
+  CLARIFY: [
+    "elicit_clarifications",
+    "search_context",
+    "get_active_brd",
+    "web_search",
+  ],
   GENERATE: [
     "draft_brd",
     "search_context",
@@ -58,16 +80,26 @@ export const PHASE_ALLOWED_TOOLS: Record<"CLARIFY" | "GENERATE" | "QA", readonly
     "get_active_brd",
     "web_search",
   ],
-  QA: ["answer_brd_question", "modify_brd", "search_context", "get_active_brd", "web_search"],
+  QA: [
+    "answer_brd_question",
+    "modify_brd",
+    "search_context",
+    "get_active_brd",
+    "web_search",
+  ],
 };
 
-export function allowedToolsForPhase(phase?: AgentPhaseName): string[] | undefined {
+export function allowedToolsForPhase(
+  phase?: AgentPhaseName,
+): string[] | undefined {
   if (!phase) return undefined;
   if (phase === "JUDGE") return [];
   return [...PHASE_ALLOWED_TOOLS[phase]];
 }
 
-export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOptions = {}): Agent {
+export function createSystemAnalystAgent(
+  options: CreateSystemAnalystAgentOptions = {},
+): Agent {
   const tavily = createTavilyProvider();
   const router = options.modelRouter
     ? createModelRouter({
@@ -78,7 +110,9 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
     : undefined;
   const model = router
     ? options.phase
-      ? router.getModelForPhase(options.phase)
+      ? options.phase === "QA"
+        ? createQaRoutingModel(router)
+        : router.getModelForPhase(options.phase)
       : router.getModel()
     : createOpenAIModel({
         apiKey: options.apiKey,
@@ -91,9 +125,13 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
   const modifyTool = options.contextAdapters
     ? createModifyBrdTool(options.contextAdapters)
     : modifyBrdTool;
+
   const answerTool = options.contextAdapters
     ? createAnswerBrdQuestionTool(options.contextAdapters)
     : answerBrdQuestionTool;
+
+  // QA tidak boleh menarik dokumen penuh: cukup outline/section per bagian.
+  const allowFullBrd = options.allowFullBrd ?? options.phase !== "QA";
   const allTools = [
     draftBrdTool,
     elicitClarificationsTool,
@@ -103,12 +141,15 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
       ? [
           createSearchContextTool(options.contextAdapters),
           createTemplateStructureTool(options.contextAdapters),
-          createActiveBrdTool(options.contextAdapters),
+          createActiveBrdTool(options.contextAdapters, {
+            allowFull: allowFullBrd,
+          }),
         ]
       : [searchContextTool, getTemplateStructureTool, getActiveBrdTool]),
     ...webTools(tavily),
     ...(options.additionalTools ?? []),
   ];
+
   const phaseInstructions =
     options.phase === "CLARIFY"
       ? CLARIFY_INSTRUCTIONS
@@ -119,6 +160,7 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
           : options.phase === "QA"
             ? QA_INSTRUCTIONS
             : "";
+
   return new Agent({
     id: "system-analyst-assistant",
     name: "System Analyst AI Assistant",
@@ -130,6 +172,8 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
     tools: options.allowedTools
       ? allTools.filter((tool) => options.allowedTools?.includes(tool.name))
       : allTools,
+    // Hasil tool besar (mis. BRD penuh) dipotong sebelum masuk konteks & memory.
+    middlewares: [createToolOutputCapMiddleware()],
     memory: options.memory,
     observability: options.tracingBy
       ? {
@@ -144,7 +188,9 @@ export function createSystemAnalystAgent(options: CreateSystemAnalystAgentOption
   });
 }
 
-export function getSystemAnalystToolNames(options: CreateSystemAnalystAgentOptions = {}) {
+export function getSystemAnalystToolNames(
+  options: CreateSystemAnalystAgentOptions = {},
+) {
   const toolNames = [
     "draft_brd",
     "elicit_clarifications",
@@ -160,4 +206,7 @@ export function getSystemAnalystToolNames(options: CreateSystemAnalystAgentOptio
     : toolNames;
 }
 
-export { BRD_OUTPUT_GUIDANCE, SYSTEM_ANALYST_INSTRUCTIONS } from "./prompt/instructions.js";
+export {
+  BRD_OUTPUT_GUIDANCE,
+  SYSTEM_ANALYST_INSTRUCTIONS,
+} from "./prompt/instructions.js";

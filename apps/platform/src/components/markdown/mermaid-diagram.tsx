@@ -8,6 +8,29 @@ function loadMermaid() {
   return mermaidPromise;
 }
 
+type MermaidApi = typeof import("mermaid").default;
+
+/** Kutip ganda mentah di dalam label mermaid adalah syntax error; entitas ini yang benar. */
+export function escapeMermaidQuotes(chart: string): string {
+  return chart.replace(/"/g, "#quot;");
+}
+
+async function renderableChart(mermaid: MermaidApi, chart: string): Promise<string> {
+  try {
+    await mermaid.parse(chart);
+    return chart;
+  } catch (error) {
+    const repaired = escapeMermaidQuotes(chart);
+    if (repaired === chart) throw error;
+    try {
+      await mermaid.parse(repaired);
+    } catch {
+      throw error;
+    }
+    return repaired;
+  }
+}
+
 /**
  * Renders a mermaid code block into SVG. The library is loaded lazily so pages
  * without diagrams never pay for the chunk.
@@ -56,7 +79,8 @@ export function MermaidDiagram({ chart, className }: { chart: string; className?
           gantt: { useMaxWidth: true },
         });
         const id = `mermaid-${reactId.replace(/[^a-zA-Z0-9]/g, "")}-${dark ? "d" : "l"}`;
-        const result = await mermaid.render(id, chart);
+        const source = await renderableChart(mermaid, chart);
+        const result = await mermaid.render(id, source);
         if (!cancelled) setSvg(result.svg);
       })
       .catch((caught: unknown) => {

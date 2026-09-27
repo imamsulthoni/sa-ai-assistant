@@ -82,21 +82,33 @@ export const MIN_REQUIRED_SECTION_CHARS = 200;
 
 /**
  * Isi markdown sebuah section berdasarkan heading yang memuat judul atau id-nya.
+ * Isi mencakup seluruh subtree (sub-heading `###` dan seterusnya) sampai heading
+ * berikutnya yang levelnya sama atau lebih tinggi; tanpa ini section yang isinya
+ * dimulai langsung dengan sub-heading akan salah dinilai "tipis".
+ * Bila ada beberapa heading yang cocok, pilih yang paling dangkal (level terkecil)
+ * agar sub-heading bernama mirip tidak menutupi section utamanya.
  * `null` bila section tidak ditemukan (kasus "hilang" ditangani terpisah).
  */
 function sectionBody(markdown: string, title: string, id: string): string | null {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const needles = [title.trim().toLowerCase(), id.trim().toLowerCase()].filter(Boolean);
+  let match: { index: number; level: number } | null = null;
   for (let index = 0; index < lines.length; index += 1) {
-    const heading = /^#{1,6}\s+(.*)$/.exec(lines[index]);
+    const heading = /^(#{1,6})\s+(.*)$/.exec(lines[index]);
     if (!heading) continue;
-    const text = heading[1].toLowerCase();
+    const text = heading[2].toLowerCase();
     if (!needles.some((needle) => text.includes(needle))) continue;
-    let end = index + 1;
-    while (end < lines.length && !/^#{1,6}\s+/.test(lines[end])) end += 1;
-    return lines.slice(index + 1, end).join("\n");
+    const level = heading[1].length;
+    if (!match || level < match.level) match = { index, level };
   }
-  return null;
+  if (!match) return null;
+  let end = match.index + 1;
+  while (end < lines.length) {
+    const next = /^(#{1,6})\s+/.exec(lines[end]);
+    if (next && next[1].length <= match.level) break;
+    end += 1;
+  }
+  return lines.slice(match.index + 1, end).join("\n");
 }
 
 /**

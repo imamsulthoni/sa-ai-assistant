@@ -117,24 +117,24 @@ export function FeedbackForm({
 
   return (
     <div className="mx-auto max-w-3xl px-3 py-5 sm:px-4">
-      <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
+      <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded border border-sky-300 bg-sky-50 px-1.5 py-px text-[10px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300">
+            <span className="rounded border border-info/30 bg-info/10 px-1.5 py-px text-[10px] font-semibold text-info">
               {COPY.clarify.roundLabel(round)}
             </span>
             <span
               className={cn(
                 "rounded px-1.5 py-px text-[10px] font-medium",
                 answered === questions.length
-                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
-                  : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+                  ? "bg-success/10 text-success"
+                  : "bg-muted text-muted-foreground",
               )}
             >
               {COPY.clarify.answered(answered, questions.length)}
             </span>
           </div>
-          <h2 className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">
+          <h2 className="mt-1 text-base font-bold text-foreground">
             {round === 1 ? COPY.clarify.titleRound1 : COPY.clarify.titleRound2}
           </h2>
         </div>
@@ -144,18 +144,18 @@ export function FeedbackForm({
             {copied ? <Check size={12} /> : <Copy size={12} />}
             {COPY.clarify.copyQuestions}
           </Button>
-          <div className="hidden w-24 shrink-0 overflow-hidden rounded-full bg-slate-200 sm:block dark:bg-slate-700">
+          <div className="hidden w-24 shrink-0 overflow-hidden rounded-full bg-muted sm:block">
             <div
-              className="h-1.5 rounded-full bg-slate-800 transition-all duration-300 dark:bg-slate-200"
+              className="h-1.5 rounded-full bg-foreground transition-all duration-300"
               style={{ width: `${Math.min(round / 2, 1) * 100}%` }}
             />
           </div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+      <div className="overflow-hidden rounded-lg border border-border bg-card shadow-xs">
         <div className="space-y-3.5 p-4">
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">{COPY.clarify.subtitle}</p>
+          <p className="text-[11px] text-muted-foreground">{COPY.clarify.subtitle}</p>
 
           {questions.map((question, index) => {
             const chips = question.options ?? [];
@@ -163,21 +163,21 @@ export function FeedbackForm({
             return (
               <div
                 key={question.id}
-                className="space-y-2 rounded-md border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-950/50"
+                className="space-y-2 rounded-md border border-border bg-muted p-3.5"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     {COPY.clarify.questionLabel} wajib
                   </span>
-                  <span className="font-mono text-[10px] text-slate-400">#{index + 1}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">#{index + 1}</span>
                 </div>
 
-                <h3 className="text-xs leading-snug font-semibold text-slate-900 dark:text-slate-100">
+                <h3 className="text-xs leading-snug font-semibold text-foreground">
                   {question.question}
                 </h3>
 
                 {question.purpose && (
-                  <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
                     {question.purpose}
                   </p>
                 )}
@@ -194,8 +194,8 @@ export function FeedbackForm({
                           className={cn(
                             "cursor-pointer rounded border px-2 py-0.5 text-left text-xs transition-colors",
                             chosen
-                              ? "border-slate-900 bg-slate-900 font-medium text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
-                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700",
+                              ? "border-foreground bg-foreground font-medium text-background"
+                              : "border-border bg-card text-muted-foreground hover:bg-muted",
                           )}
                         >
                           {option}
@@ -211,20 +211,20 @@ export function FeedbackForm({
                   onChange={(event) => writeCustom(question, event.target.value)}
                   placeholder={COPY.clarify.customPlaceholder}
                   aria-label={`Jawaban sendiri untuk: ${question.question}`}
-                  className="bg-white dark:bg-slate-950"
+                  className="bg-card"
                 />
               </div>
             );
           })}
 
           {showMissing && missing && (
-            <p className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+            <p className="flex items-center gap-1.5 text-xs text-destructive">
               <AlertCircle size={13} />
               {COPY.clarify.requiredError}
             </p>
           )}
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-3">
             <Button disabled={submitting} onClick={() => void submit()}>
               {submitting && <LoaderCircle size={13} className="animate-spin" />}
               {submitting
@@ -235,7 +235,7 @@ export function FeedbackForm({
               {!submitting && <ArrowRight size={13} />}
             </Button>
           </div>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-muted-foreground">
             {round === 2 ? COPY.clarify.completeHint : COPY.clarify.nextRoundHint}
           </p>
         </div>

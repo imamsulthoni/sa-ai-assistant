@@ -63,15 +63,15 @@ function AgentDemoPage() {
   }, [createAgentSession]);
 
   return (
-    <div className="flex h-dvh w-full flex-col bg-slate-100 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+    <div className="flex h-dvh w-full flex-col bg-background text-foreground antialiased">
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-3 py-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
+          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-foreground text-background">
             <Bot size={15} />
           </span>
           <div className="min-w-0">
             <h1 className="truncate text-sm font-bold">Demo Chat Agent</h1>
-            <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="truncate text-[11px] text-muted-foreground">
               Uji respon agen secara langsung — tanpa alur BRD, tanpa template.
             </p>
           </div>
@@ -80,7 +80,7 @@ function AgentDemoPage() {
 
         <div className="flex shrink-0 items-center gap-1.5">
           {sessionId && (
-            <span className="hidden rounded border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-[10px] text-slate-500 sm:inline dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+            <span className="hidden rounded border border-border bg-muted px-2 py-1 font-mono text-[10px] text-muted-foreground sm:inline">
               {sessionId.slice(0, 8)}
             </span>
           )}
@@ -96,12 +96,12 @@ function AgentDemoPage() {
       </header>
 
       {error && (
-        <div className="border-b border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+        <div className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           Gagal membuat sesi: {error}
         </div>
       )}
 
-      <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col border-x border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col border-x border-border bg-card">
         {sessionId && projectId ? (
           <AnviaChat
             key={sessionId}
@@ -111,7 +111,7 @@ function AgentDemoPage() {
             onStatusChange={setStatus}
           />
         ) : (
-          <div className="flex flex-1 items-center justify-center text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
             {error ? "Sesi demo tidak tersedia." : "Menyiapkan sesi agen…"}
           </div>
         )}

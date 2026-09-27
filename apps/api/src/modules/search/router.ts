@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { USER_ID_HEADER, resolveUserId } from "../../lib/identity.js";
+import { getAuthUser } from "../../lib/auth.js";
 import { SearchQuerySchema } from "../../lib/api-contract.js";
 import { searchUserContent } from "./services.js";
 
@@ -13,7 +13,7 @@ export const searchModule = new Hono().get("/", async (c) => {
   });
   if (!parsed.success) return c.json({ error: "q is required", issues: parsed.error.issues }, 400);
   const { q, type, projectId, sessionId, excludeSession } = parsed.data;
-  const userId = resolveUserId(c.req.header(USER_ID_HEADER));
+  const userId = getAuthUser(c).id;
   const results = await searchUserContent(userId, q, type, {
     projectId,
     sessionId,

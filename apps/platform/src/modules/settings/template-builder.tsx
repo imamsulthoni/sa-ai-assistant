@@ -215,10 +215,10 @@ export function TemplateBuilder({ initialStructure, busy, onCancel, onSave }: Te
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-xs font-semibold tracking-wider text-slate-900 uppercase dark:text-slate-100">
+          <h3 className="text-xs font-semibold tracking-wider text-foreground uppercase">
             Susun Struktur Manual
           </h3>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             Isi tiap field, tambah section sesuai kebutuhan, lalu atur urutannya dengan drag
             &amp; drop.
           </p>
@@ -230,7 +230,7 @@ export function TemplateBuilder({ initialStructure, busy, onCancel, onSave }: Te
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block sm:col-span-2">
-          <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+          <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
             Nama template
           </span>
           <Input
@@ -238,14 +238,14 @@ export function TemplateBuilder({ initialStructure, busy, onCancel, onSave }: Te
             placeholder="mis. Template BRD Standar"
           />
           {errors.templateName && (
-            <span className="mt-1 block text-[11px] text-rose-600">
+            <span className="mt-1 block text-[11px] text-destructive">
               {errors.templateName.message}
             </span>
           )}
         </label>
 
         <label className="block sm:col-span-2">
-          <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+          <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
             Deskripsi
           </span>
           <Textarea
@@ -256,21 +256,21 @@ export function TemplateBuilder({ initialStructure, busy, onCancel, onSave }: Te
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+          <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
             Bahasa
           </span>
           <Input {...register("language")} placeholder="id" />
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+          <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
             Gaya acceptance criteria
           </span>
           <Input {...register("acceptanceStyle")} placeholder="mis. Given/When/Then" />
         </label>
 
         <label className="block sm:col-span-2">
-          <span className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+          <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">
             Konvensi ID (pisahkan dengan koma)
           </span>
           <Input {...register("idConventions")} placeholder="BR-###, FR-###" />
@@ -279,7 +279,7 @@ export function TemplateBuilder({ initialStructure, busy, onCancel, onSave }: Te
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+          <span className="text-[11px] font-semibold text-muted-foreground">
             Section ({fields.length})
           </span>
           <Button
@@ -293,7 +293,7 @@ export function TemplateBuilder({ initialStructure, busy, onCancel, onSave }: Te
         </div>
 
         {fields.length === 0 && (
-          <p className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+          <p className="flex items-center gap-1.5 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-[11px] text-warning">
             <AlertCircle size={12} /> Minimal satu section diperlukan.
           </p>
         )}
@@ -322,7 +322,7 @@ export function TemplateBuilder({ initialStructure, busy, onCancel, onSave }: Te
         <Alert tone="warning">Tambahkan minimal satu section sebelum menyimpan.</Alert>
       )}
 
-      <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+      <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
         <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
           Batal
         </Button>
@@ -366,21 +366,21 @@ function SortableSection({
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded-lg border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-950/40 ${
-        isDragging ? "relative z-10 shadow-lg ring-1 ring-slate-400" : ""
+      className={`rounded-lg border border-border bg-muted p-3 ${
+        isDragging ? "relative z-10 shadow-lg ring-1 ring-ring" : ""
       }`}
     >
       <div className="flex items-center gap-2">
         <button
           type="button"
           aria-label={`Geser section ${index + 1}`}
-          className="grid size-6 shrink-0 cursor-grab place-items-center rounded text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 active:cursor-grabbing dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          className="grid size-6 shrink-0 cursor-grab place-items-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing"
           {...attributes}
           {...listeners}
         >
           <GripVertical size={14} />
         </button>
-        <span className="font-mono text-[10px] text-slate-400">#{index + 1}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">#{index + 1}</span>
         <Input
           {...titleField}
           onBlur={(event) => {
@@ -393,7 +393,7 @@ function SortableSection({
           placeholder="Nama section (mis. Ruang Lingkup)"
           className="h-8 flex-1"
         />
-        <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300">
+        <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px] text-muted-foreground">
           <input type="checkbox" {...register(`sections.${index}.required`)} className="size-3.5" />
           Wajib
         </label>
@@ -402,7 +402,7 @@ function SortableSection({
           aria-label={`Hapus section ${index + 1}`}
           disabled={!canRemove}
           onClick={onRemove}
-          className="grid size-6 shrink-0 cursor-pointer place-items-center rounded text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-rose-950"
+          className="grid size-6 shrink-0 cursor-pointer place-items-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Trash2 size={13} />
         </button>
@@ -410,7 +410,7 @@ function SortableSection({
 
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+          <span className="mb-1 block text-[10px] font-semibold text-muted-foreground">
             ID section
           </span>
           <Input
@@ -420,7 +420,7 @@ function SortableSection({
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+          <span className="mb-1 block text-[10px] font-semibold text-muted-foreground">
             Format penyajian
           </span>
           <Input
@@ -430,7 +430,7 @@ function SortableSection({
           />
         </label>
         <label className="block sm:col-span-2">
-          <span className="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+          <span className="mb-1 block text-[10px] font-semibold text-muted-foreground">
             Tujuan section
           </span>
           <Textarea
@@ -440,7 +440,7 @@ function SortableSection({
           />
         </label>
         <label className="block sm:col-span-2">
-          <span className="mb-1 block text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+          <span className="mb-1 block text-[10px] font-semibold text-muted-foreground">
             Contoh pola (opsional)
           </span>
           <Textarea

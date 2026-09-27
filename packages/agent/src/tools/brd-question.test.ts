@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerBrdQuestion, createAnswerBrdQuestionTool } from "./brd-question.js";
+import { MAX_ANSWER_CHARS, answerBrdQuestion, createAnswerBrdQuestionTool } from "./brd-question.js";
 
 const BRD = `# BRD
 
@@ -31,6 +31,20 @@ describe("answerBrdQuestion", () => {
     const result = answerBrdQuestion("bagaimana integrasi blockchain?", BRD);
     expect(result.answer).toBeNull();
     expect(result.gaps).toHaveLength(1);
+  });
+
+  it("caps the returned excerpt for very large sections", () => {
+    const huge = `# BRD\n\n## 1. Ruang lingkup\n${"detail pengajuan cuti karyawan. ".repeat(500)}\n`;
+    const result = answerBrdQuestion("bagaimana pengajuan cuti?", huge);
+    expect(result.answer).not.toBeNull();
+    expect(result.answer!.length).toBeLessThanOrEqual(MAX_ANSWER_CHARS + 40);
+  });
+
+  it("prefers a focused sub-section when scores tie", () => {
+    const markdown =
+      "# BRD\n\n## 2. Modul\n### FR-001\nSistem harus memproses pembayaran dengan aman.\n";
+    const result = answerBrdQuestion("bagaimana sistem memproses pembayaran?", markdown);
+    expect(result.citations[0].section).toBe("FR-001");
   });
 });
 
